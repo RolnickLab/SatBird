@@ -13,6 +13,7 @@
 
 from pandas.io.common import EmptyDataError
 import pandas as pd
+import os
 import numpy as np
 import warnings
 import calendar
