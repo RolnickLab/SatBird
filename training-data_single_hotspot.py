@@ -23,7 +23,6 @@ warnings.filterwarnings('ignore')
 def main():
     # This file has info of only those hotspots where number of checklist is greater than 50
     csv_file = '/miniscratch/tengmeli/ecosystem-embedding/data/usa_hotspot_data_2.csv'
-    file = pd.read_csv(csv_file)
 
     # Remove CSV file if it already exists
     # Running this cell take a long time so need to work on how to do it. 
