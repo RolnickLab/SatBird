@@ -43,7 +43,7 @@ def main():
     data = base_folder + 'ecosystem-embedding/data/usa_hotspot_data_2.csv'
 
     reader = pd.read_csv(data , 
-                         chunksize = 10
+                         chunksize = 1000
                         )
     
     # Read chunks and save to a new csv
