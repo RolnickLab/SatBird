@@ -186,14 +186,19 @@ plt.savefig("bar_charts/bar_chart_" + hotspot + "_v1.png")
 
 # Define class to access the dataframe
 class hotspot_data:
-    def __init__(self, all_data):
+    def __init__(self, df_species, all_data):
         self.all_data = df_species
-        self.species_count = species_observation_count
+        self.latitude = df_species['LATITUDE'].unique()
+        self.longitude = df_species['LONGITUDE'].unique()
+        self.state = df_species['STATE'].unique()
+        self.country = df_species['COUNTRY'].unique()
+        self.species_count_matrix = all_data
+
         
 # Get information species and species count
-hotspot_info = hotspot_data(all_data)
+hotspot_info_obj = hotspot_data(all_data)
 
 # Get  information on each species count month wise
-hotspot_info.species_observation_count
+# Example: hotspot_info.longitude
 
 
