@@ -77,8 +77,8 @@ def main():
 
     # ### Test for a single hotspot
     # Hotspot Example: L109542. Note: We are only chosing this hotspot information from first 500 line sof the ebird csv file
-    hotspot = 'L109542'
-    state_bird_all_info = file.loc[file['LOCALITY ID'] == hotspot] #L197353
+#     hotspot = 'L109542'
+#     state_bird_all_info = file.loc[file['LOCALITY ID'] == hotspot] #L197353
 
     # ### Select only the values which are a part of aba_common_name list (i.e. code 1 and code2)
     state_bird_info = state_bird_all_info[state_bird_all_info["COMMON NAME"].isin(aba_common_name_list)]
