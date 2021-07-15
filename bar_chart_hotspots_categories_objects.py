@@ -200,5 +200,3 @@ hotspot_info_obj = hotspot_data(all_data)
 
 # Get  information on each species count month wise
 # Example: hotspot_info.longitude
-
-
