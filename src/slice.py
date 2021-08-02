@@ -1,10 +1,18 @@
 # slicing code 
 # imports
-from os import path
+## Necessary libs 
+from pathlib import Path
+import argparse
+import os 
+import numpy as np 
+from geopandas.geodataframe import GeoDataFrame 
+from skimage.util.shape import view_as_windows
+import pandas as pd 
+from shapely import geometry
 import rasterio
-import numpy as np
-import matplotlib.pyplot as plt
-
+from tqdm import tqdm
+import matplotlib.pyplot as plt 
+import shapely
 
 
 #squash function to return mean and std of a list
