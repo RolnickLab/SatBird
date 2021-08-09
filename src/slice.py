@@ -1,5 +1,4 @@
 # slicing code 
-# imports
 ## Necessary libs 
 from pathlib import Path
 import argparse
@@ -19,16 +18,13 @@ import shapely
 def squash(x):
     return (x - x.min()) / x.ptp()
 
-def create_rgb_composite2(data_dir):
-    """
-    Create a composite image of all the bands in the directory
-    """
+## Create RGB composite
+def create_rgb_composite(input_paths):
     image_data = []
     composite_downsample_factor = 1
     composite_norm_value = 15000
-    data=list(path(data_dir).glob("*.tif*"))
 
-    for fn in data:
+    for fn in input_paths:
         with rasterio.open(fn,'r') as raster:
             h = int(raster.height/composite_downsample_factor)
             w = int(raster.width/composite_downsample_factor)
@@ -59,9 +55,10 @@ def slices_metadata(imgf, img_path, size=(512, 512), overlap=6):
     Write geometry and source information to metadata
     """
     meta = slice_polys(imgf, size, overlap)
-    meta["img_source"] = img_path
-    # meta["mask_source"] = mask_path
+    # print(img_path)
+    # meta["img_source"] = img_path
     return meta
+
 
 def slice_polys(imgf, size=(512, 512), overlap=6):
     """
@@ -86,8 +83,8 @@ def slice_polys(imgf, size=(512, 512), overlap=6):
     return GeoDataFrame(geometry=polys, crs=imgf.meta["crs"].to_string())
 
 
-def write_pair_slices(img_path, out_dir,
-                      out_base="slice",**kwargs):
+def write_pair_slices(img_path, out_dir, out_base="slice",**kwargs):
+    
     """ Write sliced images and masks to numpy arrays
     Args:
         img_path(String): the path to the raw image tiff
@@ -98,30 +95,30 @@ def write_pair_slices(img_path, out_dir,
     Returns:
         Writes a csv to metadata path
     """
-    imgf = rasterio.open(img_path)
-    img = create_rgb_composite2(img_path)
+
+    imgf = rasterio.open(img_path[0])
+    print(imgf)
+    img = create_rgb_composite(img_path)
 
     img_slices = slice_tile(img, **kwargs)
+   
     metadata = slices_metadata(imgf, img_path, **kwargs)
 
-    # loop over slices for individual tile / mask pairs
+    # loop over slices for individual tile
     slice_stats = []
     for k in tqdm(range(len(img_slices))):
         img_slice_path = Path(out_dir, f"{out_base}_img_{k:03}.npy")
-        # mask_slice_path = Path(out_dir, f"{out_base}_mask_{k:03}.npy")
         np.save(img_slice_path, img_slices[k])
-        # np.save(mask_slice_path, mask_slices[k])
 
         # update metadata
         stats = {"img_slice": str(img_slice_path)}
         img_slice_mean = np.nan_to_num(img_slices[k]).mean()
-        # mask_mean = mask_slices[k].mean(axis=(0, 1))
-        # stats.update({f"mask_mean_{i}": v for i, v in enumerate(mask_mean)})
         stats.update({"img_mean": img_slice_mean})
         slice_stats.append(stats)
 
     slice_stats = pd.DataFrame(slice_stats)
     return pd.concat([metadata, slice_stats], axis=1)
+
 
 def plot_slices(slice_dir, processed=False, n_cols=3, div=3000, n_examples=5):
     """Helper to plot slices in a directory
@@ -142,14 +139,13 @@ def plot_slices(slice_dir, processed=False, n_cols=3, div=3000, n_examples=5):
 
 # main
 if __name__ == "__main__":
-    # set up paths
+    ## Helper code
     paths = {}
     data_dir = "data"
     input_folder = data_dir
     input_paths = list(Path(input_folder).glob("*.tif*"))
     img_path = input_paths[0]
     out_dir="output"
-
-    rgb = create_rgb_composite2(data_dir)
-    metadata=slices_metadata(imf, input_paths[0])
-    write_pair_slices(file,out_dir)
+    metadata_ = write_pair_slices(input_paths, out_dir)
+    out_path = Path(out_dir, "patches.geojson")
+    metadata_.to_file(out_path, index=False, driver="GeoJSON")
