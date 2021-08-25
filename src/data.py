@@ -24,20 +24,42 @@ def patch_loader(path, source):
         raise ValueError("Unknown data type {}".format(path))
 
 
+def tensor_loader(path, source): #add any relevant argument for species reading - like month 
+    """
+    path : path to data 
+    source: "rgb","ni", "species"
+    """
+    if source == "species":
+        #TODO READ from pickle
+        #arr = read from pickle 
+        #arr = vector_of_targets
+       
+
+    elif Path(path).suffix == ".npy":
+        arr = np.load(path)
+    elif is_image_file(path):
+        arr = imread(path)
+    else :
+        raise ValueError("Unknown data type {}".format(path))
+            
+    if source == "ni":
+        arr = arr / 10000
+            
+    tensor = torch.from_numpy(arr.astype(np.float32))
+    tensor = tensor.unsqueeze(0)
+    return tensor
+        
+        
 class EBirdDataset(Dataset):
     """[summary]
     get inspo from https://github.com/maximiliense/GLC/blob/master/data_loading/pytorch_dataset.py
-
-    Args:
-        root : string or pathlib.Path
-            Root directory of dataset.
-        subset: "train", "train+val", "val", "test"
+    config_file 
     """
     # TODO
     def __init__(self, config_file):
 
         config = yaml_load(config_file)
-        self.mode = config['mode']
+        self.mode = config['mode']   #train, val, test
         self.percent = config['percent']
         self.month = config['month']
         self.s_list = config['species_list']
@@ -49,15 +71,26 @@ class EBirdDataset(Dataset):
 
     def __getitem__(self, i):
         """
-        i: index of the item to retrieve
+        Args:
+            i (int): index of the item to retrieve
+        Returns:
+            dict: dataset item where tensors of data are in item["data"] which is a dict
+                  {datasource: tensor}
         """
         #GET PATCH FROM RASTERS
         item = self.dataset[i]
+    
+            
+                
         #load species data for the hotspot 
         hotspot = json_load(item['s'])
         
         #to be completed from item["x"]
-        patch = patch_loader()
+        ni = np.load(np.array)
+        ni = torch.Tensor(ni.astype(np.uint8)).astype(np.float32)
+        rgb = torch.Tensor(nparray).astype(np.float32)
+        
+    
         
         target = None
         #SET TARGETS IF TRAINING 
@@ -66,6 +99,12 @@ class EBirdDataset(Dataset):
     
             
         return patch, target
+    
+    def get_transform():
+        CenterCrop
+        RandomCrop
+        Resize
+        
     
     def get_target(self, hotspot, percent=True, month=None, s_list=None):
         species = np.array(hotspot['species'])
