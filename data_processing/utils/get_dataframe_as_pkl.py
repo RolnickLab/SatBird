@@ -1,6 +1,14 @@
 import pandas as pd
+from  data_processing.utils.get_saved_pickle import save_pickle
 
-def create_dataframes_as_pkl(hotspot_id, df_species, df_complete_checklists_path, df_species_path, complete_dataframe_sorted_path, df_hotspot_data_path):
+def create_dataframes_as_pkl(hotspot_id, 
+                             df_species, 
+                             df_species_path,
+                             complete_dataframe_sorted, 
+                             complete_dataframe_sorted_path,
+                             df_with_complete_checklists, 
+                             df_complete_checklists_path, 
+                             df_hotspot_data_path):
     """Save the hotspot informations as pickles.
     - Save the original dataframe
     - Save the merged data frame with each month having 684 species
@@ -13,16 +21,22 @@ def create_dataframes_as_pkl(hotspot_id, df_species, df_complete_checklists_path
 
     df_species                     :dataframe
                                    Original hotspot information
-    
-    df_complete_checsklists_path    :str
-                                   Path of dataframe with complete checklist information
-    
-     
+                                   
     df_species_path                :str
                                    Path of dataframe with original hotspot information
+                                   
+    
+    complete_dataframe_sorted      :dataframe
+                                   dataframe with hotspot information including absent species (i.e. includin ABA speies not present in original data)
     
     complete_dataframe_sorted_path :str
                                    path of dataframe with hotspot information including absent species (i.e. includin ABA speies not present in original data)
+                                   
+    df_with_complete_checklists    :dataframe
+                                   dataframe with complete checklist information
+                                   
+    df_complete_checklists_path    :str
+                                   path of dataframe with complete checklist information
                                     
     df_hotspot_data_path           :str
                                    path of pickle that saves all the hotspot info mentioned above
@@ -44,8 +58,9 @@ def create_dataframes_as_pkl(hotspot_id, df_species, df_complete_checklists_path
 
     df_hotspot_data = pd.DataFrame(data)
     
-    
     save_pickle(df_species, df_species_path)
     save_pickle(complete_dataframe_sorted,complete_dataframe_sorted_path)
-    save_pickle(dataframe_with_complete_checklists,df_complete_checklists_path)
+    save_pickle(df_with_complete_checklists,df_complete_checklists_path)
     save_pickle(df_hotspot_data,df_hotspot_data_path)
+    
+    print("processing complete..")

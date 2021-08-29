@@ -27,17 +27,14 @@ def each_hotspot_df(hotspot_path, hotspot_id, all_species_list, category):
     """
     
     hotspot_csv = hotspot_path + hotspot_id +'.csv'
-    print("csv file: ", hotspot_csv)
 
     # Read the hotspot csv
     df = pd.read_csv(hotspot_csv)
-    print("Original dimention of data:", df.shape)
 
     
     # print("DF of original hotspot csv memory in KB: ", df.memory_usage(index=True).sum()/1024)
     df_species = df.loc[(df['CATEGORY'] == category) & (df['ALL SPECIES REPORTED'] == 1) ]
     df_species_inlist = df_species.loc[df_species['SCIENTIFIC NAME'].isin(all_species_list)]
-    print("After filtering dimention of data:", df_species_inlist.shape)
     
     # Only add data till 2000 (and not before that)
     df_species_aba = df_species_inlist[(df_species_inlist["LAST EDITED DATE"] < "2021-05-01 00:00:00") & 
