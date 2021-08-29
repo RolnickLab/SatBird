@@ -1,3 +1,5 @@
+import fnmatch, os
+from os import listdir
 
 def hotspot_headers():
     headers =['Unnamed: 0', 'LAST EDITED DATE', 'CATEGORY','TAXONOMIC ORDER', 'COMMON NAME', 'SCIENTIFIC NAME', 
@@ -13,3 +15,13 @@ def hotspot_headers():
 def monthsofyear():
     months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
     return months
+
+def get_list_of_hotspot(hotspot_path):
+    hostspot_id_list = []
+    hotspot_csv_files = fnmatch.filter(os.listdir(hotspot_path), "*.csv")
+    
+    for file in hotspot_csv_files:
+        filename = file.strip(".csv")
+        hostspot_id_list.append(filename)
+        
+    return hostspot_id_list
