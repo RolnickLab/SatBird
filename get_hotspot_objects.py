@@ -1,5 +1,8 @@
-# TO DO: Check why positional argument and keyword argument cant be fixed
+"""
+Code whichc creates hotspot pickle objects for species information and complete cheklists
+"""
 
+# TO DO: Check why positional argument and keyword argument cant be fixed
 import fnmatch
 import os
 import pandas as pd
