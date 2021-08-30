@@ -136,5 +136,7 @@ def each_hotspot(hotspot_path, hotspot_id, all_species_list, category):
 
     df_with_species_checkist_col["MONTHWISE_COMPLETE_CHECKLISTS"] = df_with_species_checkist_col["MONTH"].apply(month)
     dataframe_with_complete_checklists = df_with_species_checkist_col
+    
+    dataframe_with_complete_checklists_sorted = dataframe_with_complete_checklists.sort_values(by = ['MONTH','SCIENTIFIC NAME'])
 
-    return df_species, complete_dataframe_sorted, dataframe_with_complete_checklists
+    return df_species, complete_dataframe_sorted, dataframe_with_complete_checklists_sorted
