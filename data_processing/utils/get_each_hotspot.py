@@ -37,8 +37,8 @@ def each_hotspot(hotspot_path, hotspot_id, all_species_list, category):
                                    dataframe with hotspot information including absent species (i.e. includin ABA speies not present in original data)
 
                                    
-    df_with_complete_checklists    :dataframe
-                                   dataframe with complete checklist information
+    dataframe_with_complete_checklists_sorted :dataframe
+    dataframe with complete checklist information
 
     """
     
@@ -59,7 +59,6 @@ def each_hotspot(hotspot_path, hotspot_id, all_species_list, category):
 
     # Sort species list alphabetically
     unique_species_list = sorted(all_species_list)
-
 
     # Get absent species information
     species_not_exist_list = get_absent_species(df_species, unique_species_list)
@@ -121,7 +120,7 @@ def each_hotspot(hotspot_path, hotspot_id, all_species_list, category):
     ### dict_month_checklists = dictionary of total number of complete checklists per month  
     dict_month_checklists = {}
     for month in months:
-        month_df = df_with_species_checkist_col.loc[df_with_species_checkist_col['MONTH'] == month]
+        month_df = filtered_dataframe.loc[filtered_dataframe['MONTH'] == month]
 
         # calculate all unique sampling identifiers for each month
         unique_comp_checklists = month_df['SAMPLING EVENT IDENTIFIER'].dropna().nunique()
@@ -131,10 +130,10 @@ def each_hotspot(hotspot_path, hotspot_id, all_species_list, category):
 
 
     # Add a column for total complete checklists
-    def month(x):
+    def month_func(x):
         return dict_month_checklists[x]
 
-    df_with_species_checkist_col["MONTHWISE_COMPLETE_CHECKLISTS"] = df_with_species_checkist_col["MONTH"].apply(month)
+    df_with_species_checkist_col["MONTHWISE_COMPLETE_CHECKLISTS"] = df_with_species_checkist_col["MONTH"].apply(month_func)
     dataframe_with_complete_checklists = df_with_species_checkist_col
     
     dataframe_with_complete_checklists_sorted = dataframe_with_complete_checklists.sort_values(by = ['MONTH','SCIENTIFIC NAME'])

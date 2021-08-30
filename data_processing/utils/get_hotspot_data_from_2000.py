@@ -37,8 +37,8 @@ def each_hotspot_df(hotspot_path, hotspot_id, all_species_list, category):
     df_species_inlist = df_species.loc[df_species['SCIENTIFIC NAME'].isin(all_species_list)]
     
     # Only add data till 2000 (and not before that)
-    df_species_aba = df_species_inlist[(df_species_inlist["LAST EDITED DATE"] < "2021-05-01 00:00:00") & 
-                                       (df_species_inlist["LAST EDITED DATE"] > "2000-01-01 00:00:00")]
+    df_species_aba = df_species_inlist[(df_species_inlist["OBSERVATION DATE"] < "2021-05-01 00:00:00") & 
+                                       (df_species_inlist["OBSERVATION DATE"] > "2000-01-01 00:00:00")]
 
     
     return df, df_species_aba

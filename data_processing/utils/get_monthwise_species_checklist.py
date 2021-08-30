@@ -1,7 +1,7 @@
 import pandas as pd
 
 def monthwise_species_checklists(filtered_dataframe, months, unique_species_list):
-    """ Return the dataframe with filled values for all absent species/months, where observation count and reported species will be 0
+    """ 
     
     Parameters
     ----------
@@ -25,7 +25,7 @@ def monthwise_species_checklists(filtered_dataframe, months, unique_species_list
     """
     dict_species = {}
 
-    for i, month in enumerate(months):
+    for i, month in enumerate(months):      
         for species in unique_species_list:
             checklists = filtered_dataframe[
                 (filtered_dataframe['Month_Num'] == i+1) &
@@ -41,12 +41,11 @@ def monthwise_species_checklists(filtered_dataframe, months, unique_species_list
 
         # Add species complete checklists column row by row
         if 'SPECIES_COMPLETE_CHECKLISTS' not in filtered_dataframe_unique_species.columns:
-            filtered_dataframe_unique_species['SPECIES_COMPLETE_CHECKLISTS'] = filtered_dataframe_unique_species.set_index(['SCIENTIFIC NAME','MONTH']).index.map(dict_species.get) 
+            filtered_dataframe_unique_species['SPECIES_COMPLETE_CHECKLISTS'] = filtered_dataframe_unique_species.set_index(['SCIENTIFIC NAME','MONTH']).index.map(dict_species.get)
 
         if month =='January':
             df_with_species_checkist_col = filtered_dataframe_unique_species
         else:
             df_with_species_checkist_col = pd.concat([df_with_species_checkist_col, filtered_dataframe_unique_species], ignore_index=True)
-
 
     return df_with_species_checkist_col
