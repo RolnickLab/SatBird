@@ -56,4 +56,4 @@ list_loc = df_usa_count_threshold['LOCALITY ID_x'].to_list()
 print ("Length of list of locality:", len(list_loc))
 
 my_df = pd.DataFrame(list_loc)
-my_df.to_csv('hotspotlist_with_50_complete_checklists.csv', index=False, header=False)
+my_df.to_csv('hotspotlist_with_50_complete_checklists.csv', index=False, header=['LOCALITY_ID'])

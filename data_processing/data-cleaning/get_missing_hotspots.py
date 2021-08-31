@@ -5,7 +5,7 @@ from os.path import isfile, join
 
 def find_missing_hotspots(hotspot_csv_files_path):
     """ This file finds the hotspot IDs which are missing once individual CSVs created (for each hotspot data) from ebird data
-    -  Note that this calculation is only done for hotspots which are in USA and have number of complete checklists >=50
+    -  Note that this calculation is only done for hotspots which are in USA and have number of complete checklists >=50. 
     - `hotspot_path = '/miniscratch/srishtiy/hotspot_csv_data/` = directory where all the individual hotspot csv files created are stored.
     - `hotspots.csv` = file which has all the hotspots found in USA which ave complete checklist >=50
 
@@ -19,7 +19,10 @@ def find_missing_hotspots(hotspot_csv_files_path):
     -------
     diff_hotspot              :list
                               list of all hotspots which have more than 50 complete checklists 
-                              but don't have individual CSVs for them in 'hotspot_csv_files_path'    
+                              but don't have individual CSVs for them in 'hotspot_csv_files_path'.
+                              We had few incorrect data reported (e.g. data of Canada marked as USA) or hotspot not matching loations, 
+                              so, there will be 60-100 hotspot names in this variable. The correct final list is in 'hotspot_list.csv' 
+                              in the code repo
     """
     # List of all such csv files
     hotspot_files = [f for f in listdir(hotspot_csv_files_path) if isfile(join(hotspot_csv_files_path, f))]
@@ -29,7 +32,6 @@ def find_missing_hotspots(hotspot_csv_files_path):
     print(len(hotspot_names_from_files))
 
     # Hotspotlist_with_50_complete_checklists.csv = all the hotspots in USA with threshold >= 50
-
     hotspots_more_than_50_checklists_csv = 'hotspotlist_with_50_complete_checklists.csv'
     hotspots_more_than_50_checklists = pd.read_csv(hotspots_more_than_50_checklists_csv , names= ["total_hotspots"])
 
