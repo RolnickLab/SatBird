@@ -92,6 +92,7 @@ def each_hotspot(hotspot_path, hotspot_id, all_species_list, category):
                 absent_species_or_months.append(absent_species_or_months_data)
 
     df_for_absent_species_or_months = pd.DataFrame(absent_species_or_months, columns = df_col_for_absent_species)
+#     df_for_absent_species_or_months.to_pickle("/miniscratch/srishtiy/df_for_absent_species_or_months.pkl")
 
     # Concatenate the original hotspot dataframe and the new dataframe (with information of non existing species or month)
     complete_dataframe_unsorted = pd.concat([df_species, df_for_absent_species_or_months], ignore_index=True)
@@ -112,10 +113,13 @@ def each_hotspot(hotspot_path, hotspot_id, all_species_list, category):
     if 'Month_Num' not in complete_dataframe_sorted:
         complete_dataframe_sorted.insert(0, "Month_Num", complete_dataframe_month_num)
 
+
     ### Calculate Number of Complete Checklist per species monthwise: identified with SAMPLING IDENTIFIER
     filtered_dataframe = complete_dataframe_sorted[['Month_Num','MONTH','SCIENTIFIC NAME','SAMPLING EVENT IDENTIFIER']]
 
+
     df_with_species_checkist_col = monthwise_species_checklists(filtered_dataframe, months, unique_species_list)
+    print("df_with_species_checkist_col:", df_with_species_checkist_col.shape)
 
     ### dict_month_checklists = dictionary of total number of complete checklists per month  
     dict_month_checklists = {}
@@ -133,6 +137,7 @@ def each_hotspot(hotspot_path, hotspot_id, all_species_list, category):
     def month_func(x):
         return dict_month_checklists[x]
 
+    
     df_with_species_checkist_col["MONTHWISE_COMPLETE_CHECKLISTS"] = df_with_species_checkist_col["MONTH"].apply(month_func)
     dataframe_with_complete_checklists = df_with_species_checkist_col
     

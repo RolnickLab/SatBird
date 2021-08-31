@@ -24,18 +24,17 @@ def monthwise_species_checklists(filtered_dataframe, months, unique_species_list
 
     """
     dict_species = {}
-
     for i, month in enumerate(months):      
-        for species in unique_species_list:
+        for j, species in enumerate(unique_species_list):
             checklists = filtered_dataframe[
                 (filtered_dataframe['Month_Num'] == i+1) &
                 (filtered_dataframe['MONTH'] == month) &
                 (filtered_dataframe['SCIENTIFIC NAME'] == species) 
             ]
-
+            
             species_c_check = checklists['SAMPLING EVENT IDENTIFIER'].nunique()
             dict_species[species, month] = species_c_check
-
+        
         # Monthwise list of all unique species from ABA code 1 and 2
         filtered_dataframe_unique_species = filtered_dataframe.loc[(filtered_dataframe['MONTH'] == month)].drop_duplicates(subset=['SCIENTIFIC NAME'])
 

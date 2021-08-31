@@ -11,6 +11,7 @@ df = pd.read_csv('/miniscratch/srishtiy/complete-checklists_Jan2021.txt', delimi
 
 # n_checklists_Apr2021 is the number of complete checklist per hotspot
 # n_checklists_Apr2021 is same for both Jan and Apr -- tested
+# n_checklists_Apr2021 is from R code
 df_nc_hotspot = pd.read_csv('/miniscratch/srishtiy/n_checklists_Apr2021.csv', keep_default_na=False)
 
 # Sort by number of complete checklists
