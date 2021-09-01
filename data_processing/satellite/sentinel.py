@@ -77,9 +77,22 @@ def get_cropped(signed_href, area_of_interest):
         band_data = ds.read(window=aoi_window)
     return(band_data)
 
+def keep_biggest_intersect(items, area_of_interest):
+    complete = []
+    incomplete =[] 
+    for item in items: 
+        if (shape(item.geometry).contains(area_of_interest)):
+            complete += [item]
+        else:
+            inter = shape(item.geometry).intersection(area_of_interest)
+            incomplete+= [(item, inter.area)]
+    incomplete = sorted(incomplete, key=lambda x: x[1], reverse=True)
+    return(complete, incomplete)
+    
 def get_data(area_of_interest):
     years = [y for y in range(2021, 2016, -1)]
     found = False
+    incomp = 0 
     for y in years:
         if not found:
             time_of_interest = f"{str(y)}-06-01/{str(y)}-06-30"
@@ -99,9 +112,13 @@ def get_data(area_of_interest):
         print("Nothing found for hotspot")
         return(None)
 
-
-    least_cloudy_item = get_least_cloudy(items)
-    
+    complete, incomplete = keep_biggest_intersect(items, area_of_interest)
+    if complete != []:
+        least_cloudy_item = get_least_cloudy(complete)
+    else:
+        print("no fully overlapping image")
+        least_cloudy_item = incomplete[0][0]
+        incomp = 1
     asset_href = least_cloudy_item.assets["visual"].href
     asset_rref = least_cloudy_item.assets["B04"].href
     asset_gref = least_cloudy_item.assets["B03"].href
@@ -119,16 +136,27 @@ def get_data(area_of_interest):
     b_data = get_cropped(signed_bref, area_of_interest)
     ni_data = get_cropped(signed_nihref, area_of_interest)
     
-    return(band_data, r_data, g_data, b_data, ni_data, least_cloudy_item.datetime.date())
+    return(band_data, r_data, g_data, b_data, ni_data, least_cloudy_item.datetime.date(), incomp)
     
-def get_metadata(lon, lat, hotspot_id, area_of_interest, date):
-    obj = {
-        "hotspot_id" : hotspot_id,
-        "lon" : lon,
-        "lat" : lat, 
-        "area_geom" :  area_of_interest.wkt,
-        "date": str(date)
-    }
+
+def get_metadata(lon, lat, hotspot_id, area_of_interest, date, earliest = None):
+    if earliest is None:
+        obj = {
+            "hotspot_id" : hotspot_id,
+            "lon" : lon,
+            "lat" : lat, 
+            "area_geom" :  area_of_interest.wkt,
+            "date": str(date)
+        }
+    else:
+        obj = {
+            "hotspot_id" : hotspot_id,
+            "lon" : lon,
+            "lat" : lat, 
+            "area_geom" :  area_of_interest.wkt,
+            "date": str(date),
+            "earliest_date": str(earliest)
+        }
     return(obj)
 
 
@@ -168,13 +196,14 @@ def display_image(data, mode = "rgb"):
     return(img)
 
 if __name__ == "__main__":
-    connection_string = "" #connection string to Azure storage account
+    connection_string = "DefaultEndpointsProtocol=https;AccountName=sentinelwesteurope;AccountKey=9zay728pLnEMzDqHGVC1lyNbit79T+z6VwUMQPnu0hwwNu+2wiEOAEYwB+Amh4VezhYw07yNaDTaqMyOjmIQaQ==;EndpointSuffix=core.windows.net"
     service_client = BlobServiceClient.from_connection_string(connection_string)
 
-    df = pd.read_csv() #CSV file with hotspots lat long data "~/PlanetaryComputerExamples/datasets/sentinel-2-l2a/hotspots_latlon.csv")
+    df = pd.read_csv("~/PlanetaryComputerExamples/datasets/sentinel-2-l2a/hotspots_latlon.csv")
     
-    container = 'sentinel2'
+    container = 'sentinel2complete'
 
+    counter = 0 
 
     for index, row in df.iterrows():
 
@@ -185,32 +214,47 @@ if __name__ == "__main__":
         if a is None:
             print("nothing found for " + hotspot_id) 
         else:
-            band_data, r_data, g_data, b_data,ni_data, metadata = a
-            print("\nUploading to Azure Storage as blob:\n\t" + str(hotspot_id))
 
-            with open(str(hotspot_id)+"_rgb.npy","rb") as band_data:
-                blob_client = service_client.get_blob_client(container, blob= str(hotspot_id)+"_rgb.npy")
-                blob_client.upload_blob(band_data)
-            with open(str(hotspot_id)+"_r.npy","rb") as band_data:
-                blob_client = service_client.get_blob_client(container, blob= str(hotspot_id)+"_r.npy")
-                blob_client.upload_blob(band_data)
-            with open(str(hotspot_id)+"_g.npy","rb") as band_data:
-                blob_client = service_client.get_blob_client(container, blob= str(hotspot_id)+"_g.npy")
-                blob_client.upload_blob(band_data)
-            with open(str(hotspot_id)+"_b.npy","rb") as band_data:
-                blob_client = service_client.get_blob_client(container, blob= str(hotspot_id)+"_b.npy")
-                blob_client.upload_blob(band_data)
-            with open(str(hotspot_id)+"_ni.npy", "rb") as ni_data:
-                blob_client = service_client.get_blob_client(container, blob= str(hotspot_id)+"_ni.npy")
-                blob_client.upload_blob(ni_data)
-            with open(str(hotspot_id)+".json", "rb") as metadata:
-                blob_client = service_client.get_blob_client(container, blob= str(hotspot_id)+".json")
-                blob_client.upload_blob(metadata)
+            band_data, r_data, g_data, b_data,ni_data, metadata, incomplete = a
+            counter += incomplete
+            if incomplete==1:
+                with open('incomplete.txt', 'a') as f:
+                    f.write(metadata["hotspot_id"])
+                    f.write('\n')
+                f.close()
+                print("incomplete tile") 
+            else: 
+                print("\nUploading to Azure Storage as blob:\n\t" + str(hotspot_id))
+                with open(str(hotspot_id)+"_rgb.npy","rb") as banddata:
+                    blob_client = service_client.get_blob_client(container, blob= str(hotspot_id)+"_rgb.npy")
+                    blob_client.upload_blob(banddata)
+                banddata.close()
+                with open(str(hotspot_id)+"_r.npy","rb") as rdata:
+                    blob_client = service_client.get_blob_client(container, blob= str(hotspot_id)+"_r.npy")
+                    blob_client.upload_blob(rdata)
+                rdata.close()
+                with open(str(hotspot_id)+"_g.npy","rb") as gdata:
+                    blob_client = service_client.get_blob_client(container, blob= str(hotspot_id)+"_g.npy")
+                    blob_client.upload_blob(gdata)
+                gdata.close()
+                with open(str(hotspot_id)+"_b.npy","rb") as bdata:
+                    blob_client = service_client.get_blob_client(container, blob= str(hotspot_id)+"_b.npy")
+                    blob_client.upload_blob(bdata)
+                bdata.close()
+                with open(str(hotspot_id)+"_ni.npy", "rb") as ni_data:
+                    blob_client = service_client.get_blob_client(container, blob= str(hotspot_id)+"_ni.npy")
+                    blob_client.upload_blob(ni_data)
+                ni_data.close()
+                with open(str(hotspot_id)+".json", "rb") as metadata:
+                    blob_client = service_client.get_blob_client(container, blob= str(hotspot_id)+".json")
+                    blob_client.upload_blob(metadata)
+                metadata.close()
 
-            os.remove(str(hotspot_id)+"_rgb.npy")
-            os.remove(str(hotspot_id)+"_ni.npy")
-            os.remove(str(hotspot_id)+"_r.npy")
-            os.remove(str(hotspot_id)+"_g.npy")
-            os.remove(str(hotspot_id)+"_b.npy")
-            os.remove(str(hotspot_id)+".json")
-            print("removed files, moving to the next")
+                os.remove(str(hotspot_id)+"_rgb.npy")
+                os.remove(str(hotspot_id)+"_ni.npy")
+                os.remove(str(hotspot_id)+"_r.npy")
+                os.remove(str(hotspot_id)+"_g.npy")
+                os.remove(str(hotspot_id)+"_b.npy")
+                os.remove(str(hotspot_id)+".json")
+                print("removed files, moving to the next")
+        print(str(counter) + " incomplete tiles")
