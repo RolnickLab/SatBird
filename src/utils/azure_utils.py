@@ -61,7 +61,8 @@ class DirectoryClient:
         create a csv file from blobs in the container
         '''
         fx = self.ls_files()
-        hotspot_paths = ["https://www."+str(self.connection_string.split(";")[1]).split("=")[1]+".blob.core.windows.net/"+self.container_name+"/"+x for x in fx]
+        print(fx)
+        hotspot_paths = ["https://"+str(self.connection_string.split(";")[1]).split("=")[1]+".blob.core.windows.net/"+self.container_name+"/"+x for x in fx]
         hotspot_ids = [x.split(".")[0] if "json" in x else x.split("_")[0] for x in fx]
         band_type = [x.split(".")[1] if "json" in x else x.split("_")[1].split(".")[0] for x in fx]
 
