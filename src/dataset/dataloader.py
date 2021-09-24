@@ -82,6 +82,7 @@ class EbirdVisionDataset(VisionDataset):
             item_["sat"] = torch.from_numpy(npy_data)
             
             
+        #TODO later if we are using img data
         #for (b, data) in band_img :                                                                           
           #  tensor_image = self.transform(image)
          #   item_[b] = tensor_image
@@ -93,9 +94,10 @@ class EbirdVisionDataset(VisionDataset):
             
     
         #add metadata information (hotspot info)
+        item_ = self.transform(item_)
         item_.update(meta)
         
-        item_ = self.transform(item_)
+        
         return item_
     
 
