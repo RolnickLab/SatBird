@@ -43,7 +43,7 @@ def is_image_file(filename):
     return Path(filename).suffix in IMG_EXTENSIONS
 
 def load_file(file_path):
-    if is_image.file(file_path):
+    if is_image_file(file_path):
         return(Image.open(file_path))
     elif file_path.suffix == ".yaml":
         return(yaml_load(file_path))
