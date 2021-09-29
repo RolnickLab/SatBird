@@ -86,15 +86,17 @@ class EbirdVisionDataset(VisionDataset):
         #for (b, data) in band_img :                                                                           
           #  tensor_image = self.transform(image)
          #   item_[b] = tensor_image
-        
-        item_["target"] = None
-        if self.mode != "test":
-            #TODO check if need to pass to torch.from_numpy()
-             item_["target"] = load_file(get_path(self.df, index, "species"))
-            
     
-        #add metadata information (hotspot info)
+        
         item_ = self.transform(item_)
+        #add target
+        item_["target"] = None
+        item_["num_complete_checklists"] = None
+        if self.mode != "test":
+            species = load_file(get_path(self.df, index, "species"))
+            item_["target"] = torch.Tensor(species["probs"])
+            item_["num_complete_checklists"] = species["num_complete_checklists"]
+        #add metadata information (hotspot info)    
         item_.update(meta)
         
         
