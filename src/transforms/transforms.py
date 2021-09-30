@@ -79,6 +79,7 @@ class Normalize:
         custom : ([means], [std])
         """
         self.maxchan = maxchan
+        #TODO make this work with the values of the normalization values computed over the whole dataset 
         self.custom = custom
     def __call__(self, sample: Dict[str, Tensor])-> Dict[str, Tensor]:
         
@@ -117,7 +118,6 @@ class RandomCrop:  # type: ignore[misc,name-defined]
         Returns:
             the cropped input
         """
-
         H, W = (
             sample["sat"].size()[-2:] if "sat" in sample else list(sample.values())[0].size()[-2:]
         )
@@ -137,9 +137,10 @@ class RandomCrop:  # type: ignore[misc,name-defined]
 class RandomGaussianNoise:  # type: ignore[misc,name-defined]
     """Identity function used for testing purposes."""
     
-    def __init__(self, max_noise):
+    def __init__(self, max_noise = 5e-2, std = 1e-2):
        
         self.max = max_noise
+        self.std = std
         
     def __call__(self, sample: Dict[str, Tensor]) -> Dict[str, Tensor]:
         """
@@ -151,6 +152,7 @@ class RandomGaussianNoise:  # type: ignore[misc,name-defined]
         
         for s in sample:
             if s in transformable : 
-                noise = torch.rand(*sample[s].size())
+                noise = torch.normal(0,self.std,sample[s].size())
+                noise = torch.clamp(sample[s], min=0, max=self.max)
                 sample[s] += noise
         return sample
