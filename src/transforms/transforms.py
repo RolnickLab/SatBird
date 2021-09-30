@@ -91,10 +91,10 @@ class Normalize:
             }
         #TODO 
         #if self.custom:
-            
+        #    mean, std = self.custom
         #    pass
         return(d)
-            
+
 
 class RandomCrop:  # type: ignore[misc,name-defined]
     """Identity function used for testing purposes."""
@@ -156,3 +156,57 @@ class RandomGaussianNoise:  # type: ignore[misc,name-defined]
                 noise = torch.clamp(sample[s], min=0, max=self.max)
                 sample[s] += noise
         return sample
+    
+
+def get_transform(transform_item, mode):
+    """Returns the transform function associated to a
+    transform_item listed in opts.data.transforms ; transform_item is
+    an addict.Dict
+    """
+    
+    if transform_item.name == "crop" and not (
+        transform_item.ignore is True or transform_item.ignore == mode
+    ):
+        return RandomCrop(
+            (transform_item.height, transform_item.width),
+            center=(transform_item.center == mode or transform_item == True),
+        )
+
+    elif transform_item.name == "hflip" and not (
+        transform_item.ignore is True or transform_item.ignore == mode
+    ):
+        return RandomHorizontalFlip(p=transform_item.p or 0.5)
+
+    elif transform_item.name == "vflip" and not (
+        transform_item.ignore is True or transform_item.ignore == mode
+    ):
+        return RandomVerticalFlip(p=transform_item.p or 0.5)
+    
+    elif transform_item.name == "randomnoise" and not (
+        transform_item.ignore is True or transform_item.ignore == mode
+    ):
+        return RandomGaussianNoise(max_noise = transform_item.max_noise or 5e-2, std = transform_item.std or 1e-2)
+    
+    elif transform_item.name == "normalize" and not (
+        transform_item.ignore is True or transform_item.ignore == mode
+    ):
+        return Normalize(maxchan=True, custom=transform_item.mean_std or None)
+
+    elif transform_item.ignore is True or transform_item.ignore == mode:
+        return None
+
+    raise ValueError("Unknown transform_item {}".format(transform_item))
+
+
+def get_transforms(opts, mode):
+    """Get all the transform functions listed in opts.data.transforms
+    using get_transform(transform_item, mode)
+    """
+    transforms = []
+
+    for t in opts.data.transforms:
+        transforms.append(get_transform(t, mode))
+
+    transforms = [t for t in transforms if t is not None]
+
+    return transforms
