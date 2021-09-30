@@ -1,33 +1,38 @@
-import pandas as pd
-import os
 import glob
+import os
+import json 
+import pandas as pd
 
-datapath = "/network/scratch/a/akeraben/akera/ecosystem-embedding/data"
+datapath = "/network/scratch/a/akeraben/akera/ecosystem-embedding/data/sentinel2/"
 species_data = "/network/scratch/t/tengmeli/ecosystem-embedding/ebird_data_june/"
+#txt file with csv names
+hotspots = "/network/scratch/t/tengmeli/ecosystem-embedding/training/train_june.txt"
+#path of csv where we want to save info 
+save_path = "/network/scratch/t/tengmeli/ecosystem-embedding/training/train_june.csv"
+
+if __name__=="__main__":
+    with open(hotspots, "r") as f:
+        hs_list = [line.rstrip() for line in f]
 
 
-all_paths = glob.glob(datapath+"/sentinel2/*")
-rgb_paths = glob.glob(datapath+"/sentinel2/*rgb*")
-json_paths = glob.glob(datapath+"/sentinel2/*.json")
-nir_paths = glob.glob(datapath+"/sentinel2/*_ni.npy")
-r_paths = glob.glob(datapath+"/sentinel2/*_r.npy")
-g_paths = glob.glob(datapath+"/sentinel2/*_g.npy")
-b_paths = glob.glob(datapath+"/sentinel2/*_b.npy")
-
-hotspot_ids = [i.split("sentinel2/")[1].split("_")[0] for i in rgb_paths]
+    hs_list = list(dict.fromkeys(hs_list))
 
 
+    rgb_paths = [os.path.join(datapath, f"{hs}_rgb.npy") for hs in hs_list]
+    json_paths = [os.path.join(datapath, f"{hs}.json") for hs in hs_list]
+    nir_paths = [os.path.join(datapath, f"{hs}_ni.npy") for hs in hs_list]
+    r_paths = [os.path.join(datapath, f"{hs}_r.npy") for hs in hs_list]
+    g_paths = [os.path.join(datapath, f"{hs}_g.npy") for hs in hs_list]
+    b_paths = [os.path.join(datapath, f"{hs}_b.npy") for hs in hs_list]
 
-species_paths = glob.glob(species_data+"*")
-species_ids = [i.split("ebird_data_june/")[1].split(".")[0] for i in species_paths]
+    species = [os.path.join(species_data, f"{hs}.json") for hs in hs_list]
 
-#ch
-ids = [i.split("sentinel2/")[1].split(".")[0] if "json" in i else i.split("sentinel2/")[1].split("_")[0] for i in json_paths]
 
-dataset = pd.DataFrame(list(zip(species_ids,
-                                species_paths,
-                                )),
+    dataset = pd.DataFrame(list(zip(hs_list, r_paths, g_paths, b_paths,nir_paths, json_paths, rgb_paths,
+                                    species,
+                                    )),
 
-              columns=["species_ids","species_paths"])
+                  columns=["hotspot", "r", "g", "b","nir", "meta", "rgb","species"])
 
-dataset.to_csv("json_species_paths.csv")
+
+    dataset.to_csv(save_path)
