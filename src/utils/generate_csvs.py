@@ -3,12 +3,12 @@ import os
 import json 
 import pandas as pd
 
-datapath = "/network/scratch/a/akeraben/akera/ecosystem-embedding/data/sentinel2/"
+datapath = "/network/scratch/a/akeraben/ecosystem-embedding/data/sentinel2/"
 species_data = "/network/scratch/t/tengmeli/ecosystem-embedding/ebird_data_june/"
 #txt file with csv names
 hotspots = "/network/scratch/t/tengmeli/ecosystem-embedding/training/train_june.txt"
 #path of csv where we want to save info 
-save_path = "/network/scratch/t/tengmeli/ecosystem-embedding/training/train_june.csv"
+save_path = "~/ecosystem-embedding/train_june.csv"
 
 if __name__=="__main__":
     with open(hotspots, "r") as f:
