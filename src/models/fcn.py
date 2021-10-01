@@ -23,5 +23,29 @@ class FCN(Module):
             num_filters, num_filters, kernel_size=3, stride=1, padding=1
         )
 
-        self.
+        self.backbone = nn.modules.Sequential(
+            conv1,
+            nn.modules.LeakyReLu(inplace=True),
+            conv2,
+            nn.modules.LeakyReLu(inplace=True),
+            conv3,
+            nn.modules.LeakyReLu(inplace=True),
+            conv3,
+            nn.modules.LeakyReLu(inplace=True),
+            conv4,
+            nn.modules.LeakyReLu(inplace=True),
+            conv5,
+            nn.modules.LeakyReLu(inplace=True),
+            
+        )
+
+        self.last = nn.modules.Conv2d(
+            num_filters, classes, kernel_size = 1, stride=1, padding=0
+        )
+
+        def forward(slef, x: Tensor) -> Tensor:
+            x = self.backbone(x)
+            x = self.last(x)
+            return x
+            
 
