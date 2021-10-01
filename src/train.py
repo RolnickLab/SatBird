@@ -29,6 +29,8 @@ class EbirdTask(pl.LightningModule):
     def training_step(
         self, batch: Dict[str, Any], batch_idx: int
     )-> Tensor:
+    """Training step """
+        
         x = batch["sat"]
         y = batch["target"]
         y_hat = self.forward(x)
@@ -36,3 +38,25 @@ class EbirdTask(pl.LightningModule):
         self.log("train_loss", loss)
         
         return loss
+
+    def validation_step(
+        self, batch: Dict[str, Any], batch_idx: int
+    )->None:
+    """Validation step """
+        x = batch['sat']
+        y = batch['target']
+        y_hat = self.forward(x)
+        loss = F.cross_entropy(y_hat, y)
+        self.log("Val Loss", loss)
+
+    def test_step(
+        self, batch: Dict[str, Any], batch_idx:int
+    )-> None:
+        """Test step """
+
+        x = batch['sat']
+        y = batch['target']
+        y_hat = self.forward(x)
+        loss = F.cross_entropy(y_hat, y)
+        self.log("Test Loss", loss)
+
