@@ -60,3 +60,106 @@ class EbirdTask(pl.LightningModule):
         loss = F.cross_entropy(y_hat, y)
         self.log("Test Loss", loss)
 
+    def configure_optimizers(self) -> Dict[str, Any]:
+        optimizer = torch.optim.Adam(
+            self.model.parameters(),
+            lr = self.hparams["learning_rate"],
+        )
+        return{
+            "optimizer": optimizer,
+            "lr_scheduler": {
+                "scheduler": ReduceLROnPlateu(
+                    optimizer,
+                    patience = self.hparams["learning_rate_schedule_patience"]
+            ),
+            "monitor":"val_loss",
+        }
+
+class EbirdDataModule(pl.LightningDataModule):
+    def __init__(
+        self,
+        root_dir=str,
+        df = str,
+        bands: list,
+        seed: int, 
+        batch_size=int=64,
+        num_workers: int=4,
+        **kwargs:Any,
+    ) -> None:
+        super().__init__()
+        self.root_dir = root_dir
+        self.seed = seed
+        self.batch_size = batch_size
+        self.num_workers = num_workers
+        self.df = df
+        self.bands = bands
+    
+    def custom_transform(self, sample: Dict[str, Any]) -> Dict [str, Any]:
+        sample["sat"] = sample["sat"] / 255.0 ## TODO: Meli's transforms 
+        sample["sat"] = (
+            sample["sat"].unsqueeze(0).repeat(3,1,1)
+        )#converting to 3 channel
+        sample["target"] = torch.as_tensor(
+            sample["target"]
+        ).float()
+        return sample
+
+    def prepare_data(self) -> None:
+        _ = EbirdVisionDataset(
+            df, 
+            split = "train",
+            transforms = self.custom_transform
+        )
+
+    def setup(self, stage: Optional[str]=None)->None:
+        """create the train/test/val splits"""
+        self.all_train_dataset = EbirdVisionDataset(
+            self.df, 
+            split="train",
+            transforms = self.custom_transform,
+
+        )
+
+        self.all_test_dataset = EbirdVisonDataset(
+            self.df,
+            split = "test",
+            transforms = self.custom_transform,
+        )
+
+         self.all_val_dataset = EbirdVisonDataset(
+            self.df,
+            split = "val",
+            transforms = self.custom_transform,
+        )
+
+        #TODO: Create subsets of the data
+        self.train_dataset = self.all_train_dataset
+        self.test_dataset = self.all_test_dataset
+        self.val_dataset = self.all_val_dataset
+
+    def train_dataloader(self) -> Dataloader[Any]:
+        """Returns the actual dataloader"""
+        return DataLoader(
+            self.train_dataset,
+            batch_size = self.batch_size,
+            num_workers = self.num_workers,
+            shuffle = True,
+        )
+
+    def val_dataloader(self) -> Dataloader[Any]:
+        """Returns the validation dataloader"""
+        return DataLoader(
+            self.val_dataset,
+            batch_size = self.batch_size,
+            num_workers = self.num_workers,
+            shuffle = False,
+        )
+
+    def test_dataloader(self) -> Dataloader[Any]:
+        """Returns the test dataloader"""
+        return DataLoader(
+            self.test_dataset,
+            batch_size = self.batch_size,
+            num_workers = self.num_workers,
+            shuffle = False,
+        )
