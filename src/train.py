@@ -7,6 +7,9 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.data import DataLoader, Subset
 from torchvision import models
 
+from typing import Any, Dict, Optional
+
+
 from src.dataset.dataloader import EbirdVisionDataset
 
 class EbirdTask(pl.LightningModule):
@@ -27,9 +30,9 @@ class EbirdTask(pl.LightningModule):
         return self.model(x)
 
     def training_step(
-        self, batch: Dict[str, Any], batch_idx: int
-    )-> Tensor:
-    """Training step """
+        self, batch: Dict[str, Any], batch_idx: int )-> Tensor:
+        
+        """Training step"""
         
         x = batch["sat"]
         y = batch["target"]
@@ -40,9 +43,10 @@ class EbirdTask(pl.LightningModule):
         return loss
 
     def validation_step(
-        self, batch: Dict[str, Any], batch_idx: int
-    )->None:
-    """Validation step """
+        self, batch: Dict[str, Any], batch_idx: int )->None:
+
+        """Validation step """
+
         x = batch['sat']
         y = batch['target']
         y_hat = self.forward(x)
@@ -73,19 +77,11 @@ class EbirdTask(pl.LightningModule):
                     patience = self.hparams["learning_rate_schedule_patience"]
             ),
             "monitor":"val_loss",
+            }
         }
 
 class EbirdDataModule(pl.LightningDataModule):
-    def __init__(
-        self,
-        root_dir=str,
-        df = str,
-        bands: list,
-        seed: int, 
-        batch_size=int=64,
-        num_workers: int=4,
-        **kwargs:Any,
-    ) -> None:
+    def __init__(self, root_dir:str, df:str, bands: list, seed: int, batch_size: int=64, num_workers: int=4, **kwargs:Any, ) -> None:
         super().__init__()
         self.root_dir = root_dir
         self.seed = seed
@@ -126,7 +122,7 @@ class EbirdDataModule(pl.LightningDataModule):
             transforms = self.custom_transform,
         )
 
-         self.all_val_dataset = EbirdVisonDataset(
+        self.all_val_dataset = EbirdVisonDataset(
             self.df,
             split = "val",
             transforms = self.custom_transform,
@@ -137,7 +133,7 @@ class EbirdDataModule(pl.LightningDataModule):
         self.test_dataset = self.all_test_dataset
         self.val_dataset = self.all_val_dataset
 
-    def train_dataloader(self) -> Dataloader[Any]:
+    def train_dataloader(self) -> DataLoader[Any]:
         """Returns the actual dataloader"""
         return DataLoader(
             self.train_dataset,
@@ -146,7 +142,7 @@ class EbirdDataModule(pl.LightningDataModule):
             shuffle = True,
         )
 
-    def val_dataloader(self) -> Dataloader[Any]:
+    def val_dataloader(self) -> DataLoader[Any]:
         """Returns the validation dataloader"""
         return DataLoader(
             self.val_dataset,
@@ -155,7 +151,7 @@ class EbirdDataModule(pl.LightningDataModule):
             shuffle = False,
         )
 
-    def test_dataloader(self) -> Dataloader[Any]:
+    def test_dataloader(self) -> DataLoader[Any]:
         """Returns the test dataloader"""
         return DataLoader(
             self.test_dataset,

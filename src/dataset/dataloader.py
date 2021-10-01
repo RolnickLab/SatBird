@@ -32,17 +32,6 @@ class Identity(Module):  # type: ignore[misc,name-defined]
         """
         return sample
 
-#class EbirdRaster(RasterDataset):
-#    filename_glob = "*.npy*"
-#    separate_files = True
-#    filename_regex = r"""
-#        ^.*npy*$
-#    """
-
-    # Plotting
-#    all_bands = ["r", "g", "b", "nir", "rgb"]
-#    rgb_bands = ["r", "g", "b"]
-
 
 class EbirdVisionDataset(VisionDataset):
     def __init__(self,  

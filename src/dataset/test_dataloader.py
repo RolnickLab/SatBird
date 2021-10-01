@@ -29,5 +29,6 @@ df = pd.DataFrame(df_paths)
 bands = ["r","g", "b"]
 
 dataset = EbirdVisionDataset(df,bands, trsfs.Compose([RandomCrop((256,256)), RandomHorizontalFlip()]))
-dataset.__getitem__(0)
-import pdb;pdb.set_trace()
+print(dataset.__getitem__(0))
+
+# import pdb;pdb.set_trace()
