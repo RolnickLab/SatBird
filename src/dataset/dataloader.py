@@ -92,9 +92,9 @@ class EbirdVisionDataset(VisionDataset):
         return item_
     
 
-if __name__ == "__main__":
-    ebird = EbirdVisionDataset("../toydata", transform=Identity())
-    dataset = ebird
-    #sampler = RandomGeoSampler(ebird.index, size=1000, length=10)
-    #dataloader = DataLoader(dataset, sampler=sampler)
+# if __name__ == "__main__":
+#     ebird = EbirdVisionDataset("../toydata", transform=Identity())
+#     dataset = ebird
+#     #sampler = RandomGeoSampler(ebird.index, size=1000, length=10)
+#     #dataloader = DataLoader(dataset, sampler=sampler)
 

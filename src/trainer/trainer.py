@@ -102,7 +102,7 @@ class EbirdDataModule(pl.LightningDataModule):
 
     def prepare_data(self) -> None:
         _ = EbirdVisionDataset(
-            df, 
+            self.df, 
             split = "train",
             transforms = self.custom_transform
         )
