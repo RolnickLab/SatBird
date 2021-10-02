@@ -10,12 +10,16 @@ from src.transforms.transforms import RandomCrop, RandomHorizontalFlip, Normaliz
 from torchvision import transforms as trsfs
 import pandas as pd
 import torch.nn.functional as F
+from src.losses.losses import CustomCrossEntropyLoss
 
 
 from typing import Any, Dict, Optional
 from src.dataset.dataloader import EbirdVisionDataset
 
 device =  torch.device("cuda" if torch.cuda.is_available() else "cpu")
+criterion = CustomCrossEntropyLoss()#BCEWithLogitsLoss()
+m = nn.Sigmoid
+
 
 class EbirdTask(pl.LightningModule):
     def config_task(self, kwargs: Any) -> None:
@@ -42,10 +46,10 @@ class EbirdTask(pl.LightningModule):
         
         """Training step"""
         
-        x = batch["sat"].squeeze(1).to(device)
-        y = batch["target"].to(device)
+        x = batch['sat'].squeeze(1).to(device)
+        y = batch['target'].to(device)
         y_hat = self.forward(x)
-        loss = F.cross_entropy(y_hat, y)
+        loss = criterion(nn.Sigmoid(y_hat), y)
         self.log("train_loss", loss)
         
         return loss
@@ -58,7 +62,7 @@ class EbirdTask(pl.LightningModule):
         x = batch['sat'].squeeze(1).to(device)
         y = batch['target'].to(device)
         y_hat = self.forward(x)
-        loss = F.cross_entropy(y_hat, y)
+        loss = criterion((y_hat), y)
         self.log("Val Loss", loss)
 
     def test_step(
@@ -69,7 +73,7 @@ class EbirdTask(pl.LightningModule):
         x = batch['sat'].squeeze(1).to(device)
         y = batch['target'].to(device)
         y_hat = self.forward(x)
-        loss = F.cross_entropy(y_hat, y)
+        loss = criterion(nn.Sigmoid(y_hat), y)
         self.log("Test Loss", loss)
 
     def configure_optimizers(self) -> Dict[str, Any]:
