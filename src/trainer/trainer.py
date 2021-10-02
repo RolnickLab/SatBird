@@ -9,6 +9,7 @@ from torchvision import models
 from src.transforms.transforms import RandomCrop, RandomHorizontalFlip, Normalize
 from torchvision import transforms as trsfs
 import pandas as pd
+import torch.nn.functional as F
 
 
 from typing import Any, Dict, Optional
