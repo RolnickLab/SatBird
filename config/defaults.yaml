@@ -18,8 +18,9 @@ experiment:
     num_workers: 4
     root_dir: "."
     df: "test.csv"
-    bands: [r,g,b]
+    bands: ["r_paths","b_paths","g_paths"]
     seed: 42
+    df_paths: "/network/scratch/a/akeraben/akera/ecosystem-embedding/data/train_june2.csv"
 
 # The values here are taken from the defaults here https://pytorch-lightning.readthedocs.io/en/1.3.8/common/trainer.html#init
 # this probably should be made into a schema, e.g. as shown https://omegaconf.readthedocs.io/en/2.0_branch/structured_config.html#merging-with-other-configs

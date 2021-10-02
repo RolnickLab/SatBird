@@ -16,6 +16,7 @@ import pandas as pd
 
 
 def get_path(df, index, band):
+    
     return Path(df.iloc[index][band])
 
     #return (df.loc[df["hotspot_id"] == hotspot][band])
@@ -36,7 +37,8 @@ class Identity(Module):  # type: ignore[misc,name-defined]
 class EbirdVisionDataset(VisionDataset):
     def __init__(self,  
                  df_paths,
-                 bands, 
+                 bands,
+                 split, 
                  transforms: Optional[Callable[[Dict[str, Any]], Dict [str, Any]]] = None,
                  mode : Optional[str] = "train")-> None:
         """
@@ -53,15 +55,21 @@ class EbirdVisionDataset(VisionDataset):
         self.transform = transforms
         self.bands = bands
         self.mode = mode
+        self.split = split
+
         
 
     def __len__(self) -> int:
+        # import pdb;pdb.set_trace()
+
         return self.total_images
 
     def __getitem__(self, index: int) -> Dict[str, Any]:
-    
+
         meta = load_file(get_path(self.df, index, "metadata"))
         
+        # band_img = get_path(self.df, index, "rgb_paths")
+        # band_npy = get_path(self.df, index, "r_paths")
         band_npy = [(b,get_path(self.df, index, b)) for b in self.bands if get_path(self.df, index, b).suffix == ".npy"]
         band_img = [(b,get_path(self.df, index, b)) for b in self.bands if is_image_file(get_path(self.df, index, b).suffix)]
         
