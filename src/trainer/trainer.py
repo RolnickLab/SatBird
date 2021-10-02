@@ -17,8 +17,8 @@ from typing import Any, Dict, Optional
 from src.dataset.dataloader import EbirdVisionDataset
 
 device =  torch.device("cuda" if torch.cuda.is_available() else "cpu")
-criterion = CustomCrossEntropyLoss()#BCEWithLogitsLoss()
-m = nn.Sigmoid
+criterion = nn.CrossEntropyLoss()#BCEWithLogitsLoss()
+m = nn.Sigmoid()
 
 
 class EbirdTask(pl.LightningModule):
@@ -27,6 +27,11 @@ class EbirdTask(pl.LightningModule):
             self.model = models.resnet18(pretrained=True)
             self.model.fc = nn.Linear(512, 684) 
             self.model.to(device)
+            self.loss = nn.CrossEntropyLoss()#BCEWithLogitsLoss()
+            self.m = nn.Sigmoid()
+            self.criterion = CustomCrossEntropyLoss
+
+
 
         else:
             raise ValueError(f"Model type '{kwargs['model']}' is not valid")
@@ -49,7 +54,7 @@ class EbirdTask(pl.LightningModule):
         x = batch['sat'].squeeze(1).to(device)
         y = batch['target'].to(device)
         y_hat = self.forward(x)
-        loss = criterion(nn.Sigmoid(y_hat), y)
+        loss = self.loss(y_hat, y)
         self.log("train_loss", loss)
         
         return loss
@@ -62,7 +67,7 @@ class EbirdTask(pl.LightningModule):
         x = batch['sat'].squeeze(1).to(device)
         y = batch['target'].to(device)
         y_hat = self.forward(x)
-        loss = criterion((y_hat), y)
+        loss = self.loss(y_hat, torch.max(y, 1)[1])
         self.log("Val Loss", loss)
 
     def test_step(
