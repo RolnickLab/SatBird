@@ -133,7 +133,7 @@ def load_opts(
     """
 
     if path is None and default is None:
-        path = Path(__file__).parent.parent / "shared" / "trainer" / "defaults.yaml"
+        path = Path(__file__).parent.parent / "configs" / "defaults.yaml"
 
     if path:
         path = Path(path).resolve()
@@ -170,17 +170,15 @@ def set_data_paths(opts: Dict) -> Dict:
         addict.Dict: updated options
     """
 
-    for mode in ["train", "val"]:
-        for domain in opts.data.files[mode]:
-            if opts.data.files.base and not opts.data.files[mode][domain].startswith(
-                "/"
-            ):
-                opts.data.files[mode][domain] = str(
-                    Path(opts.data.files.base) / opts.data.files[mode][domain]
+    for mode in ["train", "val","test"]:
+        if opts.data.files.base:
+            opts.data.files[mode]= str(
+                    Path(opts.data.files.base) / opts.data.files[mode]
                 )
             assert Path(
-                opts.data.files[mode][domain]
-            ).exists(), "Cannot find {}".format(str(opts.data.files[mode][domain]))
+                opts.data.files[mode]
+            ).exists(), "Cannot find {}".format(str(opts.data.files[mode]))
+        
     return opts
 
 class BoundingBox(Tuple[float, float, float, float, float, float]):
