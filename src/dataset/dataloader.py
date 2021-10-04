@@ -1,9 +1,9 @@
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional, Sequence
 
-from dataset.geo import VisionDataset  #RasterDataset, 
+from src.dataset.geo import VisionDataset  #RasterDataset, 
 #from dataset.sampler import RandomGeoSampler
-from dataset.utils import load_file, is_image_file 
+from src.dataset.utils import load_file, is_image_file 
 from torch.utils.data import DataLoader
 from torch.nn import Module
 from torch import Tensor
@@ -16,6 +16,7 @@ import pandas as pd
 
 
 def get_path(df, index, band):
+    
     return Path(df.iloc[index][band])
 
     #return (df.loc[df["hotspot_id"] == hotspot][band])
@@ -32,22 +33,12 @@ class Identity(Module):  # type: ignore[misc,name-defined]
         """
         return sample
 
-#class EbirdRaster(RasterDataset):
-#    filename_glob = "*.npy*"
-#    separate_files = True
-#    filename_regex = r"""
-#        ^.*npy*$
-#    """
-
-    # Plotting
-#    all_bands = ["r", "g", "b", "nir", "rgb"]
-#    rgb_bands = ["r", "g", "b"]
-
 
 class EbirdVisionDataset(VisionDataset):
     def __init__(self,  
                  df_paths,
-                 bands, 
+                 bands,
+                 split, 
                  transforms: Optional[Callable[[Dict[str, Any]], Dict [str, Any]]] = None,
                  mode : Optional[str] = "train")-> None:
         """
@@ -64,15 +55,21 @@ class EbirdVisionDataset(VisionDataset):
         self.transform = transforms
         self.bands = bands
         self.mode = mode
+        self.split = split
+
         
 
     def __len__(self) -> int:
+        # import pdb;pdb.set_trace()
+
         return self.total_images
 
     def __getitem__(self, index: int) -> Dict[str, Any]:
-    
+
         meta = load_file(get_path(self.df, index, "metadata"))
         
+        # band_img = get_path(self.df, index, "rgb_paths")
+        # band_npy = get_path(self.df, index, "r_paths")
         band_npy = [(b,get_path(self.df, index, b)) for b in self.bands if get_path(self.df, index, b).suffix == ".npy"]
         band_img = [(b,get_path(self.df, index, b)) for b in self.bands if is_image_file(get_path(self.df, index, b).suffix)]
         
@@ -103,9 +100,9 @@ class EbirdVisionDataset(VisionDataset):
         return item_
     
 
-if __name__ == "__main__":
-    ebird = EbirdVisionDataset("../toydata", transform=Identity())
-    dataset = ebird
-    #sampler = RandomGeoSampler(ebird.index, size=1000, length=10)
-    #dataloader = DataLoader(dataset, sampler=sampler)
+# if __name__ == "__main__":
+#     ebird = EbirdVisionDataset("../toydata", transform=Identity())
+#     dataset = ebird
+#     #sampler = RandomGeoSampler(ebird.index, size=1000, length=10)
+#     #dataloader = DataLoader(dataset, sampler=sampler)
 
