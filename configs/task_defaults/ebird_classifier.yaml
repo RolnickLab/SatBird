@@ -4,7 +4,7 @@ experiment:
     model: "resnet18"
     learning_rate: 1e-3
     learning_rate_schedule_patience: 2
-  datamodule:
+  data:
     batch_size: 32
     num_workers: 4
     train_df: "/network/scratch/a/akeraben/akera/ecosystem-embedding/data/train_june.csv"

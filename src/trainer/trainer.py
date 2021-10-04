@@ -6,8 +6,11 @@ from torch.nn.modules import Module
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.data import DataLoader, Subset
 from torchvision import models
-from src.transforms.transforms import RandomCrop, RandomHorizontalFlip, Normalize
+
+from src.dataset.utils import load_opts
+from src.transforms.transforms import get_transforms
 from torchvision import transforms as trsfs
+
 import pandas as pd
 import torch.nn.functional as F
 from src.losses.losses import CustomCrossEntropyLoss
@@ -22,26 +25,31 @@ m = nn.Sigmoid()
 
 
 class EbirdTask(pl.LightningModule):
-    def config_task(self, kwargs: Any) -> None:
-        if kwargs["model"] == "resnet18":
+    def __init__(self, opts = '/home/mila/t/tengmeli/ecosystem-embedding/configs/defaults.yaml',**kwargs: Any) -> None:
+        """initializes a new Lightning Module to train"""
+
+        super().__init__()
+        self.save_hyperparameters()
+        self.config_task(opts, kwargs)
+        self.device = device or torch.device(
+            "cuda:0" if torch.cuda.is_available() else "cpu"
+        )
+    def config_task(self, opts = '/home/mila/t/tengmeli/ecosystem-embedding/configs/defaults.yaml', kwargs: Any) -> None:
+        self.opts = load_opts(opts)
+
+        if self.opts.model == "resnet18":
             self.model = models.resnet18(pretrained=True)
             self.model.fc = nn.Linear(512, 684) 
             self.model.to(device)
             self.loss = nn.CrossEntropyLoss()#BCEWithLogitsLoss()
             self.m = nn.Sigmoid()
-            self.criterion = CustomCrossEntropyLoss
-
-
+            self.criterion = CustomCrossEntropyLoss()
+            
+        
 
         else:
-            raise ValueError(f"Model type '{kwargs['model']}' is not valid")
+            raise ValueError(f"Model type '{self.opts.model}' is not valid")
 
-    def __init__(self, **kwargs: Any) -> None:
-        """initializes a new Lightning Module to train"""
-
-        super().__init__()
-        self.save_hyperparameters()
-        self.config_task(kwargs)
 
     def forward(self, x:Tensor) -> Any:
         return self.model(x)
@@ -54,7 +62,7 @@ class EbirdTask(pl.LightningModule):
         x = batch['sat'].squeeze(1).to(device)
         y = batch['target'].to(device)
         y_hat = self.forward(x)
-        loss = self.loss(y_hat, y)
+        loss = self.loss(nn.Sigmoid(y_hat), y)
         self.log("train_loss", loss)
         
         return loss
@@ -64,10 +72,11 @@ class EbirdTask(pl.LightningModule):
 
         """Validation step """
 
+        
         x = batch['sat'].squeeze(1).to(device)
         y = batch['target'].to(device)
         y_hat = self.forward(x)
-        loss = self.loss(y_hat, torch.max(y, 1)[1])
+        loss = self.loss(nn.Sigmoid(y_hat), y)
         self.log("Val Loss", loss)
 
     def test_step(
@@ -78,91 +87,78 @@ class EbirdTask(pl.LightningModule):
         x = batch['sat'].squeeze(1).to(device)
         y = batch['target'].to(device)
         y_hat = self.forward(x)
-        loss = criterion(nn.Sigmoid(y_hat), y)
+        loss = self.loss(nn.Sigmoid(y_hat), y)
         self.log("Test Loss", loss)
 
     def configure_optimizers(self) -> Dict[str, Any]:
         optimizer = torch.optim.Adam(
             self.model.parameters(),
-            lr = self.hparams["learning_rate"],
+            lr = self.opts.learning_rate, #CHECK IN CONFIG
         )
         return{
             "optimizer": optimizer,
             "lr_scheduler": {
                 "scheduler": ReduceLROnPlateau(
                     optimizer,
-                    patience = self.hparams["learning_rate_schedule_patience"]
+                    patience = self.opts.learning_rate_schedule_patience   #CHECK IN CONFIG
             ),
             "monitor":"val_loss",
             }
         }
 
 class EbirdDataModule(pl.LightningDataModule):
-    def __init__(self, df_paths:str, df:str, bands: list, seed: int, batch_size: int=64, num_workers: int=4, **kwargs:Any, ) -> None:
+    def __init__(self, opts) -> None:
         super().__init__() 
-        self.df_paths = df_paths
-        self.seed = seed
-        self.batch_size = batch_size
-        self.num_workers = num_workers
-        self.df = pd.read_csv(df_paths)
-        self.bands = ['r_paths','g_paths','b_paths']
-        self.transforms = trsfs.Compose([RandomCrop((256,256), center=True), RandomHorizontalFlip(), Normalize()])
-    
-    def custom_transform(self, sample: Dict[str, Any]) -> Dict [str, Any]:
-        sample["sat"] = sample["sat"] / 255.0 ## TODO: Meli's transforms 
-        sample["sat"] = (
-            sample["sat"].unsqueeze(0).repeat(3,1,1)
-        )#converting to 3 channel
-        sample["target"] = torch.as_tensor(
-            sample["target"]
-        ).float()
-        return sample
+        self.opts = load_opts(opts)
+        self.seed = self.opts.program.seed
+        self.batch_size = self.opts.data.loaders.batch_size
+        self.num_workers = self.opts.data.loaders.opts.num_workers
+        self.df_train = pd.read_csv(self.opts.data.files.train)
+        self.df_val = pd.read_csv(self.opts.data.files.val)
+        self.df_test = pd.read_csv(self.opts.data.files.test)
+        self.bands = self.opts.data.bands    
 
     def prepare_data(self) -> None:
         _ = EbirdVisionDataset(
             # pd.Dataframe("/network/scratch/a/akeraben/akera/ecosystem-embedding/data/train_june.csv"), 
             df_paths = self.df_paths,
-            bands = ['r_paths','g_paths','b_paths'],
+            bands = self.bands,
             split = "train",
-            transforms = trsfs.Compose([RandomCrop((256,256), center=True), RandomHorizontalFlip(), Normalize()])
-        )
-
+            transforms = trsfs.Compose(get_transforms(self.opts, "train"))
+        
         
 
     def setup(self, stage: Optional[str]=None)->None:
         """create the train/test/val splits"""
         self.all_train_dataset = EbirdVisionDataset(
-            self.df,
-            split="train",
+            self.df_train,,
             bands=self.bands,
-            # transforms = self.custom_transform,
-            transforms = trsfs.Compose([RandomCrop((256,256), center=True), RandomHorizontalFlip(), Normalize()])
+            split = "train",
+            transforms = trsfs.Compose(get_transforms(self.opts, "train"))
 
         )
 
         self.all_test_dataset = EbirdVisionDataset(
                                 
-            self.df,
-            split = "test",
+            self.df_test, 
             bands = self.bands,
-            transforms = trsfs.Compose([RandomCrop((256,256), center=True), RandomHorizontalFlip(), Normalize()]),
+            split = "test",
+            transforms = trsfs.Compose(get_transforms(self.opts, "val")),
         )
 
         self.all_val_dataset = EbirdVisionDataset(
-            self.df,
+            self.df_val,
             bands=self.bands,
             split = "val",
-            transforms = trsfs.Compose([RandomCrop((256,256), center=True), RandomHorizontalFlip(), Normalize()]),
+            transforms = trsfs.Compose(get_transforms(self.opts, "val")),
         )
 
         #TODO: Create subsets of the data
         
         self.train_dataset = self.all_train_dataset
-        
-        
+           
         self.test_dataset = self.all_test_dataset
-        
-        
+           
         self.val_dataset = self.all_val_dataset
 
     def train_dataloader(self) -> DataLoader[Any]:

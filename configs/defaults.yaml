@@ -9,18 +9,49 @@ program:  # These are the arguments that define how the train.py script works
 experiment:
   task: "ebird_classifier"
   name: "ebird_classifier"
+  seed: 42
+  
   module:
     model: "resnet18"
     learning_rate: 1e-3
     learning_rate_schedule_patience: 2
-  datamodule:
-    batch_size: 32
+
+data:
+  loaders:
     num_workers: 4
-    root_dir: "."
-    df: "test.csv"
-    bands: ["r_paths","b_paths","g_paths"]
-    seed: 42
-    df_paths: "/network/scratch/a/akeraben/akera/ecosystem-embedding/data/train_june2.csv"
+    batch_size: 32
+  bands: ["r","b","g"] #"r", "g", "b", "ni"
+  files:
+    train: "/network/scratch/t/tengmeli/ecosystem-embedding/training/train_june.csv"
+    val: "/network/scratch/t/tengmeli/ecosystem-embedding/training/val_june.csv"
+    test: "/network/scratch/t/tengmeli/ecosystem-embedding/training/test_june.csv"
+#normalization: None
+  transforms:
+    - name: crop
+      ignore: false
+      p: 0.5
+      center: true # disable randomness, crop around the image's center
+      height: 300
+      width: 300
+    - name: crop
+      ignore: false
+      p: 0.5
+      center: val # disable randomness, crop around the image's center
+      height: 256
+      width: 256
+    - name: hflip
+      ignore: val
+      p: 0.5
+    - name: vflip
+      ignore: val
+      p: 0.5 
+    - name: randomnoise
+      ignore: false
+      std: 0.01
+      max: 0.05
+    - name: normalize
+      maxchan: true
+      custom: 
 
 # The values here are taken from the defaults here https://pytorch-lightning.readthedocs.io/en/1.3.8/common/trainer.html#init
 # this probably should be made into a schema, e.g. as shown https://omegaconf.readthedocs.io/en/2.0_branch/structured_config.html#merging-with-other-configs
