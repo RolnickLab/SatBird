@@ -66,7 +66,7 @@ class EbirdVisionDataset(VisionDataset):
 
     def __getitem__(self, index: int) -> Dict[str, Any]:
 
-        meta = load_file(get_path(self.df, index, "metadata"))
+        meta = load_file(get_path(self.df, index, "meta"))
         
         # band_img = get_path(self.df, index, "rgb_paths")
         # band_npy = get_path(self.df, index, "r_paths")

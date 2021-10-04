@@ -18,14 +18,14 @@ experiment:
 
 data:
   loaders:
-    num_workers: 4
-    batch_size: 32
+    num_workers: 2
+    batch_size: 4
   bands: ["r","b","g"] #"r", "g", "b", "ni"
   files:
     base: "/network/scratch/t/tengmeli/ecosystem-embedding/training/"
-    train: "train_june.csv"
+    train: "val_june.csv"
     val: "val_june.csv"
-    test: "test_june.csv"
+    test: "val_june.csv"
 #normalization: None
   transforms:
     - name: crop
@@ -37,7 +37,7 @@ data:
     - name: crop
       ignore: false
       p: 0.5
-      center: val # disable randomness, crop around the image's center
+      center: false #val # disable randomness, crop around the image's center
       height: 256
       width: 256
     - name: hflip

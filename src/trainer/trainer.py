@@ -19,10 +19,10 @@ from src.losses.losses import CustomCrossEntropyLoss
 from typing import Any, Dict, Optional
 from src.dataset.dataloader import EbirdVisionDataset
 
-criterion = nn.CrossEntropyLoss()#BCEWithLogitsLoss()
+criterion = CustomCrossEntropyLoss()#BCEWithLogitsLoss()
 m = nn.Sigmoid()
 
-
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 class EbirdTask(pl.LightningModule):
     def __init__(self, opts = '/home/mila/t/tengmeli/ecosystem-embedding/configs/defaults.yaml',**kwargs: Any) -> None:
         """initializes a new Lightning Module to train"""
@@ -36,12 +36,12 @@ class EbirdTask(pl.LightningModule):
         
     def config_task(self, opts, **kwargs: Any) -> None:
         self.opts = load_opts(opts)
-        device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+        
         if self.opts.experiment.module.model == "resnet18":
             self.model = models.resnet18(pretrained=True)
             self.model.fc = nn.Linear(512, 684) 
             self.model.to(device)
-            self.loss = nn.CrossEntropyLoss()#BCEWithLogitsLoss()
+            self.loss = CustomCrossEntropyLoss() #BCEWithLogitsLoss()
             self.m = nn.Sigmoid()
             self.criterion = CustomCrossEntropyLoss()
             
@@ -62,7 +62,7 @@ class EbirdTask(pl.LightningModule):
         x = batch['sat'].squeeze(1).to(device)
         y = batch['target'].to(device)
         y_hat = self.forward(x)
-        loss = self.loss(nn.Sigmoid(y_hat), y)
+        loss = self.loss(m(y_hat), y)
         self.log("train_loss", loss)
         
         return loss
@@ -76,7 +76,7 @@ class EbirdTask(pl.LightningModule):
         x = batch['sat'].squeeze(1).to(device)
         y = batch['target'].to(device)
         y_hat = self.forward(x)
-        loss = self.loss(nn.Sigmoid(y_hat), y)
+        loss = self.loss(m(y_hat), y)
         self.log("Val Loss", loss)
 
     def test_step(
@@ -87,7 +87,7 @@ class EbirdTask(pl.LightningModule):
         x = batch['sat'].squeeze(1).to(device)
         y = batch['target'].to(device)
         y_hat = self.forward(x)
-        loss = self.loss(nn.Sigmoid(y_hat), y)
+        loss = self.loss(m(y_hat), y)
         self.log("Test Loss", loss)
 
     def configure_optimizers(self) -> Dict[str, Any]:
@@ -110,9 +110,11 @@ class EbirdDataModule(pl.LightningDataModule):
     def __init__(self, opts) -> None:
         super().__init__() 
         self.opts = load_opts(opts)
+        
         self.seed = self.opts.program.seed
         self.batch_size = self.opts.data.loaders.batch_size
-        self.num_workers = self.opts.data.loaders.opts.num_workers
+        self.num_workers = self.opts.data.loaders.num_workers
+
         self.df_train = pd.read_csv(self.opts.data.files.train)
         self.df_val = pd.read_csv(self.opts.data.files.val)
         self.df_test = pd.read_csv(self.opts.data.files.test)
