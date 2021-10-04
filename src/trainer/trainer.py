@@ -19,7 +19,6 @@ from src.losses.losses import CustomCrossEntropyLoss
 from typing import Any, Dict, Optional
 from src.dataset.dataloader import EbirdVisionDataset
 
-device =  torch.device("cuda" if torch.cuda.is_available() else "cpu")
 criterion = nn.CrossEntropyLoss()#BCEWithLogitsLoss()
 m = nn.Sigmoid()
 
@@ -30,14 +29,15 @@ class EbirdTask(pl.LightningModule):
 
         super().__init__()
         self.save_hyperparameters()
-        self.config_task(opts, kwargs)
-        self.device = device or torch.device(
-            "cuda:0" if torch.cuda.is_available() else "cpu"
-        )
-    def config_task(self, opts = '/home/mila/t/tengmeli/ecosystem-embedding/configs/defaults.yaml', kwargs: Any) -> None:
+        
+        self.config_task(opts, **kwargs)
         self.opts = load_opts(opts)
-
-        if self.opts.model == "resnet18":
+        
+        
+    def config_task(self, opts, **kwargs: Any) -> None:
+        self.opts = load_opts(opts)
+        device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+        if self.opts.experiment.module.model == "resnet18":
             self.model = models.resnet18(pretrained=True)
             self.model.fc = nn.Linear(512, 684) 
             self.model.to(device)
@@ -48,7 +48,7 @@ class EbirdTask(pl.LightningModule):
         
 
         else:
-            raise ValueError(f"Model type '{self.opts.model}' is not valid")
+            raise ValueError(f"Model type '{self.opts.experiment.module.model}' is not valid")
 
 
     def forward(self, x:Tensor) -> Any:
@@ -125,13 +125,14 @@ class EbirdDataModule(pl.LightningDataModule):
             bands = self.bands,
             split = "train",
             transforms = trsfs.Compose(get_transforms(self.opts, "train"))
+        )
         
         
 
     def setup(self, stage: Optional[str]=None)->None:
         """create the train/test/val splits"""
         self.all_train_dataset = EbirdVisionDataset(
-            self.df_train,,
+            self.df_train,
             bands=self.bands,
             split = "train",
             transforms = trsfs.Compose(get_transforms(self.opts, "train"))

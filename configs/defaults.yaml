@@ -22,9 +22,10 @@ data:
     batch_size: 32
   bands: ["r","b","g"] #"r", "g", "b", "ni"
   files:
-    train: "/network/scratch/t/tengmeli/ecosystem-embedding/training/train_june.csv"
-    val: "/network/scratch/t/tengmeli/ecosystem-embedding/training/val_june.csv"
-    test: "/network/scratch/t/tengmeli/ecosystem-embedding/training/test_june.csv"
+    base: "/network/scratch/t/tengmeli/ecosystem-embedding/training/"
+    train: "train_june.csv"
+    val: "val_june.csv"
+    test: "test_june.csv"
 #normalization: None
   transforms:
     - name: crop
