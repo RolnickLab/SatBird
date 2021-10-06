@@ -3,7 +3,7 @@ import os
 import json 
 import pandas as pd
 
-datapath = "/network/scratch/a/akeraben/ecosystem-embedding/data/sentinel2/"
+datapath = "/network/scratch/a/akeraben/akera/ecosystem-embedding/data/sentinel2/"
 species_data = "/network/scratch/t/tengmeli/ecosystem-embedding/ebird_data_june/"
 #txt file with csv names
 hotspots = "/network/scratch/t/tengmeli/ecosystem-embedding/training/train_june.txt"
