@@ -8,7 +8,6 @@ from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
 from src.trainer.trainer import EbirdTask, EbirdDataModule
 from omegaconf import DictConfig, OmegaConf
 
-print(EbirdTask)
 
 TASK_TO_MODULES_MAPPING: Dict[
     str, Tuple[Type[pl.LightningModule], Type[pl.LightningDataModule]]
@@ -23,7 +22,7 @@ TASK_TO_MODULES_MAPPING: Dict[
 def set_up_omegaconf()-> DictConfig:
     """Helps with loading config files"""
     
-    conf = OmegaConf.load("config/defaults.yaml")
+    conf = OmegaConf.load("./configs/defaults.yaml")
     command_line_conf = OmegaConf.from_cli()
 
     if "config_file" in command_line_conf:
@@ -40,7 +39,7 @@ def set_up_omegaconf()-> DictConfig:
     )
 
     task_name = conf.experiment.task
-    task_config_fn = os.path.join("config", "task_defaults", f"{task_name}.yaml")
+    task_config_fn = os.path.join("configs", "task_defaults", f"{task_name}.yaml")
     if task_name == "test":
         task_conf = OmegaConf.create()
     elif os.path.exists(task_config_fn):
@@ -88,7 +87,7 @@ def main(conf: DictConfig) -> None:
         Dict[str, Any], OmegaConf.to_object(conf.experiment.datamodule)
     )
 
-    datamodule: pl.LigtningDataModuleModule
+    datamodule: pl.LightningDataModuleModule
     task: pl.LightningModule
 
     if task_name in TASK_TO_MODULES_MAPPING:

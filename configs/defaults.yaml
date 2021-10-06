@@ -13,8 +13,8 @@ experiment:
   
   module:
     model: "resnet18"
-    learning_rate: 1e-3
-    learning_rate_schedule_patience: 2
+    lr: 0.001
+    lr_schedule_patience: 2
 
 data:
   loaders:

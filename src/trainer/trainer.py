@@ -93,14 +93,14 @@ class EbirdTask(pl.LightningModule):
     def configure_optimizers(self) -> Dict[str, Any]:
         optimizer = torch.optim.Adam(
             self.model.parameters(),
-            lr = self.opts.learning_rate, #CHECK IN CONFIG
+            lr = self.opts.experiment.module.lr, #CHECK IN CONFIG
         )
         return{
             "optimizer": optimizer,
             "lr_scheduler": {
                 "scheduler": ReduceLROnPlateau(
                     optimizer,
-                    patience = self.opts.learning_rate_schedule_patience   #CHECK IN CONFIG
+                    patience = self.opts.experiment.module.lr_schedule_patience   #CHECK IN CONFIG
             ),
             "monitor":"val_loss",
             }
@@ -121,13 +121,14 @@ class EbirdDataModule(pl.LightningDataModule):
         self.bands = self.opts.data.bands    
 
     def prepare_data(self) -> None:
-        _ = EbirdVisionDataset(
+        """_ = EbirdVisionDataset(
             # pd.Dataframe("/network/scratch/a/akeraben/akera/ecosystem-embedding/data/train_june.csv"), 
             df_paths = self.df_paths,
             bands = self.bands,
             split = "train",
             transforms = trsfs.Compose(get_transforms(self.opts, "train"))
-        )
+        )"""
+        print("prepare data")
         
         
 
