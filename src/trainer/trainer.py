@@ -23,6 +23,7 @@ criterion = CustomCrossEntropyLoss()#BCEWithLogitsLoss()
 m = nn.Sigmoid()
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
 class EbirdTask(pl.LightningModule):
     def __init__(self, opts = '/home/mila/t/tengmeli/ecosystem-embedding/configs/defaults.yaml',**kwargs: Any) -> None:
         """initializes a new Lightning Module to train"""
@@ -61,6 +62,8 @@ class EbirdTask(pl.LightningModule):
         
         x = batch['sat'].squeeze(1).to(device)
         y = batch['target'].to(device)
+        print("IIII")
+        print(batch['hotspot_id'])
         y_hat = self.forward(x)
         loss = self.loss(m(y_hat), y)
         self.log("train_loss", loss)
@@ -75,6 +78,8 @@ class EbirdTask(pl.LightningModule):
         
         x = batch['sat'].squeeze(1).to(device)
         y = batch['target'].to(device)
+        print("AAA")
+        print(batch['hotspot_id'])
         y_hat = self.forward(x)
         loss = self.loss(m(y_hat), y)
         self.log("Val Loss", loss)

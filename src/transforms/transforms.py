@@ -118,17 +118,22 @@ class RandomCrop:  # type: ignore[misc,name-defined]
         Returns:
             the cropped input
         """
+        
         H, W = (
             sample["sat"].size()[-2:] if "sat" in sample else list(sample.values())[0].size()[-2:]
         )
-
+        if (len(sample["sat"].size())==3):
+            sample["sat"] = sample["sat"].unsqueeze(0)
+           
         if not self.center:
-            top = np.random.randint(0, H - self.h)
-            left = np.random.randint(0, W - self.w)
+            
+            
+            top = max(0, np.random.randint(0, max(H - self.h,1)))
+            left = max(0, np.random.randint(0, max(W - self.w,1)))
         else:
-            top = (H - self.h) // 2
-            left = (W - self.w) // 2
-
+            top = max(0, (H - self.h) // 2)
+            left = max(0,(W - self.w) // 2)
+        print(sample["sat"].size())
         return {
             task: tensor[:, :, top : top + self.h, left : left + self.w]
             for task, tensor in sample.items() if task in transformable
