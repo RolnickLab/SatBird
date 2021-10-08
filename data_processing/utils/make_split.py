@@ -3,10 +3,12 @@ import os
 import json
 import random
 import numpy as np 
-path = "../../hotspots_data_june.csv"
+import glob
+
+path = "../../hotspots_june_filtered.csv"
 
 
-if __name__ == "__main__:"
+if __name__ == "__main__":
     train=0.70
     val=0.15
     test=0.15
@@ -18,7 +20,14 @@ if __name__ == "__main__:"
 
     ids = os.listdir("/network/scratch/t/tengmeli/ecosystem-embedding/ebird_data_june/")
     ids = [i.strip(".json") for i in ids]
+    
+    ids2 = os.listdir("/network/scratch/a/akeraben/akera/ecosystem-embedding/data/sentinel2")
+    ids2 = [i.split(".")[0] for i in ids2 if i.endswith("json")]
+    
     a = pd.DataFrame({"hotspot_id":ids})
+    b =  pd.DataFrame({"hotspot_id":ids2})
+    a = a.merge(b,on="hotspot_id", how = "inner")
+    print(len(a))
     df = df.merge(a, on="hotspot_id", how = "inner")
     
     counties = list(df["county_code"].unique())
@@ -34,7 +43,9 @@ if __name__ == "__main__:"
     train_hs = df[df["county_code"].isin(train_c)]["hotspot_id"].values
     val_hs = df[df["county_code"].isin(val_c)]["hotspot_id"].values
     test_hs = df[df["county_code"].isin(test_c)]["hotspot_id"].values
-
+    print(len(train_hs))
+    print(len(val_hs))
+    print(len(test_hs))
     def write_array_text(arr, file):
         with open(file, "w") as txt_file:    
             for elem in arr:

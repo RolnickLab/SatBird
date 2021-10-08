@@ -36,7 +36,7 @@ data:
     - name: crop
       ignore: false
       p: 0.5
-      center: false #val # disable randomness, crop around the image's center
+      center: val #val # disable randomness, crop around the image's center
       height: 256
       width: 256
     - name: hflip

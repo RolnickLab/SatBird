@@ -62,8 +62,7 @@ class EbirdTask(pl.LightningModule):
         
         x = batch['sat'].squeeze(1).to(device)
         y = batch['target'].to(device)
-        print("IIII")
-        print(batch['hotspot_id'])
+    
         y_hat = self.forward(x)
         loss = self.loss(m(y_hat), y)
         self.log("train_loss", loss)
@@ -78,11 +77,10 @@ class EbirdTask(pl.LightningModule):
         
         x = batch['sat'].squeeze(1).to(device)
         y = batch['target'].to(device)
-        print("AAA")
-        print(batch['hotspot_id'])
+        
         y_hat = self.forward(x)
         loss = self.loss(m(y_hat), y)
-        self.log("Val Loss", loss)
+        self.log("val_loss", loss)
 
     def test_step(
         self, batch: Dict[str, Any], batch_idx:int
@@ -107,7 +105,7 @@ class EbirdTask(pl.LightningModule):
                     optimizer,
                     patience = self.opts.experiment.module.lr_schedule_patience   #CHECK IN CONFIG
             ),
-            "monitor":"val_loss",
+            "monitor":"Val lloss",
             }
         }
 

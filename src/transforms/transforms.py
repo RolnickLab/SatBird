@@ -133,7 +133,7 @@ class RandomCrop:  # type: ignore[misc,name-defined]
         else:
             top = max(0, (H - self.h) // 2)
             left = max(0,(W - self.w) // 2)
-        print(sample["sat"].size())
+
         return {
             task: tensor[:, :, top : top + self.h, left : left + self.w]
             for task, tensor in sample.items() if task in transformable

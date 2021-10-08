@@ -74,8 +74,11 @@ class EbirdVisionDataset(VisionDataset):
         band_img = [(b,get_path(self.df, index, b)) for b in self.bands if is_image_file(get_path(self.df, index, b).suffix)]
         
         item_ = {}
+        
         if len(band_npy) > 0:
-            npy_data = np.stack(([load_file(band) for (_,band) in band_npy]), axis = 1).astype(np.int32)
+            bands = [load_file(band) for (_,band) in band_npy]
+            bands = [b if (len(b.shape)>=3) else np.expand_dims(b, axis=0) for b in bands ]
+            npy_data = np.stack(bands, axis = 1).astype(np.int32)
             item_["sat"] = torch.from_numpy(npy_data)
             
             
@@ -93,7 +96,8 @@ class EbirdVisionDataset(VisionDataset):
             species = load_file(get_path(self.df, index, "species"))
             item_["target"] = torch.Tensor(species["probs"])
             item_["num_complete_checklists"] = species["num_complete_checklists"]
-        #add metadata information (hotspot info)    
+        #add metadata information (hotspot info)
+        meta.pop('earliest_date', None)
         item_.update(meta)
         
         
