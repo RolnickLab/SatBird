@@ -17,7 +17,7 @@ experiment:
 
 data:
   loaders:
-    num_workers: 2
+    num_workers: 8
     batch_size: 4
   bands: ["r", "b", "g"] #"r", "g", "b", "ni"
   files:
@@ -65,7 +65,7 @@ trainer: # These are the parameters passed to the pytorch lightning Trainer obje
   process_position: 0
   num_nodes: 1
   num_processes: 1
-  gpus: null
+  gpus: 1
   auto_select_gpus: False
   tpu_cores: null
   log_gpu_memory: null
