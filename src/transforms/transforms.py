@@ -77,6 +77,8 @@ class Normalize:
     def __init__(self, maxchan = True, custom = None):
         """
         custom : ([means], [std])
+        means =[r: 894.6719, g: 932.5726, b:693.2768, nir: 2817.9849]
+        std = [r:883.9763, g:747.6857, b:749.3098, nir: 1342.6334]
         """
         self.maxchan = maxchan
         #TODO make this work with the values of the normalization values computed over the whole dataset 
