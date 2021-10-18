@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import torchmetrics
 
 
 class CustomCrossEntropyLoss(nn.Module):
