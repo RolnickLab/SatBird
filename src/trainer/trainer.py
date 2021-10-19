@@ -62,9 +62,10 @@ class EbirdTask(pl.LightningModule):
         y = batch['target'].to(device)
     
         y_hat = self.forward(x)
-        loss = self.loss(m(y_hat), y)
-        mse = self.mse(m(y_hat), y)
-        mae = self.mae(m(y_hat),y)
+        pred = m(y_hat)
+        loss = self.loss(pred, y)
+        mse = self.mse(pred, y)
+        mae = self.mae(pred, y)
         self.log("train_loss", loss)
         self.log("train_mae", mae)
         self.log("train_mse", mse )
@@ -82,8 +83,10 @@ class EbirdTask(pl.LightningModule):
         
         y_hat = self.forward(x)
         loss = self.loss(m(y_hat), y)
-        mse = self.mse(m(y_hat), y)
-        mae = self.mae(m(y_hat),y)
+        pred = m(y_hat)
+        loss = self.loss(pred, y)
+        mse = self.mse(pred, y)
+        mae = self.mae(pred, y)
         self.log("val_loss", loss)
         self.log("val_mae", mae)
         self.log("val_mse", mse )
@@ -97,9 +100,10 @@ class EbirdTask(pl.LightningModule):
         x = batch['sat'].squeeze(1).to(device)
         y = batch['target'].to(device)
         y_hat = self.forward(x)
-        loss = self.loss(m(y_hat), y)
-        mse = self.mse(m(y_hat), y)
-        mae = self.mae(m(y_hat),y)
+        pred = m(y_hat)
+        loss = self.loss(pred, y)
+        mse = self.mse(pred, y)
+        mae = self.mae(pred, y)
         self.log("test_loss", loss)
         self.log("test_mae", mae)
         self.log("test_mse", mse )
@@ -107,7 +111,7 @@ class EbirdTask(pl.LightningModule):
     def configure_optimizers(self) -> Dict[str, Any]:
         optimizer = torch.optim.Adam(
             self.model.parameters(),
-            lr = self.opts.experiment.module.lr, #CHECK IN CONFIG
+            lr=self.opts.experiment.module.lr,  #CHECK IN CONFIG
         )
         return{
             "optimizer": optimizer,
