@@ -68,7 +68,6 @@ class EbirdTask(pl.LightningModule):
         loss = self.loss(pred, y)
         mse = self.mse(pred, y)
         mae = self.mae(pred, y)
-
         self.log("train_loss", loss)
         self.log("train_mae", mae)
         self.log("train_mse", mse )
