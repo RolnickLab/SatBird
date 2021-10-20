@@ -3,7 +3,7 @@ import numpy as np
 import torch
 from torch import Tensor
 from torch.nn import Module  # type: ignore[attr-defined]
-
+import torch.nn.functional as F
 # https://github.com/pytorch/pytorch/issues/60979
 # https://github.com/pytorch/pytorch/pull/61045
 Module.__module__ = "torch.nn"
@@ -92,8 +92,12 @@ class Normalize:
                 for task, tensor in sample.items() if task in transformable
             }
         #TODO 
-        #if self.custom:
-        #    mean, std = self.custom
+        if self.custom:
+            means, std = custom
+            d = {
+                task: F.normalize(tensor, means, std)
+                 for task, tensor in sample.items() if task in transformable
+            }
         #    pass
         return(d)
 
@@ -197,7 +201,7 @@ def get_transform(transform_item, mode):
     elif transform_item.name == "normalize" and not (
         transform_item.ignore is True or transform_item.ignore == mode
     ):
-        return Normalize(maxchan=True, custom=transform_item.mean_std or None)
+        return Normalize(maxchan=transform_item.maxchan, custom=transform_item.mean_std or None)
 
     elif transform_item.ignore is True or transform_item.ignore == mode:
         return None

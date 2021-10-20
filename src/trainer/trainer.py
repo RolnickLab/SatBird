@@ -10,14 +10,15 @@ from torchvision import models
 from src.dataset.utils import load_opts
 from src.transforms.transforms import get_transforms
 from torchvision import transforms as trsfs
-
 import pandas as pd
 import torch.nn.functional as F
 from src.losses.losses import CustomCrossEntropyLoss
-
+import torchmetrics
 
 from typing import Any, Dict, Optional
 from src.dataset.dataloader import EbirdVisionDataset
+
+import time 
 
 criterion = CustomCrossEntropyLoss()#BCEWithLogitsLoss()
 m = nn.Sigmoid()
@@ -25,12 +26,11 @@ m = nn.Sigmoid()
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 class EbirdTask(pl.LightningModule):
-    def __init__(self, opts = '/home/mila/t/tengmeli/ecosystem-embedding/configs/defaults.yaml',**kwargs: Any) -> None:
+    def __init__(self, opts = 'configs/defaults.yaml',**kwargs: Any) -> None:
         """initializes a new Lightning Module to train"""
 
         super().__init__()
         self.save_hyperparameters()
-        
         self.config_task(opts, **kwargs)
         self.opts = load_opts(opts)
         
@@ -45,8 +45,8 @@ class EbirdTask(pl.LightningModule):
             self.loss = CustomCrossEntropyLoss() #BCEWithLogitsLoss()
             self.m = nn.Sigmoid()
             self.criterion = CustomCrossEntropyLoss()
-            
-        
+            self.mse = torchmetrics.MeanSquaredError()
+            self.mae = torchmetrics.MeanAbsoluteError()
 
         else:
             raise ValueError(f"Model type '{self.opts.experiment.module.model}' is not valid")
@@ -62,10 +62,16 @@ class EbirdTask(pl.LightningModule):
         
         x = batch['sat'].squeeze(1).to(device)
         y = batch['target'].to(device)
-    
+
         y_hat = self.forward(x)
-        loss = self.loss(m(y_hat), y)
+        pred = m(y_hat)
+        loss = self.loss(pred, y)
+        mse = self.mse(pred, y)
+        mae = self.mae(pred, y)
+
         self.log("train_loss", loss)
+        self.log("train_mae", mae)
+        self.log("train_mse", mse )
         
         return loss
 
@@ -80,7 +86,14 @@ class EbirdTask(pl.LightningModule):
         
         y_hat = self.forward(x)
         loss = self.loss(m(y_hat), y)
+        pred = m(y_hat)
+        loss = self.loss(pred, y)
+        mse = self.mse(pred, y)
+        mae = self.mae(pred, y)
         self.log("val_loss", loss)
+        self.log("val_mae", mae)
+        self.log("val_mse", mse )
+    
 
     def test_step(
         self, batch: Dict[str, Any], batch_idx:int
@@ -90,13 +103,18 @@ class EbirdTask(pl.LightningModule):
         x = batch['sat'].squeeze(1).to(device)
         y = batch['target'].to(device)
         y_hat = self.forward(x)
-        loss = self.loss(m(y_hat), y)
-        self.log("Test Loss", loss)
+        pred = m(y_hat)
+        loss = self.loss(pred, y)
+        mse = self.mse(pred, y)
+        mae = self.mae(pred, y)
+        self.log("test_loss", loss)
+        self.log("test_mae", mae)
+        self.log("test_mse", mse )
 
     def configure_optimizers(self) -> Dict[str, Any]:
         optimizer = torch.optim.Adam(
             self.model.parameters(),
-            lr = self.opts.experiment.module.lr, #CHECK IN CONFIG
+            lr=self.opts.experiment.module.lr,  #CHECK IN CONFIG
         )
         return{
             "optimizer": optimizer,
@@ -105,7 +123,7 @@ class EbirdTask(pl.LightningModule):
                     optimizer,
                     patience = self.opts.experiment.module.lr_schedule_patience   #CHECK IN CONFIG
             ),
-            "monitor":"Val lloss",
+            "monitor":"val_loss",
             }
         }
 
@@ -145,8 +163,7 @@ class EbirdDataModule(pl.LightningDataModule):
 
         )
 
-        self.all_test_dataset = EbirdVisionDataset(
-                                
+        self.all_test_dataset = EbirdVisionDataset(                
             self.df_test, 
             bands = self.bands,
             split = "test",

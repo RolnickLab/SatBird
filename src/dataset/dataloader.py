@@ -13,7 +13,7 @@ import torch
 #from rasterio.crs import CRS
 import os
 import pandas as pd
-
+import time 
 
 def get_path(df, index, band):
     
@@ -71,24 +71,26 @@ class EbirdVisionDataset(VisionDataset):
         # band_img = get_path(self.df, index, "rgb_paths")
         # band_npy = get_path(self.df, index, "r_paths")
         band_npy = [(b,get_path(self.df, index, b)) for b in self.bands if get_path(self.df, index, b).suffix == ".npy"]
-        band_img = [(b,get_path(self.df, index, b)) for b in self.bands if is_image_file(get_path(self.df, index, b).suffix)]
+        #band_img = [(b,get_path(self.df, index, b)) for b in self.bands if is_image_file(get_path(self.df, index, b).suffix)]
         
         item_ = {}
         
         if len(band_npy) > 0:
+            #start = time.time()
+
             bands = [load_file(band) for (_,band) in band_npy]
-            bands = [b if (len(b.shape)>=3) else np.expand_dims(b, axis=0) for b in bands ]
             npy_data = np.stack(bands, axis = 1).astype(np.int32)
             item_["sat"] = torch.from_numpy(npy_data)
-            
-            
+            #elapsed = (time.time() - start)
+            #print("finished loading satellite band in " + str(elapsed))
+            #print("****************************************************")
         #TODO later if we are using img data
         #for (b, data) in band_img :                                                                           
           #  tensor_image = self.transform(image)
          #   item_[b] = tensor_image
-    
-        
+
         item_ = self.transform(item_)
+       
         #add target
         item_["target"] = None
         item_["num_complete_checklists"] = None
@@ -103,10 +105,3 @@ class EbirdVisionDataset(VisionDataset):
         
         return item_
     
-
-# if __name__ == "__main__":
-#     ebird = EbirdVisionDataset("../toydata", transform=Identity())
-#     dataset = ebird
-#     #sampler = RandomGeoSampler(ebird.index, size=1000, length=10)
-#     #dataloader = DataLoader(dataset, sampler=sampler)
-
