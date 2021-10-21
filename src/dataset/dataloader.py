@@ -90,8 +90,7 @@ class EbirdVisionDataset(VisionDataset):
          #   item_[b] = tensor_image
 
         item_ = self.transform(item_)
-        print("********************TRANSFORMED********************************")
-        print(item_)
+        
        
         #add target
         item_["target"] = None
