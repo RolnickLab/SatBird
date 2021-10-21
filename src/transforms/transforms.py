@@ -3,7 +3,7 @@ import numpy as np
 import torch
 from torch import Tensor
 from torch.nn import Module  # type: ignore[attr-defined]
-import torch.nn.functional as F
+from torchvision.transforms.functional import normalize
 # https://github.com/pytorch/pytorch/issues/60979
 # https://github.com/pytorch/pytorch/pull/61045
 Module.__module__ = "torch.nn"
@@ -73,6 +73,18 @@ class RandomVerticalFlip:  # type: ignore[misc,name-defined]
 
         return sample
 
+
+def normalize_custom(t, mini=0, maxi=1):
+    if len(t.shape) == 3:
+        return mini + (maxi - mini) * (t - t.min()) / (t.max() - t.min())
+
+    batch_size = t.shape[0]
+    min_t = t.reshape(batch_size, -1).min(1)[0].reshape(batch_size, 1, 1, 1)
+    t = t - min_t
+    max_t = t.reshape(batch_size, -1).max(1)[0].reshape(batch_size, 1, 1, 1)
+    t = t / max_t
+    return mini + (maxi - mini) * t
+    
 class Normalize:
     def __init__(self, maxchan = True, custom = None):
         """
@@ -93,12 +105,14 @@ class Normalize:
             }
         #TODO 
         if self.custom:
-            means, std = custom
+            means, std = self.custom
+            
             d = {
-                task: F.normalize(tensor, means, std)
+                task: normalize(tensor.type(torch.FloatTensor), means, std)
                  for task, tensor in sample.items() if task in transformable
             }
         #    pass
+        
         return(d)
 
 
@@ -201,7 +215,8 @@ def get_transform(transform_item, mode):
     elif transform_item.name == "normalize" and not (
         transform_item.ignore is True or transform_item.ignore == mode
     ):
-        return Normalize(maxchan=transform_item.maxchan, custom=transform_item.mean_std or None)
+        
+        return Normalize(maxchan=transform_item.maxchan, custom=transform_item.custom or None)
 
     elif transform_item.ignore is True or transform_item.ignore == mode:
         return None
@@ -217,6 +232,7 @@ def get_transforms(opts, mode):
 
     for t in opts.data.transforms:
         transforms.append(get_transform(t, mode))
+    
 
     transforms = [t for t in transforms if t is not None]
 

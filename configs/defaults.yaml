@@ -36,14 +36,14 @@ data:
     - name: crop
       ignore: false
       p: 0.5
-      center: val #val # disable randomness, crop around the image's center
+      center: "val" #val # disable randomness, crop around the image's center
       height: 256
       width: 256
     - name: hflip
-      ignore: val
+      ignore: "val"
       p: 0.5
     - name: vflip
-      ignore: val
+      ignore: "val"
       p: 0.5
     - name: randomnoise
       ignore: false
@@ -51,7 +51,7 @@ data:
       max: 0.05
     - name: normalize
       maxchan: false
-      custom: ((894.6719, 932.5726,693.2768, 2817.9849), (883.9763,747.6857,749.3098,1342.6334))
+      custom: [[894.6719, 932.5726,693.2768], [883.9763,747.6857,749.3098]]
       #means =[r: 894.6719, g: 932.5726, b:693.2768, nir: 2817.9849]
       #std = [r:883.9763, g:747.6857, b:749.3098, nir: 1342.6334]
 

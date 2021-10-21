@@ -74,7 +74,7 @@ class EbirdVisionDataset(VisionDataset):
         #band_img = [(b,get_path(self.df, index, b)) for b in self.bands if is_image_file(get_path(self.df, index, b).suffix)]
         
         item_ = {}
-        
+
         if len(band_npy) > 0:
             #start = time.time()
 
@@ -90,6 +90,8 @@ class EbirdVisionDataset(VisionDataset):
          #   item_[b] = tensor_image
 
         item_ = self.transform(item_)
+        print("********************TRANSFORMED********************************")
+        print(item_)
        
         #add target
         item_["target"] = None
