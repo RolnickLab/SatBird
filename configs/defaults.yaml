@@ -12,10 +12,10 @@ experiment:
 
   module:
     model: "resnet18"
-    lr: 0.05
+    lr: 0.01
 
 scheduler: 
-  name: "ReduceLROnPlateau" #or "StepLR"
+  name: "StepLR" #"ReduceLROnPlateau" #or "StepLR"
   reduce_lr_plateau:
     lr_schedule_patience: 2
   step_lr:
