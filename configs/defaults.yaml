@@ -12,8 +12,26 @@ experiment:
 
   module:
     model: "resnet18"
-    lr: 0.01
+    lr: 0.05
+
+scheduler: 
+  name: "ReduceLROnPlateau" #or "StepLR"
+  reduce_lr_plateau:
     lr_schedule_patience: 2
+  step_lr:
+    step_size: 30
+    gamma: 0.1
+
+losses:
+  ce:
+    #weights on the cross entropy
+    lambd_pres: 1
+    lambd_abs: 1
+  mae:
+    scale: 10
+  mse:
+    scale: 10
+
 
 data:
   loaders:
