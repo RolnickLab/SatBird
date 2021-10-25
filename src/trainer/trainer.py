@@ -58,7 +58,7 @@ class EbirdTask(pl.LightningModule):
             self.m = nn.Sigmoid()
             
             self.ce_pres = CustomCrossEntropyLoss(1,0)
-            
+            self.topk = TopKAccuracy(30)
             self.mse = torchmetrics.MeanSquaredError()
             self.mae = torchmetrics.MeanAbsoluteError()
             
