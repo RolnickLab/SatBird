@@ -13,7 +13,7 @@ from src.transforms.transforms import get_transforms
 from torchvision import transforms as trsfs
 import pandas as pd
 import torch.nn.functional as F
-from src.losses.losses import CustomCrossEntropyLoss
+from src.losses.losses import CustomCrossEntropyLoss, TopKAccuracy
 import torchmetrics
 
 from typing import Any, Dict, Optional
@@ -69,7 +69,7 @@ class EbirdTask(pl.LightningModule):
             self.loss = CustomCrossEntropyLoss(self.opts.losses.ce.lambd_pres,self.opts.losses.ce.lambd_abs) 
             self.m = nn.Sigmoid()
             
-            self.topk = TopKAcc(30)
+            self.topk = TopKAccuracy(30)
             self.ce_pres = CustomCrossEntropyLoss(1,0)
             self.mse = torchmetrics.MeanSquaredError()
             self.mae = torchmetrics.MeanAbsoluteError()
@@ -83,7 +83,7 @@ class EbirdTask(pl.LightningModule):
             #model.AuxLogits.fc = nn.Linear(768, num_classes)
             self.m = nn.Sigmoid()
             
-            self.topk = TopKAcc(30)
+            self.topk = TopKAccuracy(30)
             self.ce_pres = CustomCrossEntropyLoss(1,0)
             self.mse = torchmetrics.MeanSquaredError()
             self.mae = torchmetrics.MeanAbsoluteError()
