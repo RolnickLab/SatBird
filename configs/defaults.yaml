@@ -5,23 +5,6 @@ program: # These are the arguments that define how the train.py script works
   log_dir: logs
   overwrite: False
 
-experiment:
-  task: "ebird_classifier"
-  name: "ebird_classifier"
-  seed: 42
-
-  module:
-    model: "resnet18"
-    lr: 0.01
-
-scheduler: 
-  name: "StepLR" #"ReduceLROnPlateau" #or "StepLR"
-  reduce_lr_plateau:
-    lr_schedule_patience: 2
-  step_lr:
-    step_size: 30
-    gamma: 0.1
-
 losses:
   ce:
     #weights on the cross entropy
@@ -63,13 +46,15 @@ data:
     - name: vflip
       ignore: "val"
       p: 0.5
+    - name: normalize
+      ignore: false
+      maxchan: false
+      custom: [[894.6719, 932.5726,693.2768], [883.9763,747.6857,749.3098]]
     - name: randomnoise
       ignore: false
       std: 0.01
-      max: 0.05
-    - name: normalize
-      maxchan: false
-      custom: [[894.6719, 932.5726,693.2768], [883.9763,747.6857,749.3098]]
+      max_noise: 0.05
+   
       #means =[r: 894.6719, g: 932.5726, b:693.2768, nir: 2817.9849]
       #std = [r:883.9763, g:747.6857, b:749.3098, nir: 1342.6334]
 

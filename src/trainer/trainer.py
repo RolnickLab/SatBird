@@ -7,7 +7,8 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau, StepLR
 from torch.utils.data import DataLoader, Subset
 from torchvision import models
 
-from src.dataset.utils import load_opts
+from omegaconf import OmegaConf
+#from src.dataset.utils import load_opts
 from src.transforms.transforms import get_transforms
 from torchvision import transforms as trsfs
 import pandas as pd
@@ -36,39 +37,54 @@ def get_scheduler(optimizer, opts):
         
 
 class EbirdTask(pl.LightningModule):
-    def __init__(self, opts = 'configs/defaults.yaml',**kwargs: Any) -> None:
+    def __init__(self, opts,**kwargs: Any) -> None:
         """initializes a new Lightning Module to train"""
 
         super().__init__()
         self.save_hyperparameters()
         self.config_task(opts, **kwargs)
-        self.opts = load_opts(opts)
+        self.opts = opts
         
         
     def config_task(self, opts, **kwargs: Any) -> None:
-        self.opts = load_opts(opts)
+        self.opts = opts
         
         if self.opts.experiment.module.model == "resnet18":
             
-            self.model = models.resnet18(pretrained=True)
+            self.model = models.resnet18(pretrained=False)
             self.model.fc = nn.Linear(512, 684) 
             self.model.to(device)
-            self.loss = CustomCrossEntropyLoss() #BCEWithLogitsLoss()
+            self.loss = CustomCrossEntropyLoss(self.opts.losses.ce.lambd_pres,self.opts.losses.ce.lambd_abs) #BCEWithLogitsLoss()
             self.m = nn.Sigmoid()
             
-            self.criterion = CustomCrossEntropyLoss()
-            #self.opts.losses.ce.lambd_pres,self.opts.losses.ce.lambd_abs
+            self.ce_pres = CustomCrossEntropyLoss(1,0)
+            
             self.mse = torchmetrics.MeanSquaredError()
             self.mae = torchmetrics.MeanAbsoluteError()
             
         elif self.opts.experiment.module.model == "resnet50":
-            self.model = models.resnet50(pretrained=True)
-            self.model.fc = nn.Linear(512, 684) 
+            self.model = models.resnet50(pretrained=False)
+            self.model.fc = nn.Linear(2048, 684) 
             self.model.to(device)
-            self.loss = CustomCrossEntropyLoss() #BCEWithLogitsLoss()
+            self.loss = CustomCrossEntropyLoss(self.opts.losses.ce.lambd_pres,self.opts.losses.ce.lambd_abs) 
             self.m = nn.Sigmoid()
             
-            self.criterion = CustomCrossEntropyLoss()#self.opts.losses.ce.lambd_pres,self.opts.losses.ce.lambd_abs)
+            self.topk = TopKAcc(30)
+            self.ce_pres = CustomCrossEntropyLoss(1,0)
+            self.mse = torchmetrics.MeanSquaredError()
+            self.mae = torchmetrics.MeanAbsoluteError()
+            
+        elif self.opts.experiment.module.model == "inception_v3":
+            self.model = models.inception(pretrained=True)
+            model.AuxLogits.fc = nn.Linear(768, 684)
+            self.model.fc = nn.Linear(2048, 684) 
+            self.model.to(device)
+            self.loss = CustomCrossEntropyLoss(self.opts.losses.ce.lambd_pres,self.opts.losses.ce.lambd_abs) 
+            #model.AuxLogits.fc = nn.Linear(768, num_classes)
+            self.m = nn.Sigmoid()
+            
+            self.topk = TopKAcc(30)
+            self.ce_pres = CustomCrossEntropyLoss(1,0)
             self.mse = torchmetrics.MeanSquaredError()
             self.mae = torchmetrics.MeanAbsoluteError()
 
@@ -92,10 +108,14 @@ class EbirdTask(pl.LightningModule):
         pred = m(y_hat)
         
         loss = self.loss(pred, y)
-
+        ce_pres = self.ce_pres(pred,y)
         mse = self.mse(pred, y)
         mae = self.mae(pred, y)
+        topk_acc, topk_mae = self.topk(pred, y)
         self.log("train_loss", loss)
+        self.log("train_ce_pres", ce_pres)
+        self.log("train_top_k_acc", topk_acc)
+        self.log("train_top_k_mae", topk_mae)
         self.log("train_mae", mae * self.opts.losses.mae.scale)
         self.log("train_mse", mse * self.opts.losses.mse.scale )
         
@@ -114,9 +134,14 @@ class EbirdTask(pl.LightningModule):
         
         pred = m(y_hat)
         loss = self.loss(pred, y)
+        ce_pres = self.ce_pres(pred,y)
         mse = self.mse(pred, y)
         mae = self.mae(pred, y)
+        topk_acc, topk_mae = self.topk(pred, y)
         self.log("val_loss", loss)
+        self.log("val_ce_pres", ce_pres)
+        self.log("val_top_k_acc", topk_acc)
+        self.log("val_top_k_mae", topk_mae)
         self.log("val_mae", mae * self.opts.losses.mae.scale)
         self.log("val_mse", mse * self.opts.losses.mse.scale )
     
@@ -158,7 +183,7 @@ class EbirdTask(pl.LightningModule):
 class EbirdDataModule(pl.LightningDataModule):
     def __init__(self, opts) -> None:
         super().__init__() 
-        self.opts = load_opts(opts)
+        self.opts = opts
         
         self.seed = self.opts.program.seed
         self.batch_size = self.opts.data.loaders.batch_size
