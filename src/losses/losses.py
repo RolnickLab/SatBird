@@ -18,6 +18,6 @@ class TopKAccuracy(nn.Module):
     def __call__(self, pred, target):
         v_topk, i_topk = torch.topk(target, self.k)
         v_pred, i_pred = torch.topk(pred, self.k)
-        acc = len([i for i_topk in x if i in i_pred])/self.k
+        acc = len([i for i in i_topk if i in i_pred])/self.k
         diff = sum(torch.abs(v_pred - v_topk))
-        return (acc, diff)
+        return (acc, diff.mean())
