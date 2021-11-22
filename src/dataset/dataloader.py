@@ -17,8 +17,6 @@ def get_path(df, index, band):
     
     return Path(df.iloc[index][band])
 
-    #return (df.loc[df["hotspot_id"] == hotspot][band])
-
 class Identity(Module):  # type: ignore[misc,name-defined]
     """Identity function used for testing purposes."""
 
@@ -38,13 +36,13 @@ def get_img_bands(band_npy):
     bands = []
     for elem in band_npy:
         b, band= elem
-    if b == "rgb":
-        bands+= [load_file(band)]
-    elif b == "nir":
-        nir_band = load_file(band)
-        nir_band = (nir_band/nir_band.max())*255
-        nir_band = nir_band.astype(np.uint8)
-        bands+= [nir_band]
+        if b == "rgb":
+            bands+= [load_file(band)]
+        elif b == "nir":
+            nir_band = load_file(band)
+            nir_band = (nir_band/nir_band.max())*255
+            nir_band = nir_band.astype(np.uint8)
+            bands+= [nir_band]
     npy_data =np.vstack(bands)/255
     return (npy_data)
             
@@ -93,28 +91,29 @@ class EbirdVisionDataset(VisionDataset):
         assert len(band_npy) > 0, "No item to fetch"
         
         if self.type == "img":
-            bands = get_img_bands(band_npy)
+            npy_data = get_img_bands(band_npy)
         else:
             bands = [load_file(band) for (_,band) in band_npy]
             npy_data = np.stack(bands, axis = 1).astype(np.int32)
         
         item_["sat"] = torch.from_numpy(npy_data)           
         
-        item_ = self.transform(item_)
+        if self.transform:
+            item_ = self.transform(item_)
          
         #add target
         species = load_file(get_path(self.df, index, "species"))
         
         if self.target == "probs":
             if self.subset:
-                item_["target"] = species["probs"][subset]
+                item_["target"] = np.array(species["probs"])[self.subset]
             else: 
                 item_["target"] = species["probs"]
             item_["target"] = torch.Tensor(item_["target"])
             
         elif self.target == "binary":
             if self.subset:
-                targ = species["probs"][subset]
+                targ = np.array(species["probs"])[self.subset]
             else: 
                 targ = species["probs"]
             item_["target"] = torch.Tensor([1 if targ[i]>0 else 0 for i in range(len(targ))])
