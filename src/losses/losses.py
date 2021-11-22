@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-
+import torchmetrics
 
 class CustomCrossEntropyLoss(nn.Module):
     def __init__(self, lambd_pres = 1, lambd_abs = 1):
@@ -21,3 +21,36 @@ class TopKAccuracy(nn.Module):
         acc = len([i for i in i_topk if i in i_pred])/self.k
         diff = sum(torch.abs(v_pred - v_topk))
         return (acc, diff.mean())
+
+def get_metric(metric):
+    """Returns the transform function associated to a
+    transform_item listed in opts.data.transforms ; transform_item is
+    an addict.Dict
+    """
+    
+    if metric.name == "mae" and not metric.ignore is True :
+        return torchmetrics.MeanAbsoluteError()
+
+    elif metric.name == "mse" and not metric.ignore is True :
+        return torchmetrics.MeanSquaredError()
+    
+    elif metric.name == "topk" and not metric.ignore is True :
+        k = metric.k
+        return TopKAccuracy(k)
+    
+    elif metric.name == "ce" and not metric.ignore is True :
+        return CustomCrossEntropyLoss(metric.lambd_pres, metric.lambd_abs)
+    
+    elif metric.ignore is True :
+        return None
+
+    raise ValueError("Unknown metric_item {}".format(metric))
+
+def get_metrics(opts):
+    metrics = []
+
+    for m in opts.losses.metrics:
+        metrics.append((m.name, get_metric(m), m.scale))
+    metrics = [(a,b,c) for (a,b,c) in metrics if b is not None]
+
+    return metrics
