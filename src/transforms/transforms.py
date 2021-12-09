@@ -4,6 +4,7 @@ import torch
 from torch import Tensor
 from torch.nn import Module  # type: ignore[attr-defined]
 from torchvision.transforms.functional import normalize
+import torch.nn.functional as F
 # https://github.com/pytorch/pytorch/issues/60979
 # https://github.com/pytorch/pytorch/pull/61045
 Module.__module__ = "torch.nn"
@@ -158,7 +159,19 @@ class RandomCrop:  # type: ignore[misc,name-defined]
             task: tensor[:, :, top : top + self.h, left : left + self.w]
             for task, tensor in sample.items() if task in transformable
         }
-
+class Resize:
+    def __init__(self, size):
+        """
+        size = (height, width) target size 
+        """
+        self.h, self.w = size
+        
+    def __call__(self, sample: Dict[str, Tensor]) -> Dict[str, Tensor]:    
+        for s in sample:
+            if s in transformable:
+                sample[s] = F.interpolate(sample[s].float(), size=(self.h, self.w))
+        return(sample)
+        
 class RandomGaussianNoise:  # type: ignore[misc,name-defined]
     """Identity function used for testing purposes."""
     
@@ -217,6 +230,12 @@ def get_transform(transform_item, mode):
     ):
         
         return Normalize(maxchan=transform_item.maxchan, custom=transform_item.custom or None)
+    
+    elif transform_item.name == "resize" and not (
+        transform_item.ignore is True or transform_item.ignore == mode
+    ):
+        
+        return Resize(size=transform_item.size)
 
     elif transform_item.ignore is True or transform_item.ignore == mode:
         return None

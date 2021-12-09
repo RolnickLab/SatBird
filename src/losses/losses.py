@@ -18,9 +18,15 @@ class TopKAccuracy(nn.Module):
     def __call__(self, pred, target):
         v_topk, i_topk = torch.topk(target, self.k)
         v_pred, i_pred = torch.topk(pred, self.k)
-        acc = len([i for i in i_topk if i in i_pred])/self.k
+        counts = torch.zeros(len(i_topk))
+        for i,elem in enumerate(i_topk):
+            count = 0
+            for it in i_pred[i]:
+                if it in elem:
+                    count += 1
+            counts[i] = count/self.k
         diff = sum(torch.abs(v_pred - v_topk))
-        return (acc, diff.mean())
+        return (counts.mean(), diff.mean())
 
 def get_metric(metric):
     """Returns the transform function associated to a

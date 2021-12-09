@@ -13,12 +13,12 @@ from src.transforms.transforms import get_transforms
 from torchvision import transforms as trsfs
 import pandas as pd
 import torch.nn.functional as F
-from src.losses.losses import CustomCrossEntropyLoss, TopKAccuracy
+from src.losses.losses import CustomCrossEntropyLoss, TopKAccuracy, get_metrics
 import torchmetrics
-
+from torch.nn import BCELoss
 from typing import Any, Dict, Optional
 from src.dataset.dataloader import EbirdVisionDataset
-
+from src.dataset.dataloader import get_subset
 import time 
 
 criterion = CustomCrossEntropyLoss()#BCEWithLogitsLoss()
@@ -28,7 +28,7 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 def get_scheduler(optimizer, opts):
     if opts.scheduler.name == "ReduceLROnPlateau":
-        return (ReduceLROnPlateau(optimizer,
+        return (ReduceLROnPlateau(optimizer, factor = opts.scheduler.reduce_lr_plateau.factor,
                   patience = opts.scheduler.reduce_lr_plateau.lr_schedule_patience))
     elif opts.scheduler.name == "StepLR":
         return (StepLR(optimizer, opts.scheduler.step_lr.step_size, opts.scheduler.step_lr.gamma))
@@ -39,57 +39,62 @@ def get_scheduler(optimizer, opts):
 class EbirdTask(pl.LightningModule):
     def __init__(self, opts,**kwargs: Any) -> None:
         """initializes a new Lightning Module to train"""
-
+        
         super().__init__()
-        self.save_hyperparameters()
+        self.save_hyperparameters(opts)
         self.config_task(opts, **kwargs)
         self.opts = opts
         
         
     def config_task(self, opts, **kwargs: Any) -> None:
         self.opts = opts
+        subset = get_subset(self.opts.data.target.subset)
+        self.target_size= len(subset) if subset is not None else self.opts.data.total_species
+        self.target_type = self.opts.data.target.type
         
+        if self.target_type == "binary":
+            #self.target_type = "binary"
+            self.loss = BCELoss()
+            print("Training with BCE Loss")
+        else:
+            self.loss = CustomCrossEntropyLoss(self.opts.losses.ce.lambd_pres,self.opts.losses.ce.lambd_abs) 
+            print("Training with Custom CE Loss")
+            
         if self.opts.experiment.module.model == "resnet18":
             
-            self.model = models.resnet18(pretrained=False)
-            self.model.fc = nn.Linear(512, 684) 
+            self.model = models.resnet18(pretrained=self.opts.experiment.module.pretrained)
+            if len(self.opts.data.bands)!=3:
+                self.model.conv1 = nn.Conv2d(4, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
+            self.model.fc = nn.Linear(512, self.target_size) 
             self.model.to(device)
-            self.loss = CustomCrossEntropyLoss(self.opts.losses.ce.lambd_pres,self.opts.losses.ce.lambd_abs) #BCEWithLogitsLoss()
             self.m = nn.Sigmoid()
             
-            self.ce_pres = CustomCrossEntropyLoss(1,0)
-            self.topk = TopKAccuracy(30)
-            self.mse = torchmetrics.MeanSquaredError()
-            self.mae = torchmetrics.MeanAbsoluteError()
             
         elif self.opts.experiment.module.model == "resnet50":
-            self.model = models.resnet50(pretrained=False)
-            self.model.fc = nn.Linear(2048, 684) 
+            self.model = models.resnet50(pretrained=self.opts.experiment.module.pretrained)
+            if len(self.opts.data.bands)!=3:
+                self.model.conv1 = nn.Conv2d(4, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
+            self.model.fc = nn.Linear(2048, self.target_size) 
             self.model.to(device)
-            self.loss = CustomCrossEntropyLoss(self.opts.losses.ce.lambd_pres,self.opts.losses.ce.lambd_abs) 
             self.m = nn.Sigmoid()
+
             
-            self.topk = TopKAccuracy(30)
-            self.ce_pres = CustomCrossEntropyLoss(1,0)
-            self.mse = torchmetrics.MeanSquaredError()
-            self.mae = torchmetrics.MeanAbsoluteError()
-            
-        elif self.opts.experiment.module.model == "inception_v3":
-            self.model = models.inception(pretrained=True)
-            model.AuxLogits.fc = nn.Linear(768, 684)
-            self.model.fc = nn.Linear(2048, 684) 
+        elif self.opts.experiment.module.model == "inceptionv3":
+            self.model = models.inception_v3(pretrained=self.opts.experiment.module.pretrained)
+            self.model.AuxLogits.fc = nn.Linear(768, self.target_size)
+            self.model.fc = nn.Linear(2048, self.target_size) 
             self.model.to(device)
-            self.loss = CustomCrossEntropyLoss(self.opts.losses.ce.lambd_pres,self.opts.losses.ce.lambd_abs) 
-            #model.AuxLogits.fc = nn.Linear(768, num_classes)
+            #self.loss = CustomCrossEntropyLoss(self.opts.losses.ce.lambd_pres,self.opts.losses.ce.lambd_abs) 
+     
             self.m = nn.Sigmoid()
-            
-            self.topk = TopKAccuracy(30)
-            self.ce_pres = CustomCrossEntropyLoss(1,0)
-            self.mse = torchmetrics.MeanSquaredError()
-            self.mae = torchmetrics.MeanAbsoluteError()
 
         else:
             raise ValueError(f"Model type '{self.opts.experiment.module.model}' is not valid")
+        
+        metrics = get_metrics(self.opts)
+        for (name, value, _) in metrics:
+            setattr(self, name, value)
+        self.metrics = metrics
 
 
     def forward(self, x:Tensor) -> Any:
@@ -101,24 +106,39 @@ class EbirdTask(pl.LightningModule):
         """Training step"""
         
         x = batch['sat'].squeeze(1).to(device)
-        y = batch['target'].to(device)
+        y = batch['target'].to(device)      
         
-        y_hat = self.forward(x)
+        #check weights are moving
+        #for p in self.model.fc.parameters(): 
+        #    print(p.data)
+        if self.opts.experiment.module.model == "inceptionv3":
+            y_hat, aux_outputs = self.forward(x)
+            pred = m(y_hat)
+            aux_pred = m(aux_outputs)
+            loss1 = self.loss(pred, y)
+            loss2 = self.loss(aux_pred, y)
+            loss = loss1 + loss2
+            
+        else:
+            y_hat = self.forward(x)
+            pred = m(y_hat)
+            loss = self.loss(pred, y)
         
-        pred = m(y_hat)
+        pred_ = pred.clone()
         
-        loss = self.loss(pred, y)
-        ce_pres = self.ce_pres(pred,y)
-        mse = self.mse(pred, y)
-        mae = self.mae(pred, y)
-        topk_acc, topk_mae = self.topk(pred, y)
+        if self.opts.data.target.type == "binary":
+            pred_[pred_>0.5] = 1
+            pred_[pred_<0.5] = 0
+        
+        for (name, _, scale) in self.metrics:
+            nname = "train_" + name
+            metric = getattr(self,name)(pred_, y)
+            if name == "topk":
+                self.log(nname, metric[0] * scale)
+            else:
+                self.log(nname, metric * scale)
         self.log("train_loss", loss)
-        self.log("train_ce_pres", ce_pres)
-        self.log("train_top_k_acc", topk_acc)
-        self.log("train_top_k_mae", topk_mae)
-        self.log("train_mae", mae * self.opts.losses.mae.scale)
-        self.log("train_mse", mse * self.opts.losses.mse.scale )
-        
+
         return loss
 
     def validation_step(
@@ -134,16 +154,20 @@ class EbirdTask(pl.LightningModule):
         
         pred = m(y_hat)
         loss = self.loss(pred, y)
-        ce_pres = self.ce_pres(pred,y)
-        mse = self.mse(pred, y)
-        mae = self.mae(pred, y)
-        topk_acc, topk_mae = self.topk(pred, y)
+        pred_ = pred.clone()
+        if self.opts.data.target.type == "binary":
+            pred_[pred_>0.5] = 1
+            pred_[pred_<0.5] = 0
+        
+        for (name, _, scale) in self.metrics:
+            nname = "val_" + name
+            metric = getattr(self,name)(pred_, y)
+            if name == "topk":
+                self.log(nname, metric[0] * scale)
+            else:
+                self.log(nname, metric * scale)
         self.log("val_loss", loss)
-        self.log("val_ce_pres", ce_pres)
-        self.log("val_top_k_acc", topk_acc)
-        self.log("val_top_k_mae", topk_mae)
-        self.log("val_mae", mae * self.opts.losses.mae.scale)
-        self.log("val_mse", mse * self.opts.losses.mse.scale )
+
     
 
     def test_step(
@@ -155,16 +179,19 @@ class EbirdTask(pl.LightningModule):
         y = batch['target'].to(device)
         y_hat = self.forward(x)
         pred = m(y_hat)
-        
-        loss = self.loss(pred, y)
-        mse = self.mse(pred, y)
-        mae = self.mae(pred, y)
-        self.log("test_loss", loss)
-        self.log("test_mae", mae * self.opts.losses.mae.scale)
-        self.log("test_mse", mse * self.opts.losses.mse.scale)
+
+        for (name, _, scale) in self.metrics:
+            nname = "test_" + name
+            metric = getattr(self,name)(pred_, y)
+            if name == "topk":
+                self.log(nname, metric[0] * scale)
+            else:
+                self.log(nname, metric * scale)
+
+
 
     def configure_optimizers(self) -> Dict[str, Any]:
-        optimizer = torch.optim.Adam(
+        optimizer = torch.optim.SGD( #Adam(   #
             self.model.parameters(),
             lr=self.opts.experiment.module.lr,  #CHECK IN CONFIG
         )
@@ -192,6 +219,9 @@ class EbirdDataModule(pl.LightningDataModule):
         self.df_val = pd.read_csv(self.opts.data.files.val)
         self.df_test = pd.read_csv(self.opts.data.files.test)
         self.bands = self.opts.data.bands    
+        self.datatype = self.opts.data.datatype
+        self.target = self.opts.data.target.type
+        self.subset = self.opts.data.target.subset
 
     def prepare_data(self) -> None:
         """_ = EbirdVisionDataset(
@@ -208,25 +238,33 @@ class EbirdDataModule(pl.LightningDataModule):
     def setup(self, stage: Optional[str]=None)->None:
         """create the train/test/val splits"""
         self.all_train_dataset = EbirdVisionDataset(
-            self.df_train,
-            bands=self.bands,
-            split = "train",
-            transforms = trsfs.Compose(get_transforms(self.opts, "train"))
-
+            df_paths = self.df_train,
+            bands = self.bands,
+            transforms = trsfs.Compose(get_transforms(self.opts, "train")),
+            mode = "train",
+            datatype = self.datatype,
+            target = self.target, 
+            subset = self.subset
         )
 
         self.all_test_dataset = EbirdVisionDataset(                
             self.df_test, 
             bands = self.bands,
-            split = "test",
             transforms = trsfs.Compose(get_transforms(self.opts, "val")),
-        )
+            mode = "test",
+            datatype = self.datatype,
+            target = self.target, 
+            subset = self.subset
+            )
 
         self.all_val_dataset = EbirdVisionDataset(
             self.df_val,
             bands=self.bands,
-            split = "val",
             transforms = trsfs.Compose(get_transforms(self.opts, "val")),
+            mode = "val",
+            datatype = self.datatype,
+            target = self.target, 
+            subset = self.subset
         )
 
         #TODO: Create subsets of the data

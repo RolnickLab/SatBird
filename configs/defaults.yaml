@@ -1,3 +1,6 @@
+save_path: "./ckpt"
+log_comet: true
+
 program: # These are the arguments that define how the train.py script works
   seed: 1337
   output_dir: output
@@ -5,27 +8,64 @@ program: # These are the arguments that define how the train.py script works
   log_dir: logs
   overwrite: False
 
+experiment:
+  task: "ebird_classifier"
+  name: "ebird_classifier"
+  seed: 42
+
+  module:
+    model: "resnet18"
+    pretrained: True
+    lr: 0.01
+    
+
+scheduler: 
+  name: "ReduceLROnPlateau" #or "StepLR"
+  reduce_lr_plateau:
+    lr_schedule_patience: 10
+    factor: 0.5
+  step_lr:
+    step_size: 5
+    gamma: 0.1
+
 losses:
+  criterion: "CrossEntropy" #or MAE or MSE  (loss to choosefor optim )
   ce:
-    #weights on the cross entropy
+    ignore: False
+      #weights on the cross entropy
     lambd_pres: 1
     lambd_abs: 1
-  mae:
-    scale: 10
-  mse:
-    scale: 10
+  metrics:
+    - name: ce
+      ignore: False
+      #weights on the cross entropy
+      lambd_pres: 1
+      lambd_abs: 1
+      scale : 1
+    - name: mae
+      ignore: False
+      scale: 10
+    - name: mse
+      ignore: False
+      scale: 10
+    - name: topk
+      ignore: False
+      k: 30
+      scale: 1
 
 
 data:
   loaders:
     num_workers: 6
-    batch_size: 6
+    batch_size: 12
+  datatype: "refl"  #refl for reflectance of img for image dataset 
   bands: ["r", "b", "g"] #"r", "g", "b", "ni"
   files:
     base: "/network/scratch/t/tengmeli/ecosystem-embedding/training/"
     train: "train_june.csv"
     val: "val_june.csv"
     test: "test_june.csv"
+ 
   #normalization: None
   transforms:
     - name: crop
@@ -51,10 +91,15 @@ data:
       maxchan: false
       custom: [[894.6719, 932.5726,693.2768], [883.9763,747.6857,749.3098]]
     - name: randomnoise
-      ignore: false
+      ignore: True #false
       std: 0.01
       max_noise: 0.05
-   
+      
+  total_species: 684
+  
+  target:
+    type: "probs"  #binary or probs
+    subset: [37]
       #means =[r: 894.6719, g: 932.5726, b:693.2768, nir: 2817.9849]
       #std = [r:883.9763, g:747.6857, b:749.3098, nir: 1342.6334]
 

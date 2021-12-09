@@ -46,7 +46,14 @@ def get_img_bands(band_npy):
     npy_data =np.vstack(bands)/255
     return (npy_data)
             
-
+def get_subset(subset):
+    if subset == "songbirds":
+        return (np.load('/network/scratch/t/tengmeli/ecosystem-embedding/songbirds_idx.npy'))
+    elif subset == "ducks":
+        return ([37])
+    else:
+        return None
+        
 class EbirdVisionDataset(VisionDataset):
     def __init__(self,                 
                  df_paths,
@@ -74,7 +81,7 @@ class EbirdVisionDataset(VisionDataset):
         self.mode = mode
         self.type = datatype
         self.target = target
-        self.subset = subset
+        self.subset = get_subset(subset)
 
     def __len__(self) -> int:
 
@@ -105,17 +112,18 @@ class EbirdVisionDataset(VisionDataset):
         species = load_file(get_path(self.df, index, "species"))
         
         if self.target == "probs":
-            if self.subset:
+            if not self.subset is None:
                 item_["target"] = np.array(species["probs"])[self.subset]
             else: 
                 item_["target"] = species["probs"]
             item_["target"] = torch.Tensor(item_["target"])
             
         elif self.target == "binary":
-            if self.subset:
+            if not self.subset is None:
                 targ = np.array(species["probs"])[self.subset]
             else: 
                 targ = species["probs"]
+            item_["original_target"] = torch.Tensor(targ)
             item_["target"] = torch.Tensor([1 if targ[i]>0 else 0 for i in range(len(targ))])
             
         else:
