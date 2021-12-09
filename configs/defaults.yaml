@@ -1,0 +1,163 @@
+save_path: "./ckpt"
+log_comet: true
+
+program: # These are the arguments that define how the train.py script works
+  seed: 1337
+  output_dir: output
+  data_dir: data
+  log_dir: logs
+  overwrite: False
+
+experiment:
+  task: "ebird_classifier"
+  name: "ebird_classifier"
+  seed: 42
+
+  module:
+    model: "resnet18"
+    pretrained: True
+    lr: 0.01
+    
+
+scheduler: 
+  name: "ReduceLROnPlateau" #or "StepLR"
+  reduce_lr_plateau:
+    lr_schedule_patience: 10
+    factor: 0.5
+  step_lr:
+    step_size: 5
+    gamma: 0.1
+
+losses:
+  criterion: "CrossEntropy" #or MAE or MSE  (loss to choosefor optim )
+  ce:
+    ignore: False
+      #weights on the cross entropy
+    lambd_pres: 1
+    lambd_abs: 1
+  metrics:
+    - name: ce
+      ignore: False
+      #weights on the cross entropy
+      lambd_pres: 1
+      lambd_abs: 1
+      scale : 1
+    - name: mae
+      ignore: False
+      scale: 10
+    - name: mse
+      ignore: False
+      scale: 10
+    - name: topk
+      ignore: False
+      k: 30
+      scale: 1
+
+
+data:
+  loaders:
+    num_workers: 6
+    batch_size: 12
+  datatype: "refl"  #refl for reflectance of img for image dataset 
+  bands: ["r", "b", "g"] #"r", "g", "b", "ni"
+  files:
+    base: "/network/scratch/t/tengmeli/ecosystem-embedding/training/"
+    train: "train_june.csv"
+    val: "val_june.csv"
+    test: "test_june.csv"
+ 
+  #normalization: None
+  transforms:
+    - name: crop
+      ignore: false
+      p: 0.5
+      center: true # disable randomness, crop around the image's center
+      height: 300
+      width: 300
+    - name: crop
+      ignore: false
+      p: 0.5
+      center: "val" #val # disable randomness, crop around the image's center
+      height: 256
+      width: 256
+    - name: hflip
+      ignore: "val"
+      p: 0.5
+    - name: vflip
+      ignore: "val"
+      p: 0.5
+    - name: normalize
+      ignore: false
+      maxchan: false
+      custom: [[894.6719, 932.5726,693.2768], [883.9763,747.6857,749.3098]]
+    - name: randomnoise
+      ignore: True #false
+      std: 0.01
+      max_noise: 0.05
+      
+  total_species: 684
+  
+  target:
+    type: "probs"  #binary or probs
+    subset: [37]
+      #means =[r: 894.6719, g: 932.5726, b:693.2768, nir: 2817.9849]
+      #std = [r:883.9763, g:747.6857, b:749.3098, nir: 1342.6334]
+
+# The values here are taken from the defaults here https://pytorch-lightning.readthedocs.io/en/1.3.8/common/trainer.html#init
+# this probably should be made into a schema, e.g. as shown https://omegaconf.readthedocs.io/en/2.0_branch/structured_config.html#merging-with-other-configs
+trainer: # These are the parameters passed to the pytorch lightning Trainer object
+  logger: True
+  checkpoint_callback: True
+  callbacks: null
+  default_root_dir: null
+ # gradient_clip_val: 0.0
+ # gradient_clip_algorithm: "norm"
+  process_position: 0
+  num_nodes: 1
+  num_processes: 1
+  gpus: 1
+  auto_select_gpus: False
+  tpu_cores: null
+  log_gpu_memory: null
+  progress_bar_refresh_rate: null
+  overfit_batches: 0.0
+  track_grad_norm: -1
+  check_val_every_n_epoch: 1
+  fast_dev_run: False
+  accumulate_grad_batches: 1
+  max_epochs: null
+  min_epochs: null
+  max_steps: null
+  min_steps: null
+  #max_time: null
+  limit_train_batches: 1.0
+  limit_val_batches: 1.0
+  limit_test_batches: 1.0
+  limit_predict_batches: 1.0
+  val_check_interval: 1.0
+  flush_logs_every_n_steps: 100
+  log_every_n_steps: 50
+  accelerator: null
+  sync_batchnorm: False
+  precision: 32
+  weights_summary: "top"
+  weights_save_path: null
+  num_sanity_val_steps: 2
+  truncated_bptt_steps: null
+  resume_from_checkpoint: null
+  profiler: null
+  benchmark: False
+  deterministic: False
+  reload_dataloaders_every_epoch: False
+  auto_lr_find: False
+  replace_sampler_ddp: True
+  terminate_on_nan: False
+  auto_scale_batch_size: False
+  prepare_data_per_node: True
+  plugins: null
+  amp_backend: "native"
+  amp_level: "O2"
+  distributed_backend: null
+  move_metrics_to_cpu: False
+  multiple_trainloader_mode: "max_size_cycle"
+  stochastic_weight_avg: False
