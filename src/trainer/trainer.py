@@ -3,7 +3,8 @@ import torch
 import torch.nn as nn
 from torch import Tensor
 from torch.nn.modules import Module
-from torch.optim.lr_scheduler import ReduceLROnPlateau, StepLR
+from torch.optim.lr_scheduler import ReduceLROnPlateau, StepLR, CosineAnnealingWarmRestarts
+#from pl_bolts.optimizers.lr_scheduler import LinearWarmupCosineAnnealingLR
 from torch.utils.data import DataLoader, Subset
 from torchvision import models
 
@@ -26,12 +27,31 @@ m = nn.Sigmoid()
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
+def lr_foo(epoch, warmup_epoch):
+    if epoch < warmup_epoch:
+                # warm up lr
+        lr_scale = 0.1 ** (warmup_epoch - epoch)
+    else:
+        lr_scale = 0.95 ** epoch
+
+    return lr_scale
+        
+def configure_optimizers(optimizer, warmup_epoch):
+        scheduler = LambdaLR(
+            optimizer,
+            lr_lambda=lr_foo
+        )
+
+        return scheduler
+    
 def get_scheduler(optimizer, opts):
     if opts.scheduler.name == "ReduceLROnPlateau":
         return (ReduceLROnPlateau(optimizer, factor = opts.scheduler.reduce_lr_plateau.factor,
                   patience = opts.scheduler.reduce_lr_plateau.lr_schedule_patience))
     elif opts.scheduler.name == "StepLR":
         return (StepLR(optimizer, opts.scheduler.step_lr.step_size, opts.scheduler.step_lr.gamma))
+    elif opts.scheduler.name == "WarmUp":     
+        return(CosineAnnealingWarmRestarts(optimizer, opts.scheduler.warmup.warmup_epochs))
     else:
         raise ValueError(f"Scheduler'{self.opts.scheduler.name}' is not valid")
         
