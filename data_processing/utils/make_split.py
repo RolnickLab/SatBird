@@ -27,11 +27,11 @@ if __name__ == "__main__":
     a = pd.DataFrame({"hotspot_id":ids})
     b =  pd.DataFrame({"hotspot_id":ids2})
     a = a.merge(b,on="hotspot_id", how = "inner")
-    print(len(a))
     df = df.merge(a, on="hotspot_id", how = "inner")
     
     counties = list(df["county_code"].unique())
     l = len(counties)
+
     shuffled = random.sample(counties, l)
 
     train_c = counties[:int(train*l)]
@@ -43,9 +43,11 @@ if __name__ == "__main__":
     train_hs = df[df["county_code"].isin(train_c)]["hotspot_id"].values
     val_hs = df[df["county_code"].isin(val_c)]["hotspot_id"].values
     test_hs = df[df["county_code"].isin(test_c)]["hotspot_id"].values
+
     print(len(train_hs))
     print(len(val_hs))
     print(len(test_hs))
+
     def write_array_text(arr, file):
         with open(file, "w") as txt_file:    
             for elem in arr:

@@ -1,8 +1,10 @@
 import os
 
 def create_barchart_folder(barchart_folder):
-
-    # Delete directory if it exists and create a new one
+    """
+    barchart_folder = folder where barchart images are created
+    """
+    # Delete directory if it exists aned create a new one
     if os.path.exists(barchart_folder) == False:
         print(" HBar Chart folder doesn't exist")
 
