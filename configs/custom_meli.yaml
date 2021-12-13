@@ -1,0 +1,81 @@
+save_path: "./ckpt/songbird_img64_warmup"
+log_comet: true
+comet:
+  project_name: "songbird_ecosystem" #"ecosystem-duck"
+  tags: ["songbirds", "sgd",  "pretrained", "probs", "small"]
+experiment:
+  task: "ebird_classifier"
+  name: "ebird_classifier"
+  seed: 42
+
+  module:
+    model: "resnet18"
+    pretrained: True
+    lr: 0.001
+
+scheduler: 
+  name: "ReduceLROnPlateau" #"ReduceLROnPlateau" #or "StepLR" "WarmUp"
+  reduce_lr_plateau:
+    factor: 0.5
+    lr_schedule_patience: 10
+  step_lr:
+    step_size: 10 
+    gamma: 0.5
+  warmup:
+    warmup_epochs: 10
+    max_epochs: 200
+
+data:
+  loaders:
+    num_workers: 4
+    batch_size: 8
+  datatype: "refl"   #refl or img 
+  bands: ["r", "g", "b", "nir"]
+  files:
+    base: "/network/scratch/t/tengmeli/ecosystem-embedding/training/"
+    train: "train_june.csv"
+    val: "val_june.csv"
+    test: "test_june.csv"
+    
+  target:
+    type: "probs"  #binary or probs
+    subset: "songbirds" #ducks [37] or songbirds or None
+
+ 
+  #normalization: None
+  transforms:
+    - name: crop
+      ignore: false
+      p: 0.5
+      center: true # disable randomness, crop around the image's center
+      height: 64
+      width: 64
+    - name: resize
+      ignore: false
+      size: [256,256]
+    - name: crop
+      ignore: true
+      p: 0.5
+      center: "val" #val # disable randomness, crop around the image's center
+      height: 256
+      width: 256
+    - name: hflip
+      ignore: "val"
+      p: 0.5
+    - name: vflip
+      ignore: "val"
+      p: 0.5
+    - name: normalize
+      ignore: false
+      maxchan: false
+      custom: [[894.6719, 932.5726,693.2768, 2817.9849],[883.9763,747.6857,749.3098, 1342.6334]]
+      #[[0.485, 0.456, 0.406],[0.229, 0.224, 0.225]]
+      #[[894.6719, 932.5726,693.2768], [883.9763,747.6857,749.3098]]
+              #[894.6719, 932.5726,693.2768, 2817.9849], [883.9763,747.6857,749.3098, 1342.6334]
+    - name: randomnoise
+      ignore: True #false
+      std: 0.01
+      max_noise: 0.05
+      
+  total_species: 684
+  
