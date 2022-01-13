@@ -4,7 +4,7 @@ import torch.nn as nn
 from torch import Tensor
 from torch.nn.modules import Module
 from torch.optim.lr_scheduler import ReduceLROnPlateau, StepLR, CosineAnnealingWarmRestarts
-#from pl_bolts.optimizers.lr_scheduler import LinearWarmupCosineAnnealingLR
+from pl_bolts.optimizers.lr_scheduler import LinearWarmupCosineAnnealingLR
 from torch.utils.data import DataLoader, Subset
 from torchvision import models
 
@@ -27,6 +27,18 @@ m = nn.Sigmoid()
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
+def get_nb_bands(bands):
+    n = 0
+    for b in bands:
+        if b in ["r","g","b","nir"]:
+            n+=1
+        elif b == "ped":
+            n+=8
+        elif b == "bioclim":
+            n+= 19
+    return(n)
+
+
 def lr_foo(epoch, warmup_epoch):
     if epoch < warmup_epoch:
                 # warm up lr
@@ -35,14 +47,8 @@ def lr_foo(epoch, warmup_epoch):
         lr_scale = 0.95 ** epoch
 
     return lr_scale
-        
-def configure_optimizers(optimizer, warmup_epoch):
-        scheduler = LambdaLR(
-            optimizer,
-            lr_lambda=lr_foo
-        )
 
-        return scheduler
+
     
 def get_scheduler(optimizer, opts):
     if opts.scheduler.name == "ReduceLROnPlateau":
@@ -51,7 +57,10 @@ def get_scheduler(optimizer, opts):
     elif opts.scheduler.name == "StepLR":
         return (StepLR(optimizer, opts.scheduler.step_lr.step_size, opts.scheduler.step_lr.gamma))
     elif opts.scheduler.name == "WarmUp":     
-        return(CosineAnnealingWarmRestarts(optimizer, opts.scheduler.warmup.warmup_epochs))
+        return(LinearWarmupCosineAnnealingLR(optimizer, opts.scheduler.warmup.warmup_epochs,
+        opts.scheduler.warmup.max_epochs))
+    elif opts.scheduler.name == "Cyclical":
+        return(CosineAnnealingWarmRestarts(optimizer, opts.scheduler.cyclical.warmup_epochs))
     else:
         raise ValueError(f"Scheduler'{self.opts.scheduler.name}' is not valid")
         
@@ -83,8 +92,9 @@ class EbirdTask(pl.LightningModule):
         if self.opts.experiment.module.model == "resnet18":
             
             self.model = models.resnet18(pretrained=self.opts.experiment.module.pretrained)
-            if len(self.opts.data.bands)!=3:
-                self.model.conv1 = nn.Conv2d(4, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
+            if len(self.opts.data.bands)!=3 or len(self.opts.data.env) > 0:
+                bands = self.opts.data.bands + self.opts.data.env
+                self.model.conv1 = nn.Conv2d(get_nb_bands(bands), 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
             self.model.fc = nn.Linear(512, self.target_size) 
             self.model.to(device)
             self.m = nn.Sigmoid()
@@ -92,8 +102,9 @@ class EbirdTask(pl.LightningModule):
             
         elif self.opts.experiment.module.model == "resnet50":
             self.model = models.resnet50(pretrained=self.opts.experiment.module.pretrained)
-            if len(self.opts.data.bands)!=3:
-                self.model.conv1 = nn.Conv2d(4, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
+            if len(self.opts.data.bands)!=3 or len(self.opts.data.env) > 0:
+                bands = self.opts.data.bands + self.opts.data.env
+                self.model.conv1 = nn.Conv2d(get_nb_bands(bands), 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
             self.model.fc = nn.Linear(2048, self.target_size) 
             self.model.to(device)
             self.m = nn.Sigmoid()
@@ -208,14 +219,29 @@ class EbirdTask(pl.LightningModule):
             else:
                 self.log(nname, metric * scale)
 
-
-
+    def get_optimizer(self, opts):
+        if self.opts.optimizer == "Adam":
+            optimizer = torch.optim.Adam(   #
+                self.model.parameters(),
+                lr=self.opts.experiment.module.lr,  
+                )
+        elif self.opts.optimizer == "AdamW":
+            optimizer = torch.optim.AdamW(
+                self.model.parameters(),
+                lr=self.opts.experiment.module.lr,  
+                )
+        elif self.opts.optimizer == "SGD":
+            optimizer = torch.optim.SGD(
+                self.model.parameters(),
+                lr=self.opts.experiment.module.lr,  
+                )
+        else :
+            raise ValueError(f"Optimizer'{self.opts.optimizer}' is not valid")
+        return(optimizer)
+    
     def configure_optimizers(self) -> Dict[str, Any]:
-        optimizer = torch.optim.SGD( #Adam(   #
-            self.model.parameters(),
-            lr=self.opts.experiment.module.lr,  #CHECK IN CONFIG
-        )
-        
+ 
+        optimizer = self.get_optimizer(self.opts)       
         scheduler = get_scheduler(optimizer, self.opts)
         
         return{
@@ -238,7 +264,8 @@ class EbirdDataModule(pl.LightningDataModule):
         self.df_train = pd.read_csv(self.opts.data.files.train)
         self.df_val = pd.read_csv(self.opts.data.files.val)
         self.df_test = pd.read_csv(self.opts.data.files.test)
-        self.bands = self.opts.data.bands    
+        self.bands = self.opts.data.bands 
+        self.env = self.opts.data.env
         self.datatype = self.opts.data.datatype
         self.target = self.opts.data.target.type
         self.subset = self.opts.data.target.subset
@@ -260,6 +287,7 @@ class EbirdDataModule(pl.LightningDataModule):
         self.all_train_dataset = EbirdVisionDataset(
             df_paths = self.df_train,
             bands = self.bands,
+            env = self.env,
             transforms = trsfs.Compose(get_transforms(self.opts, "train")),
             mode = "train",
             datatype = self.datatype,
@@ -270,6 +298,7 @@ class EbirdDataModule(pl.LightningDataModule):
         self.all_test_dataset = EbirdVisionDataset(                
             self.df_test, 
             bands = self.bands,
+            env = self.env,
             transforms = trsfs.Compose(get_transforms(self.opts, "val")),
             mode = "test",
             datatype = self.datatype,
@@ -280,6 +309,7 @@ class EbirdDataModule(pl.LightningDataModule):
         self.all_val_dataset = EbirdVisionDataset(
             self.df_val,
             bands=self.bands,
+            env = self.env,
             transforms = trsfs.Compose(get_transforms(self.opts, "val")),
             mode = "val",
             datatype = self.datatype,

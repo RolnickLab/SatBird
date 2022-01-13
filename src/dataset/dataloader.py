@@ -32,6 +32,9 @@ class Identity(Module):  # type: ignore[misc,name-defined]
 def get_img_bands(band_npy):
     """
     band_npy: list of tuples (band_name, item_paths) item_paths being paths to npy objects
+    
+    Returns: 
+        stacked satellite bands data as numpy array
     """
     bands = []
     for elem in band_npy:
@@ -48,7 +51,7 @@ def get_img_bands(band_npy):
             
 def get_subset(subset):
     if subset == "songbirds":
-        return (np.load('/network/scratch/t/tengmeli/ecosystem-embedding/songbirds_idx.npy'))
+        return (np.load('/network/scratch/t/tengmeli/scratch/ecosystem-embedding/songbirds_idx.npy'))
     elif subset == "ducks":
         return ([37])
     else:
@@ -58,6 +61,7 @@ class EbirdVisionDataset(VisionDataset):
     def __init__(self,                 
                  df_paths,
                  bands,
+                 env,
                  transforms: Optional[Callable[[Dict[str, Any]], Dict [str, Any]]] = None,
                  mode : Optional[str] = "train",
                  datatype = "refl",
@@ -66,6 +70,7 @@ class EbirdVisionDataset(VisionDataset):
         """
         df_paths: dataframe with paths to data for each hotspot
         bands: list of bands to include, anysubset of  ["r", "g", "b", "nir"] or  "rgb" (for image dataset) 
+        env: list eof env data to take into account [ped, bioclim]
         transforms:
         mode : train|val|test
         datatype: "refl" (reflectance values ) or "img" (image dataset)
@@ -78,6 +83,7 @@ class EbirdVisionDataset(VisionDataset):
         self.total_images = len(df_paths)
         self.transform = transforms
         self.bands = bands
+        self.env = env
         self.mode = mode
         self.type = datatype
         self.target = target
@@ -91,7 +97,7 @@ class EbirdVisionDataset(VisionDataset):
 
         meta = load_file(get_path(self.df, index, "meta"))
         band_npy = [(b,get_path(self.df, index, b)) for b in self.bands if get_path(self.df, index, b).suffix == ".npy"]
-
+        env_npy = [(b,get_path(self.df, index, b)) for b in self.env if get_path(self.df, index, b).suffix == ".npy"]
         item_ = {}
     
         
@@ -102,11 +108,18 @@ class EbirdVisionDataset(VisionDataset):
         else:
             bands = [load_file(band) for (_,band) in band_npy]
             npy_data = np.stack(bands, axis = 1).astype(np.int32)
+            
+        for (b,band) in env_npy: 
+            item_[b] = torch.from_numpy(load_file(band))
+            
         
         item_["sat"] = torch.from_numpy(npy_data)           
         
         if self.transform:
             item_ = self.transform(item_)
+        
+        for e in self.env:
+            item_["sat"] = torch.cat([item_["sat"],item_[e]], dim = 1)
          
         #add target
         species = load_file(get_path(self.df, index, "species"))

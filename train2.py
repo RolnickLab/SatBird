@@ -92,7 +92,7 @@ if __name__ == "__main__":
    
     trainer_args["callbacks"] = [checkpoint_callback, lr_monitor]#early_stopping_callback, lr_monitor]
     
-    trainer_args["profiler"]="simple"
+    #trainer_args["profiler"]="simple"
     #trainer_args["overfit_batches"] = 10
     #trainer_args["track_grad_norm"]=2
     
