@@ -57,10 +57,12 @@ class LocEncoder(torch.nn.Module):
         num_inputs = 4
         if self.opts.loc.elev:
             num_inputs = 5
-        self.model = geomodels.FCNet(num_inputs, num_classes=self.target_size,num_filts=256).to(device)     
+        self.model = geomodels.FCNet(num_inputs, num_classes=self.target_size,num_filts=256)   
+        self.model = self.model.to(device)   
         
     def forward(self, loc):
-        return(self.model(loc))
+        
+        return(self.model(loc, class_of_interest=None, return_feats=self.opts.loc.concat))
     
     def __str__(self):
         return("Location encoder")
@@ -73,6 +75,12 @@ def create_loc_encoder(opts, verbose=0):
         print(f"  - Add {encoder.__class__.__name__}")
     return encoder
 
+class Identity(nn.Module):
+    def __init__(self):
+        super(Identity, self).__init__()
+        
+    def forward(self, x):
+        return x
 
 
 class EbirdTask(pl.LightningModule):
@@ -83,19 +91,29 @@ class EbirdTask(pl.LightningModule):
         
         self.save_hyperparameters(opts)        
         #self.automatic_optimization = False
-        self.config_task(opts, **kwargs)
         self.opts = opts
+        self.concat = self.opts.loc.concat
+        self.config_task(opts, **kwargs)
+        
         self.learning_rate = self.opts.experiment.module.lr
+
+        if self.concat:
+            self.linear_layer = nn.Linear(256+2048,  self.target_size).to(device)
         
     def get_sat_model(self):
-        
+        """
+        Satellite model if we multiply output with location model output
+        """
         if self.opts.experiment.module.model == "resnet18":
             
             self.sat_model = models.resnet18(pretrained=self.opts.experiment.module.pretrained)
             if len(self.opts.data.bands)!=3 or len(self.opts.data.env) > 0:
                 bands = self.opts.data.bands + self.opts.data.env
                 self.sat_model.conv1 = nn.Conv2d(get_nb_bands(bands), 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
-            self.sat_model.fc = nn.Linear(512, self.target_size) 
+            if self.concat:
+                self.sat_model.fc =Identity()
+            else:
+                self.sat_model.fc = nn.Linear(512, self.target_size) 
             self.sat_model.to(device)
             self.m = nn.Sigmoid()
             
@@ -105,23 +123,27 @@ class EbirdTask(pl.LightningModule):
             if len(self.opts.data.bands)!=3 or len(self.opts.data.env) > 0:
                 bands = self.opts.data.bands + self.opts.data.env
                 self.sat_model.conv1 = nn.Conv2d(get_nb_bands(bands), 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
-            self.sat_model.fc = nn.Linear(2048, self.target_size) 
+            if self.concat:
+                self.sat_model.fc =Identity()
+            else:
+                self.sat_model.fc = nn.Linear(2048, self.target_size) 
             self.sat_model.to(device)
             self.m = nn.Sigmoid()
 
             
         elif self.opts.experiment.module.model == "inceptionv3":
             self.sat_model = models.inception_v3(pretrained=self.opts.experiment.module.pretrained)
-            self.sat_model.AuxLogits.fc = nn.Linear(768, self.target_size)
-            self.sat_model.fc = nn.Linear(2048, self.target_size) 
-            self.sat_model.to(device)
-            #self.loss = CustomCrossEntropyLoss(self.opts.losses.ce.lambd_pres,self.opts.losses.ce.lambd_abs) 
-     
+            self.sat_model.AuxLogits.fc = nn.Linear(768, self.target_size)       
+            if self.concat:
+                self.sat_model.fc =Identity()
+            else:
+                self.sat_model.fc = nn.Linear(2048, self.target_size) 
+            self.sat_model.to(device) 
             self.m = nn.Sigmoid()
-
         else:
             raise ValueError(f"Model type '{self.opts.experiment.module.model}' is not valid")
         return(self.sat_model)
+    
         
     def config_task(self, opts, **kwargs: Any) -> None:
         self.opts = opts
@@ -137,8 +159,7 @@ class EbirdTask(pl.LightningModule):
             print("Training with Custom CE Loss")
         
         self.encoders = {}
-        if self.opts.loc.use:
-            self.encoders["loc"] =  LocEncoder(self.opts)
+        self.encoders["loc"] =  LocEncoder(self.opts)
         self.encoders["sat"] = self.get_sat_model()   
         metrics = get_metrics(self.opts)
         for (name, value, _) in metrics:
@@ -149,18 +170,21 @@ class EbirdTask(pl.LightningModule):
     def forward(self, x:Tensor, loc_tensor = None) -> Any:
         # need to fix use of inceptionv3 to be able to use location too 
         if self.opts.experiment.module.model == "inceptionv3":
-            out = self.encoders["sat"](x)
-           
+            out_sat, aux_outputs= self.encoders["sat"](x)
+            out_loc = self.encoders["loc"](loc_tensor).squeeze(1)
+            return out_sat, aux_outputs, out_loc
         else:
-            out_sat = m(self.encoders["sat"](x))
-            print(self.encoders["sat"].conv1.weight[0])
-            if self.opts.loc.use:            
+            if not self.concat:
+                out_sat = self.encoders["sat"](x)
                 out_loc = self.encoders["loc"](loc_tensor).squeeze(1)
-                
-                #print(self.encoders["loc"].model.feats[4].w1.weight[0])
-                #out = torch.multiply(out_sat, out_loc) 
                 return out_sat, out_loc
-            return out_sat
+            else:
+                out_sat = self.encoders["sat"](x)
+                out_loc = self.encoders["loc"](loc_tensor).squeeze(1)
+                concat = torch.cat((out_sat, out_loc), 1)
+                out = self.linear_layer(concat)
+                return(out)
+             
     
     def training_step(
         self, batch: Dict[str, Any], batch_idx: int , optimizer_idx)-> Tensor:
@@ -168,46 +192,31 @@ class EbirdTask(pl.LightningModule):
         """Training step"""
         
         x = batch['sat'].squeeze(1).to(device)
-        
-        if self.opts.loc.use:
-            loc_tensor= batch["loc"]
-        #sat_opt, loc_opt = self.optimizers()
-        #print(sat_opt)
+        loc_tensor= batch["loc"]
         y = batch['target'].to(device)      
 
         #check weights are moving
         #for p in self.model.fc.parameters(): 
         #    print(p.data)
         if self.opts.experiment.module.model == "inceptionv3":
-            y_hat, aux_outputs = self.forward(x)
-            pred = m(y_hat)
-            aux_pred = m(aux_outputs)
+            out_sat, aux_outputs, out_loc = self.forward(x, loc_tensor)
+            y_hat = m(out_sat)
+            aux_y_hat = m(aux_outputs)
+            pred = torch.multiply(y_hat, out_loc)
+            aux_pred = torch.multiply(aux_y_hat, out_loc)
             loss1 = self.criterion(pred, y)
             loss2 = self.criterion(aux_pred, y)
             loss = loss1 + loss2
             
         else:
-            if self.opts.loc.use:
-            #    pred = self.forward(x, loc_tensor) 
-            #else:
+            if self.concat:
+                y_hat = m(self.forward(x, loc_tensor))
+            else:
                 out_sat, out_loc = self.forward(x, loc_tensor)
                 y_hat = torch.multiply(m(out_sat), out_loc)#self.forward(x)
-                
-                pred = y_hat         
-        
-        #loss = Variable(loss.data, requires_grad=True)
-        loss = self.criterion(pred, y)
-   
-        #for opt in [optims]:
-        #sat_opt.zero_grad()
-        #self.manual_backward(loss,retain_graph=True)
-        #sat_opt.step() 
-        
-        #loc_opt.zero_grad()
-        #self.manual_backward(loss)
-        #loc_opt.step()
+            pred = y_hat               
+            loss = self.criterion(pred, y)   
             
-
         pred_ = pred.clone()
         
         if self.opts.data.target.type == "binary":
@@ -232,34 +241,31 @@ class EbirdTask(pl.LightningModule):
 
         
         x = batch['sat'].squeeze(1).to(device)
-        
-        if self.opts.loc.use:
-            loc_tensor= batch["loc"]
-            
-        #sat_opt, loc_opt = self.optimizers()
+        loc_tensor= batch["loc"]
         y = batch['target'].to(device)      
 
         #check weights are moving
         #for p in self.model.fc.parameters(): 
         #    print(p.data)
         if self.opts.experiment.module.model == "inceptionv3":
-            y_hat, aux_outputs = self.forward(x)
-            pred = m(y_hat)
-            aux_pred = m(aux_outputs)
+            out_sat, aux_outputs, out_loc = self.forward(x, loc_tensor)
+            y_hat = m(out_sat)
+            aux_y_hat = m(aux_outputs)
+            pred = torch.multiply(y_hat, out_loc)
+            aux_pred = torch.multiply(aux_y_hat, out_loc)
             loss1 = self.criterion(pred, y)
             loss2 = self.criterion(aux_pred, y)
             loss = loss1 + loss2
             
         else:
-            if self.opts.loc.use:
-           #     pred = self.forward(x, loc_tensor) 
-           # else:
+            if self.concat:
+                y_hat = m(self.forward(x, loc_tensor))
+            else:
                 out_sat, out_loc = self.forward(x, loc_tensor)
                 y_hat = torch.multiply(m(out_sat), out_loc)#self.forward(x)
-                pred = y_hat         
-            loss = self.criterion(pred, y)
-
-        
+            pred = y_hat               
+            loss = self.criterion(pred, y)   
+      
         pred_ = pred.clone()
         if self.opts.data.target.type == "binary":
             pred_[pred_>0.5] = 1
@@ -363,8 +369,8 @@ class EbirdDataModule(pl.LightningDataModule):
         self.datatype = self.opts.data.datatype
         self.target = self.opts.data.target.type
         self.subset = self.opts.data.target.subset
-        self.use_loc = self.opts.loc.use
-        
+        self.use_loc = self.opts.loc.use 
+
     def prepare_data(self) -> None:
         """_ = EbirdVisionDataset(
             # pd.Dataframe("/network/scratch/a/akeraben/akera/ecosystem-embedding/data/train_june.csv"), 
@@ -413,7 +419,7 @@ class EbirdDataModule(pl.LightningDataModule):
             datatype = self.datatype,
             target = self.target, 
             subset = self.subset,
-            use_loc =self.use_loc
+            use_loc = self.use_loc
         )
 
         #TODO: Create subsets of the data

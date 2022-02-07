@@ -28,6 +28,9 @@ m = nn.Sigmoid()
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 def get_nb_bands(bands):
+    """
+    Get number of channels in the satellite input branch (stack bands of satellite + environmental variables)
+    """
     n = 0
     for b in bands:
         if b in ["r","g","b","nir"]:
@@ -37,17 +40,6 @@ def get_nb_bands(bands):
         elif b == "bioclim":
             n+= 19
     return(n)
-
-
-def lr_foo(epoch, warmup_epoch):
-    if epoch < warmup_epoch:
-                # warm up lr
-        lr_scale = 0.1 ** (warmup_epoch - epoch)
-    else:
-        lr_scale = 0.95 ** epoch
-
-    return lr_scale
-
 
     
 def get_scheduler(optimizer, opts):
@@ -73,20 +65,24 @@ class EbirdTask(pl.LightningModule):
         self.save_hyperparameters(opts)
         self.config_task(opts, **kwargs)
         self.opts = opts
-        
+        #define self.learning_rate to enable learning rate finder
+        self.learning_rate = self.opts.experiment.module.lr
         
     def config_task(self, opts, **kwargs: Any) -> None:
         self.opts = opts
+        
+        #get target vector size (number of species we consider)
         subset = get_subset(self.opts.data.target.subset)
         self.target_size= len(subset) if subset is not None else self.opts.data.total_species
         self.target_type = self.opts.data.target.type
         
         if self.target_type == "binary":
-            #self.target_type = "binary"
-            self.loss = BCELoss()
+            #ground truth is 0-1. if bird is reported at a hotspot, target = 1
+            self.criterion = BCELoss()
             print("Training with BCE Loss")
         else:
-            self.loss = CustomCrossEntropyLoss(self.opts.losses.ce.lambd_pres,self.opts.losses.ce.lambd_abs) 
+            #target is num checklists reporting species i / total number of checklists at a hotspot
+            self.criterion = CustomCrossEntropyLoss(self.opts.losses.ce.lambd_pres,self.opts.losses.ce.lambd_abs) 
             print("Training with Custom CE Loss")
             
         if self.opts.experiment.module.model == "resnet18":
@@ -115,8 +111,6 @@ class EbirdTask(pl.LightningModule):
             self.model.AuxLogits.fc = nn.Linear(768, self.target_size)
             self.model.fc = nn.Linear(2048, self.target_size) 
             self.model.to(device)
-            #self.loss = CustomCrossEntropyLoss(self.opts.losses.ce.lambd_pres,self.opts.losses.ce.lambd_abs) 
-     
             self.m = nn.Sigmoid()
 
         else:
@@ -146,15 +140,15 @@ class EbirdTask(pl.LightningModule):
             y_hat, aux_outputs = self.forward(x)
             pred = m(y_hat)
             aux_pred = m(aux_outputs)
-            loss1 = self.loss(pred, y)
-            loss2 = self.loss(aux_pred, y)
+            loss1 = self.criterion(pred, y)
+            loss2 = self.criterion(aux_pred, y)
             loss = loss1 + loss2
             
         else:
             y_hat = self.forward(x)
             pred = m(y_hat)
-            loss = self.loss(pred, y)
-        
+            loss = self.criterion(pred, y)
+
         pred_ = pred.clone()
         
         if self.opts.data.target.type == "binary":
@@ -180,11 +174,12 @@ class EbirdTask(pl.LightningModule):
         
         x = batch['sat'].squeeze(1).to(device)
         y = batch['target'].to(device)
-        
+
         y_hat = self.forward(x)
-        
+      
         pred = m(y_hat)
-        loss = self.loss(pred, y)
+        loss = self.criterion(pred, y)
+
         pred_ = pred.clone()
         if self.opts.data.target.type == "binary":
             pred_[pred_>0.5] = 1
@@ -210,7 +205,7 @@ class EbirdTask(pl.LightningModule):
         y = batch['target'].to(device)
         y_hat = self.forward(x)
         pred = m(y_hat)
-
+        pred_ = pred.clone()
         for (name, _, scale) in self.metrics:
             nname = "test_" + name
             metric = getattr(self,name)(pred_, y)
@@ -219,21 +214,22 @@ class EbirdTask(pl.LightningModule):
             else:
                 self.log(nname, metric * scale)
 
-    def get_optimizer(self, opts):
+    def get_optimizer(self, model, opts):
+        
         if self.opts.optimizer == "Adam":
             optimizer = torch.optim.Adam(   #
-                self.model.parameters(),
-                lr=self.opts.experiment.module.lr,  
+                model.parameters(),
+                lr=self.learning_rate # self.opts.experiment.module.lr,  
                 )
         elif self.opts.optimizer == "AdamW":
             optimizer = torch.optim.AdamW(
-                self.model.parameters(),
-                lr=self.opts.experiment.module.lr,  
+                model.parameters(),
+                lr=self.learning_rate #self.opts.experiment.module.lr,  
                 )
         elif self.opts.optimizer == "SGD":
             optimizer = torch.optim.SGD(
-                self.model.parameters(),
-                lr=self.opts.experiment.module.lr,  
+                model.parameters(),
+                lr=self.learning_rate  
                 )
         else :
             raise ValueError(f"Optimizer'{self.opts.optimizer}' is not valid")
@@ -241,7 +237,7 @@ class EbirdTask(pl.LightningModule):
     
     def configure_optimizers(self) -> Dict[str, Any]:
  
-        optimizer = self.get_optimizer(self.opts)       
+        optimizer = self.get_optimizer(self.model, self.opts)       
         scheduler = get_scheduler(optimizer, self.opts)
         
         return{
@@ -269,7 +265,8 @@ class EbirdDataModule(pl.LightningDataModule):
         self.datatype = self.opts.data.datatype
         self.target = self.opts.data.target.type
         self.subset = self.opts.data.target.subset
-
+        self.use_loc = self.opts.loc.use
+        
     def prepare_data(self) -> None:
         """_ = EbirdVisionDataset(
             # pd.Dataframe("/network/scratch/a/akeraben/akera/ecosystem-embedding/data/train_june.csv"), 
@@ -292,7 +289,8 @@ class EbirdDataModule(pl.LightningDataModule):
             mode = "train",
             datatype = self.datatype,
             target = self.target, 
-            subset = self.subset
+            subset = self.subset,
+            use_loc = self.use_loc
         )
 
         self.all_test_dataset = EbirdVisionDataset(                
@@ -303,7 +301,8 @@ class EbirdDataModule(pl.LightningDataModule):
             mode = "test",
             datatype = self.datatype,
             target = self.target, 
-            subset = self.subset
+            subset = self.subset,
+            use_loc = self.use_loc
             )
 
         self.all_val_dataset = EbirdVisionDataset(
@@ -314,7 +313,8 @@ class EbirdDataModule(pl.LightningDataModule):
             mode = "val",
             datatype = self.datatype,
             target = self.target, 
-            subset = self.subset
+            subset = self.subset,
+            use_loc = self.use_loc
         )
 
         #TODO: Create subsets of the data
