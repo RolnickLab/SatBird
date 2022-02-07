@@ -12,10 +12,33 @@ import torch
 import os
 import pandas as pd
 import time 
+import math
+
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 def get_path(df, index, band):
     
     return Path(df.iloc[index][band])
+
+def encode_loc(loc, concat_dim=1, elev = False):
+    #loc is (lon, lat ) or (lon, lat, elev)
+    
+    feats = torch.cat((torch.sin(math.pi*loc[:,:2]), torch.cos(math.pi*loc[:,:2])), concat_dim)
+    if elev:
+        elev_feats = torch.unsqueeze(loc_ip[:, 2], concat_dim)
+        feats = torch.cat((feats, elev_feats), concat_dim)
+    return(feats)
+
+def convert_loc_to_tensor(x, elev = False, device=None):
+    # input is in lon {-180, 180}, lat {90, -90}
+    xt = x
+    xt[:,0] /= 180.0 # longitude
+    xt[:,1] /= 90.0 # latitude
+    if elev:
+        xt[:,2] /= 5000.0 # elevation
+    if device is not None:
+        xt = xt.to(device)
+    return xt
 
 class Identity(Module):  # type: ignore[misc,name-defined]
     """Identity function used for testing purposes."""
@@ -52,6 +75,8 @@ def get_img_bands(band_npy):
 def get_subset(subset):
     if subset == "songbirds":
         return (np.load('/network/scratch/t/tengmeli/scratch/ecosystem-embedding/songbirds_idx.npy'))
+    elif subset == "non_songbirds":
+        return (np.load('/network/projects/_groups/ecosystem-embeddings/species_split/not_songbirds_idx.npy'))
     elif subset == "ducks":
         return ([37])
     else:
@@ -66,7 +91,7 @@ class EbirdVisionDataset(VisionDataset):
                  mode : Optional[str] = "train",
                  datatype = "refl",
                  target = "probs", 
-                 subset = None)-> None:
+                 subset = None, use_loc = False)-> None:
         """
         df_paths: dataframe with paths to data for each hotspot
         bands: list of bands to include, anysubset of  ["r", "g", "b", "nir"] or  "rgb" (for image dataset) 
@@ -87,10 +112,10 @@ class EbirdVisionDataset(VisionDataset):
         self.mode = mode
         self.type = datatype
         self.target = target
-        self.subset = get_subset(subset)
-
-    def __len__(self) -> int:
-
+        self.subset = get_subset(subset) 
+        self.use_loc = use_loc
+        
+    def __len__(self):
         return self.total_images
 
     def __getitem__(self, index: int) -> Dict[str, Any]:
@@ -114,7 +139,7 @@ class EbirdVisionDataset(VisionDataset):
             
         
         item_["sat"] = torch.from_numpy(npy_data)           
-        
+
         if self.transform:
             item_ = self.transform(item_)
         
@@ -149,5 +174,11 @@ class EbirdVisionDataset(VisionDataset):
         meta.pop('earliest_date', None)
         item_.update(meta)
         
-        
+        if self.use_loc:
+            
+            lon, lat = torch.Tensor([item_["lon"]]), torch.Tensor([item_["lat"]])
+            loc = torch.cat((lon, lat)).unsqueeze(0)
+            loc = encode_loc(convert_loc_to_tensor(loc))
+            item_["loc"] = loc
+
         return item_
