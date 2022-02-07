@@ -8,6 +8,7 @@ sys.path.append(str(Path().resolve().parent.parent))
 
 from omegaconf import OmegaConf, DictConfig
 from src.trainer.trainer import EbirdTask, EbirdDataModule
+import src.trainer.geo_trainer as geo_trainer
 import pytorch_lightning as pl
 from pytorch_lightning import loggers as pl_loggers
 from pytorch_lightning import Trainer
@@ -50,9 +51,14 @@ if __name__ == "__main__":
     pl.seed_everything(conf.program.seed)
     
     print(conf.log_comet)
-
-    task = EbirdTask(conf)
-    datamodule = EbirdDataModule(conf)
+    if not conf.loc.use :
+        
+        task = EbirdTask(conf)
+        datamodule = EbirdDataModule(conf)
+    else:
+        
+        task = geo_trainer.EbirdTask(conf)
+        datamodule = geo_trainer.EbirdDataModule(conf)
     
     trainer_args = cast(Dict[str, Any], OmegaConf.to_object(conf.trainer))
         
@@ -67,7 +73,7 @@ if __name__ == "__main__":
             #experiment_key=os.environ.get("COMET_EXPERIMENT_KEY"),  # Optional
             experiment_name="default",  # Optional
         )
-        comet_logger.experiment.add_tags(conf.comet.tags)
+        comet_logger.experiment.add_tags(list(conf.comet.tags))
         print(conf.comet.tags)
         trainer_args["logger"] = comet_logger
         #trainer_args["logger"].experiment.add_tags(conf.comet.tags)
@@ -80,25 +86,31 @@ if __name__ == "__main__":
         save_top_k=3,
         save_last=True,
     )
-    #early_stopping_callback = EarlyStopping(
-   #      monitor="val_loss",
-   #     min_delta=0.00,
-   #     patience=10,
-   # )
+    early_stopping_callback = EarlyStopping(
+         monitor="val_loss",
+        min_delta=0.00,
+        patience=4,
+        mode = "min"
+    )
     lr_monitor = LearningRateMonitor(logging_interval='epoch')
 
-
-
    
-    trainer_args["callbacks"] = [checkpoint_callback, lr_monitor]#early_stopping_callback, lr_monitor]
-    
+    trainer_args["callbacks"] = [checkpoint_callback, lr_monitor]#,early_stopping_callback]
+    trainer_args["max_epochs"] = 200
     #trainer_args["profiler"]="simple"
     #trainer_args["overfit_batches"] = 10
     #trainer_args["track_grad_norm"]=2
     
-    trainer = pl.Trainer(**trainer_args)
-
-
+    if not conf.loc.use :
+        trainer_args["auto_lr_find"]=True
+        trainer = pl.Trainer(**trainer_args)
+        trainer.logger.experiment.add_tags(list(conf.comet.tags))
+        trainer.tune(model = task, datamodule=datamodule)
+    else : 
+        print("Using geo information")
+        trainer = pl.Trainer(**trainer_args)     
+        trainer.logger.experiment.add_tags(list(conf.comet.tags))
+        trainer.tune(model = task, datamodule=datamodule)
     ## Run experiment
     trainer.fit(model=task, datamodule=datamodule)
     trainer.test(model=task, datamodule=datamodule)
