@@ -1,5 +1,5 @@
 save_path: "./ckpt"
-
+load_ckpt : ""
 #log the experiment to comet ? 
 log_comet: true
 
@@ -27,6 +27,7 @@ experiment:
     model: "resnet50"
     pretrained: True
     lr: 0.001
+
 
 optimizer: "SGD"  #"Adam"
 
@@ -86,7 +87,7 @@ data:
   target:
     type: "probs"  #binary or probs
     # choose subset of birds : "ducks" for trying on species [37] or "songbirds" (307 species) or None (full set 684 species)
-    subset: "songbirds"
+    subset: "not_songbirds"
  
   #normalization: None
   transforms:

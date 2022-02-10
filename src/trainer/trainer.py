@@ -7,7 +7,7 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau, StepLR, CosineAnnealingW
 from pl_bolts.optimizers.lr_scheduler import LinearWarmupCosineAnnealingLR
 from torch.utils.data import DataLoader, Subset
 from torchvision import models
-
+import numpy as np
 from omegaconf import OmegaConf
 #from src.dataset.utils import load_opts
 from src.transforms.transforms import get_transforms
@@ -21,6 +21,7 @@ from typing import Any, Dict, Optional
 from src.dataset.dataloader import EbirdVisionDataset
 from src.dataset.dataloader import get_subset
 import time 
+import os 
 
 criterion = CustomCrossEntropyLoss()#BCEWithLogitsLoss()
 m = nn.Sigmoid()
@@ -91,7 +92,9 @@ class EbirdTask(pl.LightningModule):
             if len(self.opts.data.bands)!=3 or len(self.opts.data.env) > 0:
                 bands = self.opts.data.bands + self.opts.data.env
                 self.model.conv1 = nn.Conv2d(get_nb_bands(bands), 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
-            self.model.fc = nn.Linear(512, self.target_size) 
+            self.model.fc = nn.Linear(512, self.target_size)
+            if self.opts.experiment.module.init_bias=="means":
+                self.model.fc.bias.data =  torch.Tensor(np.load(self.opts.experiment.module.means_path))[0, :]
             self.model.to(device)
             self.m = nn.Sigmoid()
             
@@ -102,6 +105,9 @@ class EbirdTask(pl.LightningModule):
                 bands = self.opts.data.bands + self.opts.data.env
                 self.model.conv1 = nn.Conv2d(get_nb_bands(bands), 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
             self.model.fc = nn.Linear(2048, self.target_size) 
+            print(self.model.fc.bias.data.shape)
+            if self.opts.experiment.module.init_bias=="means":
+                self.model.fc.bias.data =  torch.Tensor(np.load(self.opts.experiment.means_path))[0, :]
             self.model.to(device)
             self.m = nn.Sigmoid()
 
@@ -110,11 +116,14 @@ class EbirdTask(pl.LightningModule):
             self.model = models.inception_v3(pretrained=self.opts.experiment.module.pretrained)
             self.model.AuxLogits.fc = nn.Linear(768, self.target_size)
             self.model.fc = nn.Linear(2048, self.target_size) 
+            if self.opts.experiment.module.init_bias=="means":
+                self.model.fc.bias.data =  torch.Tensor(np.load(self.opts.experiment.module.means_path))[0, :]
             self.model.to(device)
             self.m = nn.Sigmoid()
 
         else:
             raise ValueError(f"Model type '{self.opts.experiment.module.model}' is not valid")
+        
         
         metrics = get_metrics(self.opts)
         for (name, value, _) in metrics:
@@ -200,19 +209,29 @@ class EbirdTask(pl.LightningModule):
         self, batch: Dict[str, Any], batch_idx:int
     )-> None:
         """Test step """
-
+        
         x = batch['sat'].squeeze(1).to(device)
-        y = batch['target'].to(device)
+        self.model.to(device)
         y_hat = self.forward(x)
         pred = m(y_hat)
-        pred_ = pred.clone()
-        for (name, _, scale) in self.metrics:
-            nname = "test_" + name
-            metric = getattr(self,name)(pred_, y)
-            if name == "topk":
-                self.log(nname, metric[0] * scale)
-            else:
-                self.log(nname, metric * scale)
+        pred_ = pred.clone().cpu()
+        print(pred_.shape)
+        if "target" in batch.keys():
+            y = batch['target'].cpu()
+            for (name, _, scale) in self.metrics:
+                nname = "test_" + name
+                metric = getattr(self,name)(pred_, y)
+                if name == "topk":
+                    self.log(nname, metric[0] * scale)
+                else:
+                    self.log(nname, metric * scale)
+                  
+        
+        for i, elem in enumerate(pred_):
+            self.opts.save_preds_path = "/network/scratch/t/tengmeli/test_runs/trial/"
+            np.save(os.path.join(self.opts.save_preds_path, batch["hotspot_id"][i] + ".npy"), elem.cpu().detach().numpy())
+        print("saved elems")
+        
 
     def get_optimizer(self, model, opts):
         

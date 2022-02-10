@@ -73,7 +73,7 @@ class RandomVerticalFlip:  # type: ignore[misc,name-defined]
                 elif s == "boxes" :
                     height, width = sample[s].shape[-2:]
                     sample["boxes"][:, [1, 3]] = height - sample["boxes"][:, [3, 1]]
-
+                
             #if "mask" in sample:
             #    sample["mask"] = sample["mask"].flip(-2)
 
@@ -90,7 +90,8 @@ def normalize_custom(t, mini=0, maxi=1):
     max_t = t.reshape(batch_size, -1).max(1)[0].reshape(batch_size, 1, 1, 1)
     t = t / max_t
     return mini + (maxi - mini) * t
-    
+
+
 class Normalize:
     def __init__(self, maxchan = True, custom = None, subset = satellite):
         """
@@ -125,7 +126,6 @@ class Normalize:
             #     for task, tensor in sample.items() if task in subset
             #}
         #    pass
-        
         return(sample)
 
 class MatchRes:
@@ -151,20 +151,20 @@ class MatchRes:
             left = max(0,Wb//2 - w//2)
             
             sample["bioclim"] = sample["bioclim"][ :, int(top) : int(top + h), int(left) : int(left + w)]
-            print(sample["bioclim"].shape)
+
         if "ped" in list(sample.keys()):
             #align bioclim with ped
             Hb, Wb = sample["ped"].size()[-2:]
-            print("ped")
+       
         
             h = (H*self.sat_res/self.ped_res)
             w = (W*self.sat_res/self.ped_res)
             h,w = max(ceil(h),1), max(ceil(w),1)
             top = max(0, Hb//2 - h//2)
             left = max(0,Wb//2 - w//2)
-            print(h,w)
+
             sample["ped"] = sample["ped"][ :, int(top) : int(top + h), int(left) : int(left + w)]
-            print(sample["ped"].shape)
+
         for elem in list(sample.keys()):
             if elem in env:
                 
@@ -213,7 +213,7 @@ class RandomCrop:  # type: ignore[misc,name-defined]
             if (len(sample[key].size())==3):
                 sample[key] = sample[key].unsqueeze(0)
         
-        if torch.rand(1) < self.p:
+        if torch.rand(1) > self.p:
             return(sample)
         else:
             if not self.center:
@@ -226,6 +226,7 @@ class RandomCrop:  # type: ignore[misc,name-defined]
 
             item_ = {}
             for task, tensor in sample.items():
+                
                 if task in all_data and not task in self.ignore_band: 
                     item_.update({task: tensor[:, :, top : top + self.h, left : left + self.w]})
                 else: 

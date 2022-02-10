@@ -1,20 +1,24 @@
-save_path: "/network/scratch/t/tengmeli/ckpt/not_songbirds"
+save_path: "/network/scratch/t/tengmeli/ckpt/not_songbirds_bias_init_loc"
+load_ckpt_path: "" #/network/scratch/t/tengmeli/ckpt/not_songbirds_bias_init/epoch=14-step=14429.ckpt"
 log_comet: true
+
 loc:
   use: true
   concat: false
   
 comet:
   project_name: "env_ecosystem" #"ecosystem-duck"
-  tags: ["not_songbirds", "sgd",  "steplr", "resnet50", "noconcat"]
+  tags: ["not_songbirds", "no_env", "bias_init", "sgd",  "steplr", "resnet18", loc]
 experiment:
   task: "ebird_classifier"
   name: "ebird_classifier"
   seed: 42
 
   module:
-    model: "resnet50"
-    pretrained: True
+    model: "resnet18"
+    pretrained: False
+    init_bias: "means"
+    means_path: "/network/scratch/t/tengmeli/scratch/ecosystem-embedding/training/means.npy"
     lr: 0.001
 
 optimizer: "SGD"  #"Adam"
@@ -59,7 +63,7 @@ data:
   bands: ["r", "g", "b", "nir"]
   res: 10 
   
-  env: ["ped", "bioclim"] #["ped", "bioclim"] #"all" "ped" or "bioclim"
+  env: [] #["ped", "bioclim"] #"all" "ped" or "bioclim"
   ped: 
       #pedological rasters
       res: 250
@@ -81,7 +85,7 @@ data:
   #normalization: None
   transforms:
     - name: matchres
-      ignore: false
+      ignore: true
       target_size: [64, 64]
       
     - name: crop
@@ -111,12 +115,12 @@ data:
       #[[894.6719, 932.5726,693.2768], [883.9763,747.6857,749.3098]]
       #[894.6719, 932.5726,693.2768, 2817.9849], [883.9763,747.6857,749.3098, 1342.6334]
     - name: normalize
-      ignore: false
+      ignore: true
       maxchan: false
       subset: ["bioclim"]
       custom: [*bioclim_means, *bioclim_std]
     - name: normalize
-      ignore: false
+      ignore: true
       maxchan: false
       subset: ["ped"]
       custom: [*ped_means, *ped_std]

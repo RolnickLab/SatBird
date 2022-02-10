@@ -69,6 +69,7 @@ class LocEncoder(torch.nn.Module):
 
 
 def create_loc_encoder(opts, verbose=0):
+    print("using location")
     encoder = LocEncoder(opts)
 
     if verbose > 0:
@@ -99,7 +100,11 @@ class EbirdTask(pl.LightningModule):
 
         if self.concat:
             self.linear_layer = nn.Linear(256+2048,  self.target_size).to(device)
-        
+    
+    def get_loc_model(self):
+        self.loc_model = LocEncoder(self.opts)
+        return(self.loc_model)
+    
     def get_sat_model(self):
         """
         Satellite model if we multiply output with location model output
@@ -159,7 +164,7 @@ class EbirdTask(pl.LightningModule):
             print("Training with Custom CE Loss")
         
         self.encoders = {}
-        self.encoders["loc"] =  LocEncoder(self.opts)
+        self.encoders["loc"] =  self.get_loc_model()
         self.encoders["sat"] = self.get_sat_model()   
         metrics = get_metrics(self.opts)
         for (name, value, _) in metrics:

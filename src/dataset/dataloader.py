@@ -75,8 +75,8 @@ def get_img_bands(band_npy):
 def get_subset(subset):
     if subset == "songbirds":
         return (np.load('/network/scratch/t/tengmeli/scratch/ecosystem-embedding/songbirds_idx.npy'))
-    elif subset == "non_songbirds":
-        return (np.load('/network/projects/_groups/ecosystem-embeddings/species_split/not_songbirds_idx.npy'))
+    elif subset == "not_songbirds":
+        return (np.load('/network/projects/_groups/ecosystem-embeddings/species_splits/not_songbirds_idx.npy'))
     elif subset == "ducks":
         return ([37])
     else:
@@ -120,7 +120,7 @@ class EbirdVisionDataset(VisionDataset):
 
     def __getitem__(self, index: int) -> Dict[str, Any]:
 
-        meta = load_file(get_path(self.df, index, "meta"))
+        
         band_npy = [(b,get_path(self.df, index, b)) for b in self.bands if get_path(self.df, index, b).suffix == ".npy"]
         env_npy = [(b,get_path(self.df, index, b)) for b in self.env if get_path(self.df, index, b).suffix == ".npy"]
         item_ = {}
@@ -145,34 +145,39 @@ class EbirdVisionDataset(VisionDataset):
         
         for e in self.env:
             item_["sat"] = torch.cat([item_["sat"],item_[e]], dim = 1)
-         
-        #add target
-        species = load_file(get_path(self.df, index, "species"))
         
-        if self.target == "probs":
-            if not self.subset is None:
-                item_["target"] = np.array(species["probs"])[self.subset]
-            else: 
-                item_["target"] = species["probs"]
-            item_["target"] = torch.Tensor(item_["target"])
-            
-        elif self.target == "binary":
-            if not self.subset is None:
-                targ = np.array(species["probs"])[self.subset]
-            else: 
-                targ = species["probs"]
-            item_["original_target"] = torch.Tensor(targ)
-            item_["target"] = torch.Tensor([1 if targ[i]>0 else 0 for i in range(len(targ))])
-            
-        else:
-            raise NameError("type of target not supported, should be probs or binary")
+        if "species" in self.df.columns: 
+            #add target
+            species = load_file(get_path(self.df, index, "species"))
+
+            if self.target == "probs":
+                if not self.subset is None:
+                    item_["target"] = np.array(species["probs"])[self.subset]
+                else: 
+                    item_["target"] = species["probs"]
+                item_["target"] = torch.Tensor(item_["target"])
+
+            elif self.target == "binary":
+                if not self.subset is None:
+                    targ = np.array(species["probs"])[self.subset]
+                else: 
+                    targ = species["probs"]
+                item_["original_target"] = torch.Tensor(targ)
+                item_["target"] = torch.Tensor([1 if targ[i]>0 else 0 for i in range(len(targ))])
+
+            else:
+                raise NameError("type of target not supported, should be probs or binary")
         
         
-        item_["num_complete_checklists"] = species["num_complete_checklists"]
+            item_["num_complete_checklists"] = species["num_complete_checklists"]
         
-        #add metadata information (hotspot info)
-        meta.pop('earliest_date', None)
-        item_.update(meta)
+        if "meta" in self.df.columns: 
+            meta = load_file(get_path(self.df, index, "meta"))
+            #add metadata information (hotspot info)
+            meta.pop('earliest_date', None)
+            item_.update(meta)
+        else: 
+            item_["hotspot_id"] = os.path.basename(get_path(self.df, index, "b")).strip(".npy")
         
         if self.use_loc:
             
