@@ -1,3 +1,4 @@
+import os
 import pytorch_lightning as pl
 import torch
 import torch.nn as nn
@@ -8,7 +9,7 @@ from pl_bolts.optimizers.lr_scheduler import LinearWarmupCosineAnnealingLR
 from torch.utils.data import DataLoader, Subset
 from torchvision import models
 from torch.autograd import Variable
-
+import numpy as np
 from omegaconf import OmegaConf
 #from src.dataset.utils import load_opts
 from src.transforms.transforms import get_transforms
@@ -89,18 +90,21 @@ class EbirdTask(pl.LightningModule):
         """initializes a new Lightning Module to train"""
         
         super().__init__()       
-        
+        print(opts)
         self.save_hyperparameters(opts)        
         #self.automatic_optimization = False
         self.opts = opts
-        self.concat = self.opts.loc.concat
-        self.config_task(opts, **kwargs)
         
+        self.concat = self.opts.loc.concat
+        self.config_task(self.opts, **kwargs)
         self.learning_rate = self.opts.experiment.module.lr
 
         if self.concat:
             self.linear_layer = nn.Linear(256+2048,  self.target_size).to(device)
-    
+        
+        assert "save_preds_path" in self.opts
+        self.save_preds_path = self.opts["save_preds_path"]
+        
     def get_loc_model(self):
         self.loc_model = LocEncoder(self.opts)
         return(self.loc_model)
@@ -119,6 +123,8 @@ class EbirdTask(pl.LightningModule):
                 self.sat_model.fc =Identity()
             else:
                 self.sat_model.fc = nn.Linear(512, self.target_size) 
+            if self.opts.experiment.module.init_bias=="means":
+                self.sat_model.fc.bias.data =  torch.Tensor(np.load(self.opts.experiment.module.means_path))[0, :]
             self.sat_model.to(device)
             self.m = nn.Sigmoid()
             
@@ -132,6 +138,8 @@ class EbirdTask(pl.LightningModule):
                 self.sat_model.fc =Identity()
             else:
                 self.sat_model.fc = nn.Linear(2048, self.target_size) 
+            if self.opts.experiment.module.init_bias=="means":
+                self.sat_model.fc.bias.data =  torch.Tensor(np.load(self.opts.experiment.module.means_path))[0, :]
             self.sat_model.to(device)
             self.m = nn.Sigmoid()
 
@@ -142,7 +150,9 @@ class EbirdTask(pl.LightningModule):
             if self.concat:
                 self.sat_model.fc =Identity()
             else:
-                self.sat_model.fc = nn.Linear(2048, self.target_size) 
+                self.sat_model.fc = nn.Linear(2048, self.target_size)
+            if self.opts.experiment.module.init_bias=="means":
+                self.sat_model.fc.bias.data =  torch.Tensor(np.load(self.opts.experiment.module.means_path))[0, :]
             self.sat_model.to(device) 
             self.m = nn.Sigmoid()
         else:
@@ -174,6 +184,8 @@ class EbirdTask(pl.LightningModule):
 
     def forward(self, x:Tensor, loc_tensor = None) -> Any:
         # need to fix use of inceptionv3 to be able to use location too 
+        self.encoders["sat"].to(device)
+        self.encoders["loc"].to(device)
         if self.opts.experiment.module.model == "inceptionv3":
             out_sat, aux_outputs= self.encoders["sat"](x)
             out_loc = self.encoders["loc"](loc_tensor).squeeze(1)
@@ -290,19 +302,39 @@ class EbirdTask(pl.LightningModule):
         self, batch: Dict[str, Any], batch_idx:int
     )-> None:
         """Test step """
-
+        
         x = batch['sat'].squeeze(1).to(device)
-        y = batch['target'].to(device)
-        y_hat = self.forward(x)
-        pred = m(y_hat)
+        loc_tensor= batch["loc"].to(device)
 
-        for (name, _, scale) in self.metrics:
-            nname = "test_" + name
-            metric = getattr(self,name)(pred_, y)
-            if name == "topk":
-                self.log(nname, metric[0] * scale)
+        #check weights are moving
+        #for p in self.model.fc.parameters(): 
+        #    print(p.data)
+        if self.opts.experiment.module.model == "inceptionv3":
+            out_sat, aux_outputs, out_loc = self.forward(x, loc_tensor)
+            y_hat = m(out_sat)
+            aux_y_hat = m(aux_outputs)
+            pred = torch.multiply(y_hat, out_loc)
+        else:
+            if self.concat:
+                y_hat = m(self.forward(x, loc_tensor))
             else:
-                self.log(nname, metric * scale)
+                out_sat, out_loc = self.forward(x, loc_tensor)
+                y_hat = torch.multiply(m(out_sat), out_loc)#self.forward(x)
+            pred = y_hat               
+        pred_ = pred.clone().cpu()    
+        if "target" in batch.keys():
+            y = batch['target'].cpu()
+            for (name, _, scale) in self.metrics:
+                nname = "test_" + name
+                metric = getattr(self,name)(pred_, y)
+                if name == "topk":
+                    self.log(nname, metric[0] * scale)
+                else:
+                    self.log(nname, metric * scale)  
+        
+        for i, elem in enumerate(pred_):
+            np.save(os.path.join(self.save_preds_path, batch["hotspot_id"][i] + ".npy"), elem.cpu().detach().numpy())
+        print("saved elems")
 
     def get_optimizer(self, model, opts):
         
