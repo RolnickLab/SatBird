@@ -48,30 +48,30 @@ def get_target_size(opts):
 
 
 class LocEncoder(torch.nn.Module):
-    def __init__(self, opts,**kwargs: Any) -> None:
+    def __init__(self, opt,**kwargs: Any) -> None:
         """initializes a new Lightning Module to train"""
         
         super().__init__()
-        self.opts = opts
-        self.target_size = get_target_size(self.opts)
+        self.opts_ = opt
+        self.target_size = get_target_size(self.opts_)
         
         num_inputs = 4
-        if self.opts.loc.elev:
+        if self.opts_.loc.elev:
             num_inputs = 5
         self.model = geomodels.FCNet(num_inputs, num_classes=self.target_size,num_filts=256)   
         self.model = self.model.to(device)   
         
     def forward(self, loc):
         
-        return(self.model(loc, class_of_interest=None, return_feats=self.opts.loc.concat))
+        return(self.model(loc, class_of_interest=None, return_feats=self.opts_.loc.concat))
     
     def __str__(self):
         return("Location encoder")
 
 
-def create_loc_encoder(opts, verbose=0):
+def create_loc_encoder(opt, verbose=0):
     print("using location")
-    encoder = LocEncoder(opts)
+    encoder = LocEncoder(opt)
 
     if verbose > 0:
         print(f"  - Add {encoder.__class__.__name__}")
@@ -89,21 +89,22 @@ class EbirdTask(pl.LightningModule):
     def __init__(self, opts, **kwargs: Any) -> None:
         """initializes a new Lightning Module to train"""
         
-        super().__init__()       
-        print(opts)
-        self.save_hyperparameters(opts)        
+        super().__init__()    
+        
+        self.save_hyperparameters(opts)       
+        print(self.hparams.keys())
         #self.automatic_optimization = False
         self.opts = opts
         
         self.concat = self.opts.loc.concat
-        self.config_task(self.opts, **kwargs)
+        self.config_task(opts, **kwargs)
         self.learning_rate = self.opts.experiment.module.lr
 
         if self.concat:
             self.linear_layer = nn.Linear(256+2048,  self.target_size).to(device)
         
-        assert "save_preds_path" in self.opts
-        self.save_preds_path = self.opts["save_preds_path"]
+        #assert "save_preds_path" in self.opts
+        #self.save_preds_path = self.opts["save_preds_path"]
         
     def get_loc_model(self):
         self.loc_model = LocEncoder(self.opts)
@@ -333,7 +334,7 @@ class EbirdTask(pl.LightningModule):
                     self.log(nname, metric * scale)  
         
         for i, elem in enumerate(pred_):
-            np.save(os.path.join(self.save_preds_path, batch["hotspot_id"][i] + ".npy"), elem.cpu().detach().numpy())
+            np.save(os.path.join(self.opts.save_preds_path, batch["hotspot_id"][i] + ".npy"), elem.cpu().detach().numpy())
         print("saved elems")
 
     def get_optimizer(self, model, opts):
