@@ -51,17 +51,16 @@ def set_up_omegaconf()-> DictConfig:
 if __name__ == "__main__":
     
     conf = set_up_omegaconf()
-    conf = cast(DictConfig, conf)
+
     pl.seed_everything(conf.program.seed)
     if not os.path.exists(conf.save_preds_path):
         os.makedirs(conf.save_preds_path)
-
+    
     if not conf.loc.use :        
         task = EbirdTask(conf)
         datamodule = EbirdDataModule(conf)
     else:       
-        conf.new_unknown_key = 12
-        print(conf)
+
         task = geo_trainer.EbirdTask(conf)
         datamodule = geo_trainer.EbirdDataModule(conf)
     
@@ -86,9 +85,8 @@ if __name__ == "__main__":
     trainer = Trainer()
     if conf.load_ckpt_path != "":
         print("Loading existing checkpoint")
-        #print(task.encoders["loc"].model.class_emb.weight[0])
-        task_test = task.load_from_checkpoint(conf.load_ckpt_path)
-        #print(task_test.encoders["loc"].model.class_emb.weight[0])
-    result = trainer.test(model=task_test, datamodule=datamodule)
+        task = task.load_from_checkpoint(conf.load_ckpt_path, save_preds_path = conf.save_preds_path)
+
+    result = trainer.test(model=task, datamodule=datamodule)
     print(result)
     print("finished testing")
