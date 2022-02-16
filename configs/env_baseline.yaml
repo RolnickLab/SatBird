@@ -1,5 +1,5 @@
 
-
+random_state: [0,10,25,50]
 hs_data: "/network/projects/_groups/ecosystem-embeddings/data/hotspot_data/hotspots_data_with_bioclim.csv"
 
 #need to merge df, or do mean imputation, otherwise, if already processed, indicate relevant df in train and val
@@ -14,9 +14,9 @@ val: "/network/projects/_groups/ecosystem-embeddings/data/hotspot_data/baseline_
 y_train: "/network/projects/_groups/ecosystem-embeddings/data/hotspot_data/baseline_processed/y_train.npy"
 y_val: "/network/projects/_groups/ecosystem-embeddings/data/hotspot_data/baseline_processed/y_val.npy"
 
-predictor: "XGBR"
+predictor: "GBR"
 
 
 path_means : "/network/scratch/t/tengmeli/scratch/ecosystem-embedding/training/means.npy"
 
-save_pred : "/network/scratch/t/tengmeli/scratch/ecosystem-embedding/training/baseline_pred.npy"
+save_pred : "/network/scratch/t/tengmeli/scratch/ecosystem-embedding/training/baseline_pred_gbr.npy"
