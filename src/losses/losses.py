@@ -10,6 +10,25 @@ class CustomCrossEntropyLoss(nn.Module):
     def __call__(self, pred, target):
         return (-self.lambd_pres *target * torch.log(pred) - self.lambd_abs * (1-target) *torch.log(1 - pred)).sum()
 
+class CustomKL(nn.Module):
+    def __init__(self):
+        super().__init__()
+
+    def __call__(self, pred, target):
+        
+        targ_ = target * torch.log(target) + (1-target) *torch.log(1 - target)
+        return (-target * torch.log(pred) - (1-target) *torch.log(1 - pred)).sum() + torch.nansum(targ_)
+
+class Presence_k(nn.Module):
+    """
+    compare accuracy by binarizing targets  1 if species are present with proba > k 
+    """
+    def __init__(self, k):
+        super().__init__()
+        self.k = k
+    def __call__(self, pred, target):
+        pres = ((pred > self.k) == (target > self.k)).mean()
+        return (pres)
 
 class TopKAccuracy(nn.Module):
     def __init__(self,k=30):
@@ -47,6 +66,9 @@ def get_metric(metric):
     elif metric.name == "ce" and not metric.ignore is True :
         return CustomCrossEntropyLoss(metric.lambd_pres, metric.lambd_abs)
     
+    elif metric.name == "kl" and not metric.ignore is True :
+        return CustomKL()
+    
     elif metric.ignore is True :
         return None
 
@@ -54,9 +76,9 @@ def get_metric(metric):
 
 def get_metrics(opts):
     metrics = []
-
+    
     for m in opts.losses.metrics:
         metrics.append((m.name, get_metric(m), m.scale))
     metrics = [(a,b,c) for (a,b,c) in metrics if b is not None]
-
+    print(metrics)
     return metrics

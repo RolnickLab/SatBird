@@ -146,7 +146,7 @@ class MatchRes:
             
             h = (H*self.sat_res/self.bioclim_res)
             w = (W*self.sat_res/self.bioclim_res)
-            h,w = max(ceil(h),1), max(ceil(w),1)
+            h,w = max(ceil(h),2), max(ceil(w),2)
             top = max(0, Hb//2 - h//2)
             left = max(0,Wb//2 - w//2)
             
@@ -159,10 +159,10 @@ class MatchRes:
         
             h = (H*self.sat_res/self.ped_res)
             w = (W*self.sat_res/self.ped_res)
-            h,w = max(ceil(h),1), max(ceil(w),1)
+            h,w = max(ceil(h),2), max(ceil(w),2)
             top = max(0, Hb//2 - h//2)
             left = max(0,Wb//2 - w//2)
-
+            
             sample["ped"] = sample["ped"][ :, int(top) : int(top + h), int(left) : int(left + w)]
 
         for elem in list(sample.keys()):
@@ -175,7 +175,11 @@ class MatchRes:
          7.80845219,  21.77499491,   1.93990004, 902.9704986 ,
        114.61111788,  42.0276728 ,  37.11493781, 315.34206997,
        145.09703767, 231.19724491, 220.06619529]).unsqueeze(-1).unsqueeze(-1)
+                    elif elem == "ped":
+                        sample[elem] = torch.Tensor([2230.56361696, 1374.68551614,   20.45478794,   19.04921312,
+         31.1196319 ,   61.24246466,   36.68711656,   44.25620165]).unsqueeze(-1).unsqueeze(-1)
                 sample[elem] = F.interpolate(sample[elem].unsqueeze(0).float(), size=(H, W))
+                print(sample[elem].size())
         return (sample)
 
 
@@ -244,7 +248,7 @@ class Resize:
     def __call__(self, sample: Dict[str, Tensor]) -> Dict[str, Tensor]:    
         for s in sample:
             if s in satellite:
-                sample[s] = F.interpolate(sample[s].float(), size=(self.h, self.w))
+                sample[s] = F.interpolate(sample[s].float(), size=(self.h, self.w), mode = 'nearest')
             elif s in env:
                 sample[s] = F.interpolate(sample[s].float(), size=(self.h, self.w), mode = 'nearest')
         return(sample)
