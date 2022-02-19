@@ -40,7 +40,9 @@ def set_up_omegaconf()-> DictConfig:
     )
     conf = set_data_paths(conf)
     conf = cast(DictConfig, conf)  # convince mypy that everything is alright
-
+    
+    #if commandline_opts is not None and isinstance(commandline_opts, dict):
+    #    opts = Dict(merge(commandline_opts, opts))
     return conf
 
 
@@ -49,29 +51,37 @@ if __name__ == "__main__":
     conf = set_up_omegaconf()
     
     pl.seed_everything(conf.program.seed)
-    
+    if not os.path.exists(conf.save_path):
+        os.makedirs(conf.save_path)
+    with open(os.path.join(conf.save_path, "config.yaml"),"w") as fp:
+        OmegaConf.save(config = conf, f = fp)
+    fp.close()
     print(conf.log_comet)
+    
+    
     if not conf.loc.use :
-        
         task = EbirdTask(conf)
         datamodule = EbirdDataModule(conf)
     else:
-        
+        print("Using geo information")
         task = geo_trainer.EbirdTask(conf)
         datamodule = geo_trainer.EbirdDataModule(conf)
+        
+    conf.save_path = conf.save_path +"_full_init"
+    conf.comet.project_name =  "full_ecosystem_init" 
     
     trainer_args = cast(Dict[str, Any], OmegaConf.to_object(conf.trainer))
         
     if conf.log_comet:
 
         comet_logger= CometLogger(
-            api_key="JAQ6zQMoTH7snvbIkpjeBswPW",#os.environ.get("COMET_API_KEY"),
-            workspace= "melisandeteng", #os.environ.get("COMET_WORKSPACE"),  # Optional
+            api_key=os.environ.get("COMET_API_KEY"), #"JAQ6zQMoTH7snvbIkpjeBswPW",#os.environ.get("COMET_API_KEY"),
+            workspace=os.environ.get("COMET_WORKSPACE"),# "melisandeteng", #os.environ.get("COMET_WORKSPACE"),  # Optional
            # save_dir=".",  # Optional
             project_name=conf.comet.project_name,  # Optional
            # rest_api_key=os.environ.get("COMET_REST_API_KEY"),  # Optional
             #experiment_key=os.environ.get("COMET_EXPERIMENT_KEY"),  # Optional
-            experiment_name="default",  # Optional
+           # experiment_name="default",  # Optional
         )
         comet_logger.experiment.add_tags(list(conf.comet.tags))
         print(conf.comet.tags)
@@ -94,20 +104,20 @@ if __name__ == "__main__":
     )
     lr_monitor = LearningRateMonitor(logging_interval='epoch')
 
-   
-    trainer_args["callbacks"] = [checkpoint_callback, lr_monitor]#,early_stopping_callback]
-    trainer_args["max_epochs"] = 200
+    
+    trainer_args["callbacks"] = [checkpoint_callback, lr_monitor] #, #early_stopping_callback]
+    trainer_args["max_epochs"] = 1000
     #trainer_args["profiler"]="simple"
-    #trainer_args["overfit_batches"] = 10
+    trainer_args["overfit_batches"] = 10
     #trainer_args["track_grad_norm"]=2
     
     if not conf.loc.use :
-        trainer_args["auto_lr_find"]=True
+        trainer_args["auto_lr_find"]=conf.auto_lr_find
         trainer = pl.Trainer(**trainer_args)
         trainer.logger.experiment.add_tags(list(conf.comet.tags))
         trainer.tune(model = task, datamodule=datamodule)
     else : 
-        print("Using geo information")
+        
         trainer = pl.Trainer(**trainer_args)     
         trainer.logger.experiment.add_tags(list(conf.comet.tags))
         trainer.tune(model = task, datamodule=datamodule)

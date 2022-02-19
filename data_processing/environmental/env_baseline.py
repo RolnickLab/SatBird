@@ -21,7 +21,7 @@ env_vars = ['bio_1', 'bio_2', 'bio_3', 'bio_4', 'bio_5',
 def set_up_omegaconf()-> DictConfig:
     """Helps with loading config files"""
     
-    conf = OmegaConf.load("/home/mila/t/tengmeli/ecosystem-embedding/configs/env_baseline.yaml")
+    conf = OmegaConf.load("/home/mila/t/tengmeli/ecosystem-embedding/configs/env_means.yaml")
     command_line_conf = OmegaConf.from_cli()
 
     if "config_file" in command_line_conf:
@@ -43,7 +43,10 @@ def set_up_omegaconf()-> DictConfig:
     return conf
 
 def process(opts):
-    indices = np.load(opts.subset)
+    if opts.subset != "":
+        indices = np.load(opts.subset)
+    else:
+        indices = [i for i in range(684)]
     num_species = len(indices)
     
     hs = pd.read_csv(opts.hs_data)
@@ -82,9 +85,13 @@ def process(opts):
     return(X_train, X_val, y_train, y_val)
 
 def train(opts):
-    indices = np.load(opts.subset)
-    num_species = len(indices)
+    if opts.subset != "":
+        indices = np.load(opts.subset)
+    else:
+        indices = [i for i in range(684)]
     
+    num_species = len(indices)
+    print(num_species)
     if opts.process_hs: 
         X_train, X_val, y_train, y_val = process(opts)
         
@@ -93,7 +100,8 @@ def train(opts):
         y_val = np.load(opts.y_val)
         X_train = np.load(opts.train)
         X_val = np.load(opts.val)
-        print(X_val.shape)
+        print(X_train.shape)
+        print(y_train.shape)
     
     if opts.predictor == "mean":
         means = y_train.mean(axis = 0)
@@ -103,31 +111,32 @@ def train(opts):
         print("MSE : ", (np.abs(y_val-means)**2).mean())
         print("MAE :",  np.abs(y_val-means).mean())
         
-    if opts.predictor == "GBR":
-        random_states = [0]
+    elif opts.predictor == "GBR":
+        
         preds = []
-        #for rs in random_states:
-        print("using GBR")
-        model =  GradientBoostingRegressor(random_state=10)
-        
-        print(X_train.shape, y_train.shape)
-        clf =  MultiOutputRegressor(model).fit(X_train, y_train)
-        pred =  clf.predict(X_val)
-            #preds += [pred]
-        
-        print("MSE : ", (np.abs(y_val-pred)**2).mean())
-        print("MAE :",  np.abs(y_val-pred).mean())
+        for rs in opts.random_state:
+            print("using GBR")
+            model =  GradientBoostingRegressor(random_state=rs)
+
+            print(X_train.shape, y_train.shape)
+            clf =  MultiOutputRegressor(model).fit(X_train, y_train)
+            pred =  clf.predict(X_val)
+                #preds += [pred]
+
+            print("MSE : ", (np.abs(y_val-pred)**2).mean())
+            print("MAE :",  np.abs(y_val-pred).mean())
         if opts.save_pred != "":
             np.save(os.path.join(opts.save_pred), pred)
-    if opts.predictor == "XGBR":
-        random_states = [0]
+    elif opts.predictor == "XGBR":
+        random_states = opts.random_state
         preds = []
         for rs in random_states:
-            model =  XGBRegressor(random_state=rs)
+            model =  XGBRegressor(random_state=rs, n_estimators = 50)
             clf =  MultiOutputRegressor(model).fit(X_train, y_train)
             pred =  clf.predict(X_val)
             preds += [pred]
-        
+            pred[pred < 0] = 0
+            print("CE: ", np.nansum(- y_val * np.log(pred) - (1-y_val)*np.log(1-pred)))
             print("MSE : ", (np.abs(y_val-pred)**2).mean())
             print("MAE :",  np.abs(y_val-pred).mean())
         if opts.save_pred != "":
@@ -135,7 +144,8 @@ def train(opts):
     
     else: 
         if opts.predictor == "SVR":
-            model =  svm.SVR()
+            print("using SVR")
+            model =  svm.SVR(C = 25)
         if opts.predictor == "Ridge":
             model =  Ridge(random_state=0)
         clf =  MultiOutputRegressor(model).fit(X_train, y_train)

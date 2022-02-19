@@ -71,10 +71,12 @@ class EbirdTask(pl.LightningModule):
         
     def config_task(self, opts, **kwargs: Any) -> None:
         self.opts = opts
-        
+        self.means = []
         #get target vector size (number of species we consider)
         subset = get_subset(self.opts.data.target.subset)
+        
         self.target_size= len(subset) if subset is not None else self.opts.data.total_species
+        print("Predicting ", self.target_size, "species")
         self.target_type = self.opts.data.target.type
         
         if self.target_type == "binary":
@@ -94,7 +96,11 @@ class EbirdTask(pl.LightningModule):
                 self.model.conv1 = nn.Conv2d(get_nb_bands(bands), 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
             self.model.fc = nn.Linear(512, self.target_size)
             if self.opts.experiment.module.init_bias=="means":
-                self.model.fc.bias.data =  torch.Tensor(np.load(self.opts.experiment.module.means_path))[0, :]
+                means = torch.Tensor(np.load(self.opts.experiment.module.means_path)[0, subset])
+                means[means == 0] = 1e-9
+                means = torch.log(means/(1-means))
+                self.model.fc.bias.data = means
+                
             self.model.to(device)
             self.m = nn.Sigmoid()
             
@@ -105,9 +111,12 @@ class EbirdTask(pl.LightningModule):
                 bands = self.opts.data.bands + self.opts.data.env
                 self.model.conv1 = nn.Conv2d(get_nb_bands(bands), 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
             self.model.fc = nn.Linear(2048, self.target_size) 
-            print(self.model.fc.bias.data.shape)
             if self.opts.experiment.module.init_bias=="means":
-                self.model.fc.bias.data =  torch.Tensor(np.load(self.opts.experiment.means_path))[0, :]
+                means = torch.Tensor(np.load(self.opts.experiment.module.means_path)[0, subset])
+                means[means == 0] = 1e-9
+                means = torch.log(means/(1-means))
+                self.model.fc.bias.data = means
+                self.means = means
             self.model.to(device)
             self.m = nn.Sigmoid()
 
@@ -117,7 +126,11 @@ class EbirdTask(pl.LightningModule):
             self.model.AuxLogits.fc = nn.Linear(768, self.target_size)
             self.model.fc = nn.Linear(2048, self.target_size) 
             if self.opts.experiment.module.init_bias=="means":
-                self.model.fc.bias.data =  torch.Tensor(np.load(self.opts.experiment.module.means_path))[0, :]
+                means = torch.Tensor(np.load(self.opts.experiment.module.means_path)[0, subset])
+                means[means == 0] = 1e-9
+                means = torch.log(means/(1-means))
+                self.model.fc.bias.data =  means
+                self.means = means
             self.model.to(device)
             self.m = nn.Sigmoid()
 
@@ -190,6 +203,10 @@ class EbirdTask(pl.LightningModule):
         loss = self.criterion(pred, y)
 
         pred_ = pred.clone()
+        if self.current_epoch in [0,1]:
+            print("SSSSSSSSSS")
+            np.save("./pred_" + str(self.current_epoch) + ".npy", pred_.detach().cpu().numpy())
+        
         if self.opts.data.target.type == "binary":
             pred_[pred_>0.5] = 1
             pred_[pred_<0.5] = 0
@@ -215,7 +232,7 @@ class EbirdTask(pl.LightningModule):
         y_hat = self.forward(x)
         pred = m(y_hat)
         pred_ = pred.clone().cpu()
-        print(pred_.shape)
+        
         if "target" in batch.keys():
             y = batch['target'].cpu()
             for (name, _, scale) in self.metrics:
@@ -226,9 +243,8 @@ class EbirdTask(pl.LightningModule):
                 else:
                     self.log(nname, metric * scale)
                   
-        
         for i, elem in enumerate(pred_):
-            self.opts.save_preds_path = "/network/scratch/t/tengmeli/test_runs/trial/"
+            
             np.save(os.path.join(self.opts.save_preds_path, batch["hotspot_id"][i] + ".npy"), elem.cpu().detach().numpy())
         print("saved elems")
         
