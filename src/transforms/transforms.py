@@ -15,6 +15,7 @@ sat = ["sat"]
 env = ["bioclim", "ped"]
 all_data = satellite + env
 
+
     
 class RandomHorizontalFlip:  # type: ignore[misc,name-defined]
     """Horizontally flip the given sample randomly with a given probability."""
@@ -179,7 +180,6 @@ class MatchRes:
                         sample[elem] = torch.Tensor([2230.56361696, 1374.68551614,   20.45478794,   19.04921312,
          31.1196319 ,   61.24246466,   36.68711656,   44.25620165]).unsqueeze(-1).unsqueeze(-1)
                 sample[elem] = F.interpolate(sample[elem].unsqueeze(0).float(), size=(H, W))
-                print(sample[elem].size())
         return (sample)
 
 
@@ -313,7 +313,7 @@ def get_transform(transform_item, mode):
     elif transform_item.name == "normalize" and not (
         transform_item.ignore is True or transform_item.ignore == mode
     ):
-        
+       
         return Normalize(maxchan=transform_item.maxchan, custom=transform_item.custom or None, subset = transform_item.subset)
     
     elif transform_item.name == "resize" and not (
@@ -333,11 +333,20 @@ def get_transforms(opts, mode):
     using get_transform(transform_item, mode)
     """
     transforms = []
-
+    
     for t in opts.data.transforms:
+        if t.name == "normalize" and not (
+        t.ignore is True or t.ignore == mode
+    ) and t.subset==["sat"]:
+            if opts.data.bands == ["r", "g", "b"]:
+                print("only taking normalization values for r,g,b")
+                means, std = t.custom
+                t.custom = [means[:3], std[:3]]
+
+            assert (len(t.custom[0])== len(opts.data.bands))
         transforms.append(get_transform(t, mode))
     
-
+    
     transforms = [t for t in transforms if t is not None]
 
     return transforms

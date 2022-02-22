@@ -63,6 +63,7 @@ class EbirdTask(pl.LightningModule):
         """initializes a new Lightning Module to train"""
         
         super().__init__()
+        print(opts)
         self.save_hyperparameters(opts)
         self.config_task(opts, **kwargs)
         self.opts = opts
@@ -71,7 +72,7 @@ class EbirdTask(pl.LightningModule):
         
     def config_task(self, opts, **kwargs: Any) -> None:
         self.opts = opts
-        self.means = []
+        self.means = None
         #get target vector size (number of species we consider)
         subset = get_subset(self.opts.data.target.subset)
         
@@ -95,14 +96,6 @@ class EbirdTask(pl.LightningModule):
                 bands = self.opts.data.bands + self.opts.data.env
                 self.model.conv1 = nn.Conv2d(get_nb_bands(bands), 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
             self.model.fc = nn.Linear(512, self.target_size)
-            if self.opts.experiment.module.init_bias=="means":
-                means = torch.Tensor(np.load(self.opts.experiment.module.means_path)[0, subset])
-                means[means == 0] = 1e-9
-                means = torch.log(means/(1-means))
-                self.model.fc.bias.data = means
-                
-            self.model.to(device)
-            self.m = nn.Sigmoid()
             
             
         elif self.opts.experiment.module.model == "resnet50":
@@ -111,32 +104,29 @@ class EbirdTask(pl.LightningModule):
                 bands = self.opts.data.bands + self.opts.data.env
                 self.model.conv1 = nn.Conv2d(get_nb_bands(bands), 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
             self.model.fc = nn.Linear(2048, self.target_size) 
-            if self.opts.experiment.module.init_bias=="means":
-                means = torch.Tensor(np.load(self.opts.experiment.module.means_path)[0, subset])
-                means[means == 0] = 1e-9
-                means = torch.log(means/(1-means))
-                self.model.fc.bias.data = means
-                self.means = means
-            self.model.to(device)
-            self.m = nn.Sigmoid()
 
             
         elif self.opts.experiment.module.model == "inceptionv3":
             self.model = models.inception_v3(pretrained=self.opts.experiment.module.pretrained)
             self.model.AuxLogits.fc = nn.Linear(768, self.target_size)
             self.model.fc = nn.Linear(2048, self.target_size) 
-            if self.opts.experiment.module.init_bias=="means":
-                means = torch.Tensor(np.load(self.opts.experiment.module.means_path)[0, subset])
-                means[means == 0] = 1e-9
-                means = torch.log(means/(1-means))
-                self.model.fc.bias.data =  means
-                self.means = means
-            self.model.to(device)
-            self.m = nn.Sigmoid()
+            
 
         else:
             raise ValueError(f"Model type '{self.opts.experiment.module.model}' is not valid")
         
+        if self.opts.experiment.module.init_bias=="means":
+            print("initializing biases with mean predictor")
+            self.means = np.load(self.opts.experiment.module.means_path)[0,subset]
+            means = torch.Tensor(self.means)
+            
+            means = torch.logit(means, eps=1e-10)
+            self.model.fc.bias.data =  means
+        else:
+            print("no initialization of biases")
+            
+        self.model.to(device)
+        self.m = nn.Sigmoid()
         
         metrics = get_metrics(self.opts)
         for (name, value, _) in metrics:
@@ -172,8 +162,10 @@ class EbirdTask(pl.LightningModule):
             loss = self.criterion(pred, y)
 
         pred_ = pred.clone()
-        
+        if self.current_epoch in [0,1]:
+            print("target", y) 
         if self.opts.data.target.type == "binary":
+            
             pred_[pred_>0.5] = 1
             pred_[pred_<0.5] = 0
         
@@ -203,9 +195,13 @@ class EbirdTask(pl.LightningModule):
         loss = self.criterion(pred, y)
 
         pred_ = pred.clone()
+        pred_np = pred_.detach().cpu().numpy()
         if self.current_epoch in [0,1]:
-            print("SSSSSSSSSS")
-            np.save("./pred_" + str(self.current_epoch) + ".npy", pred_.detach().cpu().numpy())
+            print("target", y)
+            if self.means is not None:
+                means_ = np.tile(self.means, (pred_np.shape[0],1))
+                print( "difference abs(pred - mean_predictor) at epoch ", self.current_epoch, " is ", np.sum(np.abs(means_ - pred_np)))
+                np.save("./pred_" + str(self.current_epoch) + ".npy",pred_np)
         
         if self.opts.data.target.type == "binary":
             pred_[pred_>0.5] = 1
@@ -242,10 +238,9 @@ class EbirdTask(pl.LightningModule):
                     self.log(nname, metric[0] * scale)
                 else:
                     self.log(nname, metric * scale)
-                  
-        for i, elem in enumerate(pred_):
-            
-            np.save(os.path.join(self.opts.save_preds_path, batch["hotspot_id"][i] + ".npy"), elem.cpu().detach().numpy())
+        if self.opts.save_preds_path != "":       
+            for i, elem in enumerate(pred_):
+                np.save(os.path.join(self.opts.save_preds_path, batch["hotspot_id"][i] + ".npy"), elem.cpu().detach().numpy())
         print("saved elems")
         
 

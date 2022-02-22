@@ -2,10 +2,11 @@ import comet_ml
 import os
 import sys
 from pathlib import Path
-
-sys.path.append(str(Path().resolve().parent))
-sys.path.append(str(Path().resolve().parent.parent))
-
+from os.path import expandvars
+#sys.path.append(str(Path().resolve().parent))
+#sys.path.append(str(Path().resolve().parent.parent))
+import hydra
+from addict import Dict
 from omegaconf import OmegaConf, DictConfig
 from src.trainer.trainer import EbirdTask, EbirdDataModule
 import src.trainer.geo_trainer as geo_trainer
@@ -17,6 +18,17 @@ from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint, Learning
 from typing import Any, Dict, Tuple, Type, cast
 from src.dataset.utils import set_data_paths
 import pdb
+
+hydra_config_path = Path(__file__).resolve().parent / "configs/hydra.yaml"
+
+def resolve(path):
+    """
+    fully resolve a path:
+    resolve env vars ($HOME etc.) -> expand user (~) -> make absolute
+    Returns:
+        pathlib.Path: resolved absolute path
+    """
+    return Path(expandvars(str(path))).expanduser().resolve()
 
 
 def set_up_omegaconf()-> DictConfig:
@@ -45,19 +57,77 @@ def set_up_omegaconf()-> DictConfig:
     #    opts = Dict(merge(commandline_opts, opts))
     return conf
 
+def load_opts(path, default, commandline_opts):
+    """
+        Args:
+        path (pathlib.Path): where to find the overriding configuration
+            default (pathlib.Path, optional): Where to find the default opts.
+            Defaults to None. In which case it is assumed to be a default config
+            which needs processing such as setting default values for lambdas and gen
+            fields
+     """
+    
+    if path is None and default is None:
+        path = (
+            resolve(Path(__file__)).parent.parent
+            / "config"
+            / "defaults.yaml"
+        )
+        print(path)
+    else:
+        print("using config ", path)
 
-if __name__ == "__main__":
+    if default is None:
+        default_opts = {}
+    else:
+        print(default)
+        if isinstance(default, (str, Path)):
+            default_opts = OmegaConf.load(default)
+        else:
+            default_opts = dict(default)
+
+    if path is None:
+        overriding_opts = {}
+    else:
+        print("using config ", path)
+        overriding_opts = OmegaConf.load(path)
+        
+
+    opts = OmegaConf.merge(default_opts, overriding_opts)
+
+    if commandline_opts is not None and isinstance(commandline_opts, dict):
+        opts =  OmegaConf.merge(opts, commandline_opts)
+        print("Commandline opts", commandline_opts)
+
+    conf = set_data_paths(opts)
+    conf = cast(DictConfig, opts)
+    return conf
+
+
     
-    conf = set_up_omegaconf()
-    
+@hydra.main(config_path="configs", config_name = "hydra") #hydra_config_path)
+def main(opts):
+
+    hydra_opts = dict(OmegaConf.to_container(opts))
+    print("hydra_opts", hydra_opts)
+    args = hydra_opts.pop("args", None)
+
+    config_path = args['config']
+    default = "/home/mila/t/tengmeli/ecosystem-embedding/configs/defaults.yaml" #args['default']
+    #default = Path(__file__).parent / "configs/defaults.yaml"
+    conf = load_opts(config_path, default=default, commandline_opts=hydra_opts)
+
     pl.seed_everything(conf.program.seed)
+    
     if not os.path.exists(conf.save_path):
         os.makedirs(conf.save_path)
     with open(os.path.join(conf.save_path, "config.yaml"),"w") as fp:
         OmegaConf.save(config = conf, f = fp)
     fp.close()
+    
     print(conf.log_comet)
     
+    print(conf) 
     
     if not conf.loc.use :
         task = EbirdTask(conf)
@@ -67,8 +137,6 @@ if __name__ == "__main__":
         task = geo_trainer.EbirdTask(conf)
         datamodule = geo_trainer.EbirdDataModule(conf)
         
-    conf.save_path = conf.save_path +"_full_init"
-    conf.comet.project_name =  "full_ecosystem_init" 
     
     trainer_args = cast(Dict[str, Any], OmegaConf.to_object(conf.trainer))
         
@@ -108,11 +176,11 @@ if __name__ == "__main__":
     trainer_args["callbacks"] = [checkpoint_callback, lr_monitor] #, #early_stopping_callback]
     trainer_args["max_epochs"] = 1000
     #trainer_args["profiler"]="simple"
-    trainer_args["overfit_batches"] = 10
+    trainer_args["overfit_batches"] = 5
     #trainer_args["track_grad_norm"]=2
     
     if not conf.loc.use :
-        trainer_args["auto_lr_find"]=conf.auto_lr_find
+        #trainer_args["auto_lr_find"]=conf.auto_lr_find
         trainer = pl.Trainer(**trainer_args)
         trainer.logger.experiment.add_tags(list(conf.comet.tags))
         trainer.tune(model = task, datamodule=datamodule)
@@ -124,5 +192,9 @@ if __name__ == "__main__":
     ## Run experiment
     trainer.fit(model=task, datamodule=datamodule)
     trainer.test(model=task, datamodule=datamodule)
+    
+    
+if __name__ == "__main__":
+    main()
 
     

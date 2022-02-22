@@ -79,6 +79,8 @@ def get_subset(subset):
         return (np.load('/network/projects/_groups/ecosystem-embeddings/species_splits/not_songbirds_idx.npy'))
     elif subset == "ducks":
         return ([37])
+    elif subset == "hawk":
+        return([2])
     else:
         return None
         
