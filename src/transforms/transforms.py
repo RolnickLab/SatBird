@@ -120,7 +120,7 @@ class Normalize:
         #TODO 
         if self.custom:
             means, std = self.custom
-            for task in self.subset: 
+            for task in self.subset:
                 sample[task] = normalize(sample[task].type(torch.FloatTensor), means, std)
             #d = {
             #    task: normalize(tensor.type(torch.FloatTensor), means, std)
@@ -288,7 +288,7 @@ def get_transform(transform_item, mode):
     ):
         return RandomCrop(
             (transform_item.height, transform_item.width),
-            center=(transform_item.center == mode or transform_item == True), ignore_band = transform_item.ignore_band or None,p=transform_item.p
+            center=(transform_item.center == mode or transform_item.center == True), ignore_band = transform_item.ignore_band or None,p=transform_item.p
         )
     elif transform_item.name == "matchres" and not (
         transform_item.ignore is True or transform_item.ignore == mode
@@ -343,7 +343,7 @@ def get_transforms(opts, mode):
                 means, std = t.custom
                 t.custom = [means[:3], std[:3]]
 
-            assert (len(t.custom[0])== len(opts.data.bands))
+            #assert (len(t.custom[0])== len(opts.data.bands))
         transforms.append(get_transform(t, mode))
     
     

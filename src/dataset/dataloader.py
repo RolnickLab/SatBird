@@ -63,13 +63,13 @@ def get_img_bands(band_npy):
     for elem in band_npy:
         b, band= elem
         if b == "rgb":
-            bands+= [load_file(band)]
+            bands+= [np.squeeze(load_file(band))]
         elif b == "nir":
             nir_band = load_file(band)
             nir_band = (nir_band/nir_band.max())*255
             nir_band = nir_band.astype(np.uint8)
             bands+= [nir_band]
-    npy_data =np.vstack(bands)/255
+    npy_data =np.vstack(bands) #/255
     return (npy_data)
             
 def get_subset(subset):
@@ -79,6 +79,8 @@ def get_subset(subset):
         return (np.load('/network/projects/_groups/ecosystem-embeddings/species_splits/not_songbirds_idx.npy'))
     elif subset == "ducks":
         return ([37])
+    elif subset=="code1":
+        return(np.load("/network/projects/_groups/ecosystem-embeddings/species_splits/code1.npy"))
     elif subset == "hawk":
         return([2])
     else:
