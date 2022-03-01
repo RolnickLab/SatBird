@@ -14,7 +14,7 @@ from src.transforms.transforms import get_transforms
 from torchvision import transforms as trsfs
 import pandas as pd
 import torch.nn.functional as F
-from src.losses.losses import CustomCrossEntropyLoss, TopKAccuracy, get_metrics
+from src.losses.losses import CustomCrossEntropyLoss,CustomCrossEntropy, get_metrics
 import torchmetrics
 from torch.nn import BCELoss
 from typing import Any, Dict, Optional
@@ -22,6 +22,8 @@ from src.dataset.dataloader import EbirdVisionDataset
 from src.dataset.dataloader import get_subset
 import time 
 import os 
+import json
+from torch.nn.functional import l1_loss
 
 criterion = CustomCrossEntropyLoss()#BCEWithLogitsLoss()
 m = nn.Sigmoid()
@@ -40,6 +42,8 @@ def get_nb_bands(bands):
             n+=8
         elif b == "bioclim":
             n+= 19
+        elif b == "rgb":
+            n+=3
     return(n)
 
     
@@ -86,8 +90,8 @@ class EbirdTask(pl.LightningModule):
             print("Training with BCE Loss")
         else:
             #target is num checklists reporting species i / total number of checklists at a hotspot
-            self.criterion = CustomCrossEntropyLoss(self.opts.losses.ce.lambd_pres,self.opts.losses.ce.lambd_abs) 
-            print("Training with Custom CE Loss")
+            self.criterion = CustomCrossEntropy(self.opts.losses.ce.lambd_pres,self.opts.losses.ce.lambd_abs) 
+            #print("Training with Custom CE Loss")
             
         if self.opts.experiment.module.model == "resnet18":
             
@@ -152,14 +156,14 @@ class EbirdTask(pl.LightningModule):
             y_hat, aux_outputs = self.forward(x)
             pred = m(y_hat)
             aux_pred = m(aux_outputs)
-            loss1 = self.criterion(pred, y)
-            loss2 = self.criterion(aux_pred, y)
+            loss1 = self.criterion(y, pred)
+            loss2 = self.criterion(y, aux_pred)
             loss = loss1 + loss2
             
         else:
             y_hat = self.forward(x)
             pred = m(y_hat)
-            loss = self.criterion(pred, y)
+            loss = self.criterion(y, pred)
 
         pred_ = pred.clone()
         if self.current_epoch in [0,1]:
@@ -171,14 +175,28 @@ class EbirdTask(pl.LightningModule):
         
         for (name, _, scale) in self.metrics:
             nname = "train_" + name
-            metric = getattr(self,name)(pred_, y)
-            if name == "topk":
-                self.log(nname, metric[0] * scale)
-            else:
-                self.log(nname, metric * scale)
-        self.log("train_loss", loss)
+            getattr(self,name)(y, pred_)
+            self.log(nname, getattr(self,name), on_step = True, on_epoch = True)
+        self.log("train_loss", loss, on_step = True, on_epoch= True)
+        if self.current_epoch in [0]:
+            batch_ = {}
+            for item in batch:
+                if item in ["sat", "target"]:
+                    batch_[item] = batch[item].detach().cpu().numpy()
+                    np.save("./train_"+item+".npy",batch_[item]) 
+            print("train", batch["hotspot_id"])
 
         return loss
+    
+    #def training_epoch_end(self, outputs):
+    #    # this will not reset the metric automatically at the epoch end so you
+        # need to call it yourself
+    #    print("Computing epoch metric")
+    #    epoch_loss = self.criterion.compute()
+        
+    #    self.log('train_epoch_loss',  epoch_loss)
+    #    self.criterion.reset()
+
 
     def validation_step(
         self, batch: Dict[str, Any], batch_idx: int )->None:
@@ -192,12 +210,19 @@ class EbirdTask(pl.LightningModule):
         y_hat = self.forward(x)
       
         pred = m(y_hat)
-        loss = self.criterion(pred, y)
+        loss = self.criterion(y, pred)
 
         pred_ = pred.clone()
         pred_np = pred_.detach().cpu().numpy()
-        if self.current_epoch in [0,1]:
-            print("target", y)
+        if self.current_epoch in [0]:
+            batch_ = {}
+            for item in batch:
+                if item in ["sat", "target"]:
+                    batch_[item] = batch[item].detach().cpu().numpy()
+                    np.save("./val_"+item+".npy",batch_[item]) 
+            print(batch["hotspot_id"])
+                
+
             if self.means is not None:
                 means_ = np.tile(self.means, (pred_np.shape[0],1))
                 print( "difference abs(pred - mean_predictor) at epoch ", self.current_epoch, " is ", np.sum(np.abs(means_ - pred_np)))
@@ -209,12 +234,12 @@ class EbirdTask(pl.LightningModule):
         
         for (name, _, scale) in self.metrics:
             nname = "val_" + name
-            metric = getattr(self,name)(pred_, y)
-            if name == "topk":
-                self.log(nname, metric[0] * scale)
-            else:
-                self.log(nname, metric * scale)
-        self.log("val_loss", loss)
+            getattr(self,name)(y, pred_)
+            print(name, getattr(self,name)(y, pred_))
+            print(y)
+            print("pred", pred_)
+            self.log(nname, getattr(self,name), on_step = True, on_epoch = True)
+        self.log("val_loss", loss, on_step = True, on_epoch = True)
 
     
 
@@ -233,11 +258,9 @@ class EbirdTask(pl.LightningModule):
             y = batch['target'].cpu()
             for (name, _, scale) in self.metrics:
                 nname = "test_" + name
-                metric = getattr(self,name)(pred_, y)
-                if name == "topk":
-                    self.log(nname, metric[0] * scale)
-                else:
-                    self.log(nname, metric * scale)
+                getattr(self,name)(y, pred_)
+                self.log(nname, getattr(self,name), on_step = True, on_epoch = True)
+                
         if self.opts.save_preds_path != "":       
             for i, elem in enumerate(pred_):
                 np.save(os.path.join(self.opts.save_preds_path, batch["hotspot_id"][i] + ".npy"), elem.cpu().detach().numpy())
