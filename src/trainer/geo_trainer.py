@@ -16,7 +16,7 @@ from src.transforms.transforms import get_transforms
 from torchvision import transforms as trsfs
 import pandas as pd
 import torch.nn.functional as F
-from src.losses.losses import CustomCrossEntropyLoss, TopKAccuracy, get_metrics
+from src.losses.losses import CustomCrossEntropyLoss,get_metrics
 import torchmetrics
 from torch.nn import BCELoss
 from typing import Any, Dict, Optional
@@ -39,6 +39,8 @@ def get_nb_bands(bands):
             n+=8
         elif b == "bioclim":
             n+= 19
+        elif b == "rgb":
+            n+=3
     return(n)
 
 def get_target_size(opts):
@@ -124,10 +126,9 @@ class EbirdTask(pl.LightningModule):
                 self.sat_model.fc =Identity()
             else:
                 self.sat_model.fc = nn.Linear(512, self.target_size) 
-            if self.opts.experiment.module.init_bias=="means":
-                self.sat_model.fc.bias.data =  torch.Tensor(np.load(self.opts.experiment.module.means_path))[0, :]
-            self.sat_model.to(device)
+
             self.m = nn.Sigmoid()
+            
             
             
         elif self.opts.experiment.module.model == "resnet50":
@@ -139,9 +140,7 @@ class EbirdTask(pl.LightningModule):
                 self.sat_model.fc =Identity()
             else:
                 self.sat_model.fc = nn.Linear(2048, self.target_size) 
-            if self.opts.experiment.module.init_bias=="means":
-                self.sat_model.fc.bias.data =  torch.Tensor(np.load(self.opts.experiment.module.means_path))[0, :]
-            self.sat_model.to(device)
+
             self.m = nn.Sigmoid()
 
             
@@ -152,12 +151,19 @@ class EbirdTask(pl.LightningModule):
                 self.sat_model.fc =Identity()
             else:
                 self.sat_model.fc = nn.Linear(2048, self.target_size)
-            if self.opts.experiment.module.init_bias=="means":
-                self.sat_model.fc.bias.data =  torch.Tensor(np.load(self.opts.experiment.module.means_path))[0, :]
-            self.sat_model.to(device) 
-            self.m = nn.Sigmoid()
         else:
             raise ValueError(f"Model type '{self.opts.experiment.module.model}' is not valid")
+            
+        if self.opts.experiment.module.init_bias=="means":
+            print("initializing biases with mean predictor")
+            self.means = np.load(self.opts.experiment.module.means_path)[0,subset]
+            means = torch.Tensor(self.means)
+            
+            means = torch.logit(means, eps=1e-10)
+            self.sat_model.fc.bias.data =  means
+        else:
+            print("no initialization of biases")
+        self.sat_model.to(device) 
         return(self.sat_model)
     
         
@@ -222,8 +228,8 @@ class EbirdTask(pl.LightningModule):
             aux_y_hat = m(aux_outputs)
             pred = torch.multiply(y_hat, out_loc)
             aux_pred = torch.multiply(aux_y_hat, out_loc)
-            loss1 = self.criterion(pred, y)
-            loss2 = self.criterion(aux_pred, y)
+            loss1 = self.criterion(y, pred)
+            loss2 = self.criterion(y,aux_pred)
             loss = loss1 + loss2
             
         else:
@@ -233,7 +239,7 @@ class EbirdTask(pl.LightningModule):
                 out_sat, out_loc = self.forward(x, loc_tensor)
                 y_hat = torch.multiply(m(out_sat), out_loc)#self.forward(x)
             pred = y_hat               
-            loss = self.criterion(pred, y)   
+            loss = self.criterion(y,pred)   
             
         pred_ = pred.clone()
         
@@ -243,12 +249,9 @@ class EbirdTask(pl.LightningModule):
         
         for (name, _, scale) in self.metrics:
             nname = "train_" + name
-            metric = getattr(self,name)(pred_, y)
-            if name == "topk":
-                self.log(nname, metric[0] * scale)
-            else:
-                self.log(nname, metric * scale)
-        self.log("train_loss", loss)
+            getattr(self,name)(y,pred_)
+            self.log(nname, getattr(self,name), on_step = True, on_epoch = True)
+        self.log("train_loss", loss, on_step = True, on_epoch = True)
 
         return loss
 
@@ -271,8 +274,8 @@ class EbirdTask(pl.LightningModule):
             aux_y_hat = m(aux_outputs)
             pred = torch.multiply(y_hat, out_loc)
             aux_pred = torch.multiply(aux_y_hat, out_loc)
-            loss1 = self.criterion(pred, y)
-            loss2 = self.criterion(aux_pred, y)
+            loss1 = self.criterion(y, pred)
+            loss2 = self.criterion(y,aux_pred)
             loss = loss1 + loss2
             
         else:
@@ -291,12 +294,9 @@ class EbirdTask(pl.LightningModule):
         
         for (name, _, scale) in self.metrics:
             nname = "val_" + name
-            metric = getattr(self,name)(pred_, y)
-            if name == "topk":
-                self.log(nname, metric[0] * scale)
-            else:
-                self.log(nname, metric * scale)
-        self.log("val_loss", loss)
+            getattr(self,name)(y,pred_)
+            self.log(nname, getattr(self,name), on_step = True, on_epoch = True)
+        self.log("val_loss", loss, on_step = True, on_epoch = True)
     
 
     def test_step(
@@ -327,11 +327,8 @@ class EbirdTask(pl.LightningModule):
             y = batch['target'].cpu()
             for (name, _, scale) in self.metrics:
                 nname = "test_" + name
-                metric = getattr(self,name)(pred_, y)
-                if name == "topk":
-                    self.log(nname, metric[0] * scale)
-                else:
-                    self.log(nname, metric * scale)  
+                getattr(self,name)(y,pred_)
+                self.log(nname, getattr(self,name), on_step = True, on_epoch = True) 
         
         for i, elem in enumerate(pred_):
             np.save(os.path.join(self.opts.save_preds_path, batch["hotspot_id"][i] + ".npy"), elem.cpu().detach().numpy())
