@@ -1,4 +1,4 @@
-save_path: "/network/projects/_groups/ecosystem-embeddings/exps/classif"
+save_path: "/network/projects/_groups/ecosystem-embeddings/exps/debug"
 log_comet: true
 loc:
   use: false
@@ -9,7 +9,7 @@ loc:
 overfit_batches: 0
 
 comet:
-  project_name: "classification" #"ecosystem-duck"
+  project_name: "debugging" #"ecosystem-duck"
   tags: ["classif", "resnet18"]
 experiment:
   task: "ebird_classifier"
@@ -59,8 +59,8 @@ scheduler:
 
 data:
   loaders:
-    num_workers: 4
-    batch_size: 4
+    num_workers: 8
+    batch_size: 16
   #What kind of satellite input ? "refl" for "raw" reflectance values or "img" for 0-255 values (only supported for "rgb" and "nir" bands)
   datatype: "refl" 
   
@@ -76,15 +76,15 @@ data:
       res: 1000
   
   files:
-    base: "/network/scratch/t/tengmeli/scratch/ecosystem-embedding/training/" # "/home/mila/t/tengmeli/ecosystem-embedding/debugging/" #
-    train: "train_june_vf.csv"  #"oystercatcher_train.csv" #"train_june_vf.csv"
-    val: "val_june_vf.csv" #"oystercatcher_val.csv" #"val_june_vf.csv"
-    test: "test_june_vf.csv" #"oystercatcher_val.csv" #"val_june_vf.csv"
+    base:  "/home/mila/t/tengmeli/ecosystem-embedding/debugging/" #"/network/scratch/t/tengmeli/scratch/ecosystem-embedding/training/" #
+    train: "oystercatcher_train.csv" #"train_june_vf.csv"
+    val: "oystercatcher_val.csv" #"val_june_vf.csv"
+    test: "oystercatcher_val.csv" #"val_june_vf.csv"
     
   target:
-    type: "probs"  #binary or probs
+    type: "binary"  #binary or probs
     # choose subset of birds : "ducks" for trying on species [37] or "songbirds" (307 species) or None (full set 684 species)
-    subset:  "not_songbirds" #"oystercatcher"
+    subset: "oystercatcher" # "not_songbirds" #
  
   #normalization: None
   transforms:
@@ -179,5 +179,8 @@ losses:
       ignore: False
       scale : 1
     - name: accuracy
-      ignore: True
+      ignore: False
       scale: 1
+
+trainer:
+    auto_scale_batch_size: True
