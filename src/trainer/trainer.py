@@ -215,9 +215,7 @@ class EbirdTask(pl.LightningModule):
         y = batch['target']#.to(device)
         print("Model is on cuda", next(self.model.parameters()).is_cuda)
         if self.opts.experiment.module.model == "linear":
-            print(x.shape)
             x = torch.flatten(x, start_dim=1)
-            print(x.shape)
             
         y_hat = self.forward(x)
       

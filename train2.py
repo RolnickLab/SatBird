@@ -116,7 +116,7 @@ def main(opts):
     default = "/home/mila/t/tengmeli/ecosystem-embedding/configs/defaults.yaml" #args['default']
     #default = Path(__file__).parent / "configs/defaults.yaml"
     conf = load_opts(config_path, default=default, commandline_opts=hydra_opts)
-
+    conf.save_path = conf.save_path+os.environ["SLURM_JOB_ID"]
     pl.seed_everything(conf.program.seed)
     
     if not os.path.exists(conf.save_path):
@@ -143,21 +143,15 @@ def main(opts):
     if conf.log_comet:
 
         comet_logger= CometLogger(
-            api_key=os.environ.get("COMET_API_KEY"), #"JAQ6zQMoTH7snvbIkpjeBswPW",#os.environ.get("COMET_API_KEY"),
-            workspace=os.environ.get("COMET_WORKSPACE"),# "melisandeteng", #os.environ.get("COMET_WORKSPACE"),  # Optional
+            api_key=os.environ.get("COMET_API_KEY"),
+            workspace=os.environ.get("COMET_WORKSPACE"),
            # save_dir=".",  # Optional
             project_name=conf.comet.project_name,  # Optional
-           # rest_api_key=os.environ.get("COMET_REST_API_KEY"),  # Optional
-            #experiment_key=os.environ.get("COMET_EXPERIMENT_KEY"),  # Optional
-           # experiment_name="default",  # Optional
         )
         comet_logger.experiment.add_tags(list(conf.comet.tags))
         print(conf.comet.tags)
         trainer_args["logger"] = comet_logger
-        #trainer_args["logger"].experiment.add_tags(conf.comet.tags)
-
-    #tb_logger = pl_loggers.comet(conf.program.log_dir, name=experiment_name)
-
+    
     checkpoint_callback = ModelCheckpoint(
         monitor="val_loss",
         dirpath=conf.save_path,
@@ -173,22 +167,46 @@ def main(opts):
     lr_monitor = LearningRateMonitor(logging_interval='epoch')
 
     
-    trainer_args["callbacks"] = [checkpoint_callback, lr_monitor] #, #early_stopping_callback]
-    trainer_args["max_epochs"] = 1000
-    #trainer_args["profiler"]="simple"
-    trainer_args["overfit_batches"] = 5
+    trainer_args["callbacks"] = [lr_monitor] #, #early_stopping_callback]checkpoint_callback, 
+    #trainer_args["max_epochs"] = 1000
+    
+
+    trainer_args["profiler"]="simple"
+    trainer_args["overfit_batches"] = conf.overfit_batches #0 if not overfitting
+    
     #trainer_args["track_grad_norm"]=2
     
     if not conf.loc.use :
-        #trainer_args["auto_lr_find"]=conf.auto_lr_find
+    
+        trainer_args["auto_lr_find"]=conf.auto_lr_find
+        
         trainer = pl.Trainer(**trainer_args)
-        trainer.logger.experiment.add_tags(list(conf.comet.tags))
+        if conf.log_comet:
+            trainer.logger.experiment.add_tags(list(conf.comet.tags))
+        
+        #lr_finder = trainer.tuner.lr_find(task,  datamodule=datamodule)
+
+        # Results can be found in
+        #lr_finder.results
+
+        # Plot with
+        #fig = lr_finder.plot(suggest=True)
+        #fig.show()
+        #fig.savefig("test.jpg")
+        
+        # Pick point based on plot, or get suggestion
+        #new_lr = lr_finder.suggestion()
+
+        # update hparams of the model
+        #task.hparams.learning_rate = new_lr
+        #task.hparams.lr = new_lr
         trainer.tune(model = task, datamodule=datamodule)
     else : 
         
         trainer = pl.Trainer(**trainer_args)     
-        trainer.logger.experiment.add_tags(list(conf.comet.tags))
-        trainer.tune(model = task, datamodule=datamodule)
+        if conf.log_comet:
+            trainer.logger.experiment.add_tags(list(conf.comet.tags))
+      
     ## Run experiment
     trainer.fit(model=task, datamodule=datamodule)
     trainer.test(model=task, datamodule=datamodule)
