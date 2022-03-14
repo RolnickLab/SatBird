@@ -104,6 +104,8 @@ def get_metric(metric):
     elif metric.name == "kl" and not metric.ignore is True :
         return CustomKL()
     
+    elif metric.name == "accuracy" and not metric.ignore is True:
+        return torchmetrics.Accuracy()
     elif metric.ignore is True :
         return None
 

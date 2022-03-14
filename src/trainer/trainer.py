@@ -57,7 +57,7 @@ def get_scheduler(optimizer, opts):
         return(LinearWarmupCosineAnnealingLR(optimizer, opts.scheduler.warmup.warmup_epochs,
         opts.scheduler.warmup.max_epochs))
     elif opts.scheduler.name == "Cyclical":
-        return(CosineAnnealingWarmRestarts(optimizer, opts.scheduler.cyclical.warmup_epochs))
+        return(CosineAnnealingWarmRestarts(optimizer, opts.scheduler.cyclical.t0, opts.scheduler.cyclical.tmult))
     else:
         raise ValueError(f"Scheduler'{self.opts.scheduler.name}' is not valid")
         
@@ -73,7 +73,7 @@ class EbirdTask(pl.LightningModule):
         self.opts = opts
         #define self.learning_rate to enable learning rate finder
         self.learning_rate = self.opts.experiment.module.lr
-        
+        #for (name, _, scale) in self.metrics:
     def config_task(self, opts, **kwargs: Any) -> None:
         self.opts = opts
         self.means = None
@@ -115,6 +115,11 @@ class EbirdTask(pl.LightningModule):
             self.model.AuxLogits.fc = nn.Linear(768, self.target_size)
             self.model.fc = nn.Linear(2048, self.target_size) 
             
+        elif self.opts.experiment.module.model =="linear":
+            nb_bands = get_nb_bands(self.opts.data.bands + self.opts.data.env)
+            self.model = nn.Linear(nb_bands*64*64, self.target_size)
+        
+            
 
         else:
             raise ValueError(f"Model type '{self.opts.experiment.module.model}' is not valid")
@@ -129,7 +134,7 @@ class EbirdTask(pl.LightningModule):
         else:
             print("no initialization of biases")
             
-        self.model.to(device)
+        #self.model #.to(device)
         self.m = nn.Sigmoid()
         
         metrics = get_metrics(self.opts)
@@ -145,13 +150,15 @@ class EbirdTask(pl.LightningModule):
         self, batch: Dict[str, Any], batch_idx: int )-> Tensor:
         
         """Training step"""
-        
-        x = batch['sat'].squeeze(1).to(device)
-        y = batch['target'].to(device)      
-        
+        m = nn.Sigmoid()
+        x = batch['sat'].squeeze(1) #.to(device)
+        y = batch['target'] #.to(device)      
+        if self.opts.experiment.module.model == "linear":
+            x = torch.flatten(x, start_dim=1)
         #check weights are moving
         #for p in self.model.fc.parameters(): 
         #    print(p.data)
+        print("Model is on cuda", next(self.model.parameters()).is_cuda)
         if self.opts.experiment.module.model == "inceptionv3":
             y_hat, aux_outputs = self.forward(x)
             pred = m(y_hat)
@@ -162,41 +169,41 @@ class EbirdTask(pl.LightningModule):
             
         else:
             y_hat = self.forward(x)
-            pred = m(y_hat)
-            loss = self.criterion(y, pred)
+            pred = m(y_hat).type_as(y)
+            if self.target_type == "binary":
+                loss =  self.criterion(pred, y)
+            else:
+                loss = self.criterion(y, pred)
 
-        pred_ = pred.clone()
-        if self.current_epoch in [0,1]:
-            print("target", y) 
+        pred_ = pred.clone().detach().type_as(y)
+       # if self.current_epoch in [0,1]:
+        print("target", y) 
+        print("pred", pred_)
         if self.opts.data.target.type == "binary":
             
-            pred_[pred_>0.5] = 1
+            pred_[pred_>=0.5] = 1
             pred_[pred_<0.5] = 0
         
         for (name, _, scale) in self.metrics:
             nname = "train_" + name
-            getattr(self,name)(y, pred_)
-            self.log(nname, getattr(self,name), on_step = True, on_epoch = True)
+            if name == "accuracy":
+                getattr(self,name)(pred_, y.type(torch.uint8))
+                print(nname,getattr(self,name)(pred_,  y.type(torch.uint8)))
+            else:
+                getattr(self,name)(y, pred_)
+                print(nname,getattr(self,name)(y, pred_) )
+            self.log(nname, getattr(self,name), on_step = True) #, on_epoch = False)
         self.log("train_loss", loss, on_step = True, on_epoch= True)
-        if self.current_epoch in [0]:
-            batch_ = {}
-            for item in batch:
-                if item in ["sat", "target"]:
-                    batch_[item] = batch[item].detach().cpu().numpy()
-                    np.save("./train_"+item+".npy",batch_[item]) 
-            print("train", batch["hotspot_id"])
 
         return loss
     
-    #def training_epoch_end(self, outputs):
+    def training_epoch_end(self, outputs):
     #    # this will not reset the metric automatically at the epoch end so you
         # need to call it yourself
-    #    print("Computing epoch metric")
-    #    epoch_loss = self.criterion.compute()
-        
-    #    self.log('train_epoch_loss',  epoch_loss)
-    #    self.criterion.reset()
-
+        print("Computing epoch metric")
+        for (name, _, scale) in self.metrics:
+            nname = "train_epoch" + name
+            self.log(nname, getattr(self,name))
 
     def validation_step(
         self, batch: Dict[str, Any], batch_idx: int )->None:
@@ -204,41 +211,39 @@ class EbirdTask(pl.LightningModule):
         """Validation step """
 
         
-        x = batch['sat'].squeeze(1).to(device)
-        y = batch['target'].to(device)
-
+        x = batch['sat'].squeeze(1)#.to(device)
+        y = batch['target']#.to(device)
+        print("Model is on cuda", next(self.model.parameters()).is_cuda)
+        if self.opts.experiment.module.model == "linear":
+            x = torch.flatten(x, start_dim=1)
+            
         y_hat = self.forward(x)
       
-        pred = m(y_hat)
-        loss = self.criterion(y, pred)
+        pred = m(y_hat).type_as(y)
+        
+        if self.target_type == "binary":
+          
+            loss = self.criterion(pred, y)
+        else:
+            loss = self.criterion(y, pred)
+        
 
-        pred_ = pred.clone()
-        pred_np = pred_.detach().cpu().numpy()
-        if self.current_epoch in [0]:
-            batch_ = {}
-            for item in batch:
-                if item in ["sat", "target"]:
-                    batch_[item] = batch[item].detach().cpu().numpy()
-                    np.save("./val_"+item+".npy",batch_[item]) 
-            print(batch["hotspot_id"])
-                
+        pred_ = pred.clone().detach().type_as(y)
 
-            if self.means is not None:
-                means_ = np.tile(self.means, (pred_np.shape[0],1))
-                print( "difference abs(pred - mean_predictor) at epoch ", self.current_epoch, " is ", np.sum(np.abs(means_ - pred_np)))
-                np.save("./pred_" + str(self.current_epoch) + ".npy",pred_np)
         
         if self.opts.data.target.type == "binary":
-            pred_[pred_>0.5] = 1
+            pred_[pred_>=0.5] = 1
             pred_[pred_<0.5] = 0
         
         for (name, _, scale) in self.metrics:
             nname = "val_" + name
-            getattr(self,name)(y, pred_)
-            print(name, getattr(self,name)(y, pred_))
-            print(y)
-            print("pred", pred_)
-            self.log(nname, getattr(self,name), on_step = True, on_epoch = True)
+            if name == "accuracy":
+                getattr(self,name)(pred_, y.type(torch.uint8))
+                print(nname,getattr(self,name)(pred_,  y.type(torch.uint8)))
+            else:
+                getattr(self,name)(y, pred_)
+                print(nname,getattr(self,name)(y, pred_) )
+            
         self.log("val_loss", loss, on_step = True, on_epoch = True)
 
     
@@ -248,8 +253,10 @@ class EbirdTask(pl.LightningModule):
     )-> None:
         """Test step """
         
-        x = batch['sat'].squeeze(1).to(device)
-        self.model.to(device)
+        x = batch['sat'].squeeze(1)#.to(device)
+        #self.model.to(device)
+        if self.opts.experiment.module.model == "linear":
+            x = torch.flatten(x, start_dim=1)
         y_hat = self.forward(x)
         pred = m(y_hat)
         pred_ = pred.clone().cpu()
@@ -258,8 +265,12 @@ class EbirdTask(pl.LightningModule):
             y = batch['target'].cpu()
             for (name, _, scale) in self.metrics:
                 nname = "test_" + name
-                getattr(self,name)(y, pred_)
-                self.log(nname, getattr(self,name), on_step = True, on_epoch = True)
+                if name == "accuracy":
+                    getattr(self,name)(pred_, y.type(torch.uint8))
+                    print(nname,getattr(self,name)(pred_, y.type(torch.uint8)))
+                else:
+                    getattr(self,name)(y, pred_)
+                    print(nname,getattr(self,name)(y, pred_) )
                 
         if self.opts.save_preds_path != "":       
             for i, elem in enumerate(pred_):
@@ -268,7 +279,6 @@ class EbirdTask(pl.LightningModule):
         
 
     def get_optimizer(self, model, opts):
-        
         if self.opts.optimizer == "Adam":
             optimizer = torch.optim.Adam(   #
                 model.parameters(),
@@ -292,7 +302,6 @@ class EbirdTask(pl.LightningModule):
  
         optimizer = self.get_optimizer(self.model, self.opts)       
         scheduler = get_scheduler(optimizer, self.opts)
-        
         return{
             "optimizer": optimizer,
             "lr_scheduler": {
