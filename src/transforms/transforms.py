@@ -147,7 +147,7 @@ class MatchRes:
             
             h = (H*self.sat_res/self.bioclim_res)
             w = (W*self.sat_res/self.bioclim_res)
-            h,w = max(ceil(h),2), max(ceil(w),2)
+            h,w = max(ceil(h),1), max(ceil(w),1)
             top = max(0, Hb//2 - h//2)
             left = max(0,Wb//2 - w//2)
             
@@ -160,7 +160,7 @@ class MatchRes:
         
             h = (H*self.sat_res/self.ped_res)
             w = (W*self.sat_res/self.ped_res)
-            h,w = max(ceil(h),2), max(ceil(w),2)
+            h,w = max(ceil(h),1), max(ceil(w),1)
             top = max(0, Hb//2 - h//2)
             left = max(0,Wb//2 - w//2)
             
@@ -348,5 +348,5 @@ def get_transforms(opts, mode):
     
     
     transforms = [t for t in transforms if t is not None]
-
+    print(transforms)
     return transforms
