@@ -177,8 +177,8 @@ class EbirdTask(pl.LightningModule):
 
         pred_ = pred.clone().detach().type_as(y)
        # if self.current_epoch in [0,1]:
-        print("target", y) 
-        print("pred", pred_)
+        #print("target", y) 
+        #print("pred", pred_)
         if self.opts.data.target.type == "binary":
             
             pred_[pred_>=0.5] = 1
@@ -216,6 +216,7 @@ class EbirdTask(pl.LightningModule):
         print("Model is on cuda", next(self.model.parameters()).is_cuda)
         if self.opts.experiment.module.model == "linear":
             x = torch.flatten(x, start_dim=1)
+
             
         y_hat = self.forward(x)
       
