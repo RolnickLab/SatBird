@@ -83,6 +83,9 @@ def get_subset(subset):
         return(np.load("/network/projects/_groups/ecosystem-embeddings/species_splits/code1.npy"))
     elif subset == "hawk":
         return([2])
+    elif subset == "oystercatcher":
+        print("using oystercatcher")#Haematopus palliatus
+        return([290])
     else:
         return None
         
@@ -167,8 +170,9 @@ class EbirdVisionDataset(VisionDataset):
                 else: 
                     targ = species["probs"]
                 item_["original_target"] = torch.Tensor(targ)
-                item_["target"] = torch.Tensor([1 if targ[i]>0 else 0 for i in range(len(targ))])
-
+                targ[targ>0] = 1
+                item_["target"] =torch.Tensor(targ)
+                
             else:
                 raise NameError("type of target not supported, should be probs or binary")
         
