@@ -165,13 +165,19 @@ class EbirdVisionDataset(VisionDataset):
                 item_["target"] = torch.Tensor(item_["target"])
 
             elif self.target == "binary":
-                if not self.subset is None:
+                if self.subset is not None:
                     targ = np.array(species["probs"])[self.subset]
                 else: 
                     targ = species["probs"]
                 item_["original_target"] = torch.Tensor(targ)
                 targ[targ>0] = 1
                 item_["target"] =torch.Tensor(targ)
+
+            elif self.target == "log":
+                if not self.subset is None:
+                    item_["target"] = np.array(species["probs"])[self.subset]
+                else: 
+                    item_["target"] = species["probs"]
                 
             else:
                 raise NameError("type of target not supported, should be probs or binary")

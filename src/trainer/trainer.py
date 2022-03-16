@@ -80,7 +80,7 @@ class EbirdTask(pl.LightningModule):
         #get target vector size (number of species we consider)
         subset = get_subset(self.opts.data.target.subset)
         
-        self.target_size= len(subset) if subset is not None else self.opts.data.total_species
+        self.target_size = len(subset) if subset is not None else self.opts.data.total_species
         print("Predicting ", self.target_size, "species")
         self.target_type = self.opts.data.target.type
         
@@ -88,10 +88,13 @@ class EbirdTask(pl.LightningModule):
             #ground truth is 0-1. if bird is reported at a hotspot, target = 1
             self.criterion = BCELoss()
             print("Training with BCE Loss")
+        elif self.target_type == "log":
+            self.criterion = nn.MSELoss()
+            print("Training with MSE Loss")
         else:
             #target is num checklists reporting species i / total number of checklists at a hotspot
             self.criterion = CustomCrossEntropy(self.opts.losses.ce.lambd_pres,self.opts.losses.ce.lambd_abs) 
-            #print("Training with Custom CE Loss")
+            print("Training with Custom CE Loss")
             
         if self.opts.experiment.module.model == "resnet18":
             
@@ -104,7 +107,7 @@ class EbirdTask(pl.LightningModule):
             
         elif self.opts.experiment.module.model == "resnet50":
             self.model = models.resnet50(pretrained=self.opts.experiment.module.pretrained)
-            if len(self.opts.data.bands)!=3 or len(self.opts.data.env) > 0:
+            if len(self.opts.data.bands) != 3 or len(self.opts.data.env) > 0:
                 bands = self.opts.data.bands + self.opts.data.env
                 self.model.conv1 = nn.Conv2d(get_nb_bands(bands), 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
             self.model.fc = nn.Linear(2048, self.target_size) 
@@ -115,7 +118,7 @@ class EbirdTask(pl.LightningModule):
             self.model.AuxLogits.fc = nn.Linear(768, self.target_size)
             self.model.fc = nn.Linear(2048, self.target_size) 
             
-        elif self.opts.experiment.module.model =="linear":
+        elif self.opts.experiment.module.model == "linear":
             nb_bands = get_nb_bands(self.opts.data.bands + self.opts.data.env)
             self.model = nn.Linear(nb_bands*64*64, self.target_size)
         
@@ -161,21 +164,37 @@ class EbirdTask(pl.LightningModule):
         print("Model is on cuda", next(self.model.parameters()).is_cuda)
         if self.opts.experiment.module.model == "inceptionv3":
             y_hat, aux_outputs = self.forward(x)
-            pred = m(y_hat)
-            aux_pred = m(aux_outputs)
+            if self.target_type == "log":
+                pred = y_hat.type_as(y)
+                aux_pred = aux_outputs.type_as(y)
+            else:
+                pred = m(y_hat).type_as(y)
+                aux_pred = m(aux_outputs).type_as(y)
+            #pred = m(y_hat)
+            #aux_pred = m(aux_outputs)
             loss1 = self.criterion(y, pred)
             loss2 = self.criterion(y, aux_pred)
             loss = loss1 + loss2
             
         else:
             y_hat = self.forward(x)
-            pred = m(y_hat).type_as(y)
+            if self.target_type == "log":
+                pred = y_hat.type_as(y)
+
+            else :
+                pred = m(y_hat).type_as(y)
             if self.target_type == "binary":
                 loss =  self.criterion(pred, y)
+            elif self.target_type == "log":
+                loss =  self.criterion(pred, torch.log(y + 1e-10))
             else:
                 loss = self.criterion(y, pred)
+        self.log("train_loss", loss, on_step = True, on_epoch= True)
 
-        pred_ = pred.clone().detach().type_as(y)
+        pred_ = pred.clone().type_as(y)
+
+        if self.target_type == "log":
+            pred_ = torch.exp(pred_)
        # if self.current_epoch in [0,1]:
         #print("target", y) 
         #print("pred", pred_)
@@ -193,7 +212,7 @@ class EbirdTask(pl.LightningModule):
                 getattr(self,name)(y, pred_)
                 print(nname,getattr(self,name)(y, pred_) )
             self.log(nname, getattr(self,name), on_step = True, on_epoch = True)
-        self.log("train_loss", loss, on_step = True, on_epoch= True)
+        
 
         return loss
     
@@ -219,19 +238,26 @@ class EbirdTask(pl.LightningModule):
 
             
         y_hat = self.forward(x)
-      
-        pred = m(y_hat).type_as(y)
+        if self.target_type == "log":
+            pred = y_hat.type_as(y)
+        else:
+            pred = m(y_hat).type_as(y)
+
         
         if self.target_type == "binary":
           
             loss = self.criterion(pred, y)
+        elif self.target_type == "log":
+                loss =  self.criterion(pred, torch.log(y + 1e-10))
         else:
             loss = self.criterion(y, pred)
         
 
-        pred_ = pred.clone().detach().type_as(y)
+        pred_ = pred.clone().type_as(y)
 
-        
+        if self.target_type == "log":
+            pred_ = torch.exp(pred_)
+
         if self.opts.data.target.type == "binary":
             pred_[pred_>=0.5] = 1
             pred_[pred_<0.5] = 0
@@ -259,7 +285,11 @@ class EbirdTask(pl.LightningModule):
         if self.opts.experiment.module.model == "linear":
             x = torch.flatten(x, start_dim=1)
         y_hat = self.forward(x)
-        pred = m(y_hat)
+        if self.target_type == "log":
+            pred = y_hat.type_as(y)
+        else:
+            pred = m(y_hat).type_as(y)
+        #pred = m(y_hat)
         pred_ = pred.clone().cpu()
         
         if "target" in batch.keys():
