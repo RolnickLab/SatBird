@@ -6,7 +6,7 @@ loc:
 
 
 #number of batches to overfit on, 0 if no overfit 
-overfit_batches: 0
+overfit_batches: 0.0
 
 comet:
   project_name: "debugging" #"ecosystem-duck"
@@ -59,8 +59,8 @@ scheduler:
 
 data:
   loaders:
-    num_workers: 8
-    batch_size: 16
+    num_workers: 12
+    batch_size: 20
   #What kind of satellite input ? "refl" for "raw" reflectance values or "img" for 0-255 values (only supported for "rgb" and "nir" bands)
   datatype: "refl" 
   
@@ -100,7 +100,7 @@ data:
       height: 64
       width: 64
     - name: resize
-      ignore: false
+      ignore: true
       size: [256,256]
     #- name: crop
     #  ignore: true
@@ -172,7 +172,7 @@ losses:
       ignore: False
       scale: 10
     - name: topk
-      ignore: False
+      ignore: True
       k: 30
       scale: 1
     - name: kl
@@ -183,4 +183,4 @@ losses:
       scale: 1
 
 trainer:
-    auto_scale_batch_size: True
+    auto_scale_batch_size: False
