@@ -174,7 +174,7 @@ def main(opts):
     trainer_args["profiler"]="simple"
     trainer_args["overfit_batches"] = conf.overfit_batches #0 if not overfitting
     
-    #trainer_args["track_grad_norm"]=2
+   # trainer_args["track_grad_norm"]=2
     
     if not conf.loc.use :
     

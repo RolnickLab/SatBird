@@ -1,4 +1,4 @@
-save_path: "/network/scratch/t/tengmeli/ckpt/resnet18_base_rgbni_env_scratch"
+save_path: "/network/scratch/t/tengmeli/ckpt/base-regression"
 load_ckpt_path: "" #/network/scratch/t/tengmeli/ckpt/not_songbirds_bias_init/epoch=14-step=14429.ckpt"
 save_preds_path: ""
 log_comet: true
@@ -9,7 +9,7 @@ loc:
   
 comet:
   project_name: "base_ecosystem" #"ecosystem-duck"
-  tags: ["base","resnet18", "rgbni", "env", "scratch"]
+  tags: ["base","resnet18", "scratch"]
 experiment:
   task: "ebird_classifier"
   name: "ebird_classifier"
@@ -17,19 +17,20 @@ experiment:
 
   module:
     model: "resnet18"
+    fc: "linear"
     pretrained: false
-    init_bias: "means"
-    means_path: "/network/scratch/t/tengmeli/scratch/ecosystem-embedding/training/means.npy"
+    init_bias: "no"
+    means_path: "/network/scratch/t/tengmeli/scratch/ecosystem-embedding/training/means_all_species.npy"
     lr: 0.001
 
 optimizer: "SGD"  #"Adam"
 
 #auto lr will only work if there is only one optimizer 
-auto_lr_find: false
+auto_lr_find: True
 scheduler: 
   name: "ReduceLROnPlateau" #"ReduceLROnPlateau" #"ReduceLROnPlateau" #or "StepLR" "WarmUp"
   reduce_lr_plateau: 
-    factor: 0.8
+    factor: 0.5
     lr_schedule_patience: 5
   step_lr:
     step_size: 100 
@@ -60,14 +61,14 @@ variables: &default_vars
 data:
   loaders:
     num_workers: 4
-    batch_size: 8
+    batch_size: 24
   #What kind of satellite input ? "refl" for "raw" reflectance values or "img" for 0-255 values (only supported for "rgb" and "nir" bands)
   datatype: "refl" 
   
-  bands: ["r", "g", "b", "nir"]  #"r", "g", "b", "nir" or "rgb", "nir"
+  bands: ["r", "g", "b"]  #"r", "g", "b", "nir" or "rgb", "nir"
   res: 10 
 
-  env: ["ped", "bioclim"] #["ped", "bioclim"] #"all" "ped" or "bioclim"
+  env: [] #["ped", "bioclim"] #"all" "ped" or "bioclim"
   ped: 
       #pedological rasters
       res: 250
@@ -83,13 +84,13 @@ data:
     
   target:
     type: "probs"  #binary or probs
-    # choose subset of birds : "ducks" for trying on species [37] or "songbirds" (307 species) or None (full set 684 species) "not_songbirds"
+    # choose subset of birds : "ducks" for trying on species [37] or [2] for cooper's hawk (non passerine) "songbirds" (307 species) or None (full set 684 species) "not_songbirds"
     subset: "not_songbirds"
  
   #normalization: None
   transforms:
     - name: matchres
-      ignore: false
+      ignore: true
       target_size: [64, 64]
       
     - name: crop
@@ -101,7 +102,7 @@ data:
       width: 64
     - name: resize
       ignore: false
-      size: [256,256]
+      size: [224,224]
     - name: hflip
       ignore: "val"
       p: 0.5
@@ -112,7 +113,7 @@ data:
       ignore: false
       maxchan: false
       subset: ["sat"]
-      custom: [[894.6719, 932.5726,693.2768,2817.9849]
+      custom: [[894.6719, 932.5726,693.2768,2817.9849],
               [883.9763,747.6857,749.3098, 1342.6334]]
       #ImageNet values 
       #[[0.485, 0.456, 0.406],[0.229, 0.224, 0.225]]
@@ -120,12 +121,12 @@ data:
       #[[894.6719, 932.5726,693.2768], [883.9763,747.6857,749.3098]]
       #[894.6719, 932.5726,693.2768, 2817.9849], [883.9763,747.6857,749.3098, 1342.6334]
     - name: normalize
-      ignore: false
+      ignore: true
       maxchan: false
       subset: ["bioclim"]
       custom: [*bioclim_means, *bioclim_std]
     - name: normalize
-      ignore: false
+      ignore: true
       maxchan: false
       subset: ["ped"]
       custom: [*ped_means, *ped_std]

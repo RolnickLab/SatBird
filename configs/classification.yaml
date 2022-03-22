@@ -100,8 +100,8 @@ data:
       height: 64
       width: 64
     - name: resize
-      ignore: true
-      size: [256,256]
+      ignore: false
+      size: [224,224]
     #- name: crop
     #  ignore: true
     #  p: 0.5

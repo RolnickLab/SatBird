@@ -168,7 +168,7 @@ class EbirdTask(pl.LightningModule):
 
     def training_step(
         self, batch: Dict[str, Any], batch_idx: int )-> Tensor:
-        #from pdb import set_trace; set_trace()
+       # from pdb import set_trace; set_trace()
         """Training step"""
         m = nn.Sigmoid()
         x = batch['sat'].squeeze(1) #.to(device)
@@ -197,9 +197,10 @@ class EbirdTask(pl.LightningModule):
             y_hat = self.forward(x)
             if self.target_type == "log" or self.target_type == "binary":
                 pred = y_hat.type_as(y)
-
+                pred_ = m(pred).clone().type_as(y)
             else :
                 pred = m(y_hat).type_as(y)
+                pred_ = pred.clone().type_as(y)
             if self.target_type == "binary":
                 loss =  self.criterion(pred, y)
             elif self.target_type == "log":
@@ -207,9 +208,6 @@ class EbirdTask(pl.LightningModule):
             else:
                 loss = self.criterion(y, pred)
         self.log("train_loss", loss, on_step = True, on_epoch= True)
-
-        pred_ = m(pred).type_as(y)
-
         if self.target_type == "log":
             pred_ = torch.exp(pred_)
        # if self.current_epoch in [0,1]:
@@ -260,9 +258,10 @@ class EbirdTask(pl.LightningModule):
         y_hat = self.forward(x)
         if self.target_type == "log" or self.target_type == "binary":
             pred = y_hat.type_as(y)
+            pred_ = m(pred).clone().type_as(y)
         else:
             pred = m(y_hat).type_as(y)
-
+            pred_ = pred.clone().type_as(y)
         
         if self.target_type == "binary":
             loss = self.criterion(pred, y)
@@ -270,9 +269,7 @@ class EbirdTask(pl.LightningModule):
                 loss =  self.criterion(pred, torch.log(y + 1e-10))
         else:
             loss = self.criterion(y, pred)
-        
 
-        pred_ = m(pred).clone().type_as(y)
 
         if self.target_type == "log":
             pred_ = torch.exp(pred_)
@@ -307,10 +304,10 @@ class EbirdTask(pl.LightningModule):
         y_hat = self.forward(x)
         if self.target_type == "log" or self.target_type == "binary":
             pred = y_hat.type_as(y)
+            pred_ = m(pred).clone()
         else:
             pred = m(y_hat).type_as(y)
-        #pred = m(y_hat)
-        pred_ = m(pred).clone()
+            pred_ = pred.clone()
         
         if "target" in batch.keys():
             y = batch['target'].cpu()
