@@ -1,4 +1,4 @@
-save_path: "/network/scratch/t/tengmeli/ckpt/base-regression"
+save_path: "/network/scratch/t/tengmeli/ckpt/fix_final_layer"
 load_ckpt_path: "" #/network/scratch/t/tengmeli/ckpt/not_songbirds_bias_init/epoch=14-step=14429.ckpt"
 save_preds_path: ""
 log_comet: true
@@ -8,30 +8,31 @@ loc:
   concat: false
   
 comet:
-  project_name: "base_ecosystem" #"ecosystem-duck"
-  tags: ["base","resnet18", "scratch"]
+  project_name: "final_layer_comparison" #"ecosystem-duck"
+  tags: ["resnet18", "rgb", "same_pres_abs_ce", "means", "no_scheduler"]
 experiment:
   task: "ebird_classifier"
   name: "ebird_classifier"
   seed: 42
 
   module:
-    model: "resnet18"
+    model: "resnet18" #"train_linear" #"resnet18"
     fc: "linear"
     pretrained: false
-    init_bias: "no"
+    resume: "/home/mila/t/tengmeli/ecosystem-embedding/outputs/2022-03-29/08-40-05/final_layer_comparison/b84c264fb4c8477f95cad55bbf85d709/checkpoints/epoch=1273-step=408953.ckpt"
+    init_bias: "means"
     means_path: "/network/scratch/t/tengmeli/scratch/ecosystem-embedding/training/means_all_species.npy"
-    lr: 0.001
+    lr: 0.0001
 
 optimizer: "SGD"  #"Adam"
 
 #auto lr will only work if there is only one optimizer 
 auto_lr_find: True
 scheduler: 
-  name: "ReduceLROnPlateau" #"ReduceLROnPlateau" #"ReduceLROnPlateau" #or "StepLR" "WarmUp"
+  name: "" #"ReduceLROnPlateau" #"ReduceLROnPlateau" #or "StepLR" "WarmUp"
   reduce_lr_plateau: 
     factor: 0.5
-    lr_schedule_patience: 5
+    lr_schedule_patience: 20
   step_lr:
     step_size: 100 
     gamma: 0.5
@@ -60,12 +61,12 @@ variables: &default_vars
         
 data:
   loaders:
-    num_workers: 4
+    num_workers: 8
     batch_size: 24
   #What kind of satellite input ? "refl" for "raw" reflectance values or "img" for 0-255 values (only supported for "rgb" and "nir" bands)
   datatype: "refl" 
   
-  bands: ["r", "g", "b"]  #"r", "g", "b", "nir" or "rgb", "nir"
+  bands: ["r","g","b", "nir"]  #"r", "g", "b", "nir" or "rgb", "nir"
   res: 10 
 
   env: [] #["ped", "bioclim"] #"all" "ped" or "bioclim"
@@ -110,11 +111,12 @@ data:
       ignore: "val"
       p: 0.5
     - name: normalize
-      ignore: false
+      ignore: True
       maxchan: false
       subset: ["sat"]
-      custom: [[894.6719, 932.5726,693.2768,2817.9849],
-              [883.9763,747.6857,749.3098, 1342.6334]]
+      custom: [[87.0467011965099, 91.21045367500467, 67.50251448722302, 100],[67.55043009747773, 51.443316800384295, 49.65159018638426, 50]]
+      #[[894.6719, 932.5726, 693.2768,2817.9849], #693.2768,2817.9849],
+      #[883.9763,747.6857, 749.3098, 1342.6334]] #749.3098, 1342.6334]]
       #ImageNet values 
       #[[0.485, 0.456, 0.406],[0.229, 0.224, 0.225]]
       #Mean-std computed on training set
@@ -136,4 +138,5 @@ data:
       max_noise: 0.05
       
   total_species: 684
-  
+trainer:
+  auto_scale_batch_size: False

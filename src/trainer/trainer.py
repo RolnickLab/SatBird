@@ -58,6 +58,8 @@ def get_scheduler(optimizer, opts):
         opts.scheduler.warmup.max_epochs))
     elif opts.scheduler.name == "Cyclical":
         return(CosineAnnealingWarmRestarts(optimizer, opts.scheduler.cyclical.t0, opts.scheduler.cyclical.tmult))
+    elif opts.scheduler.name == "":
+        return(None)
     else:
         raise ValueError(f"Scheduler'{self.opts.scheduler.name}' is not valid")
         
@@ -74,6 +76,7 @@ class EbirdTask(pl.LightningModule):
         #define self.learning_rate to enable learning rate finder
         self.learning_rate = self.opts.experiment.module.lr
         #for (name, _, scale) in self.metrics:
+    
     def config_task(self, opts, **kwargs: Any) -> None:
         self.opts = opts
         self.means = None
@@ -95,8 +98,30 @@ class EbirdTask(pl.LightningModule):
             #target is num checklists reporting species i / total number of checklists at a hotspot
             self.criterion = CustomCrossEntropy(self.opts.losses.ce.lambd_pres,self.opts.losses.ce.lambd_abs) 
             print("Training with Custom CE Loss")
-            
-        if self.opts.experiment.module.model == "resnet18":
+        if self.opts.experiment.module.model == "train_linear":
+            self.feature_extractor = models.resnet18(pretrained=self.opts.experiment.module.pretrained)
+            if len(self.opts.data.bands)!=3 or len(self.opts.data.env) > 0:
+                bands = self.opts.data.bands + self.opts.data.env
+                self.feature_extractor.conv1 = nn.Conv2d(get_nb_bands(bands), 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
+            if self.opts.experiment.module.fc == "linear":
+                self.feature_extractor.fc = nn.Linear(512, self.target_size)
+            ckpt = torch.load(self.opts.experiment.module.resume)
+            for key in list(ckpt["state_dict"].keys()):
+                ckpt["state_dict"][key.replace('model.', '')] = ckpt["state_dict"].pop(key)
+            self.feature_extractor.load_state_dict(ckpt["state_dict"])
+            print("initialized network, freezing weights")
+            self.feature_extractor.fc = nn.Sequential()
+            #self.feature_extractor.freeze()
+            for param in self.feature_extractor.parameters():
+                param.requires_grad = False
+            self.model = nn.Linear(512, self.target_size)
+            #self.means = np.load(self.opts.experiment.module.means_path)[0,subset]
+            #means = torch.Tensor(self.means)
+
+            #means = torch.logit(means, eps=1e-10)
+            #self.model.bias.data =  means
+
+        elif self.opts.experiment.module.model == "resnet18":
             
             self.model = models.resnet18(pretrained=self.opts.experiment.module.pretrained)
             if len(self.opts.data.bands)!=3 or len(self.opts.data.env) > 0:
@@ -133,8 +158,7 @@ class EbirdTask(pl.LightningModule):
             
         elif self.opts.experiment.module.model == "linear":
             nb_bands = get_nb_bands(self.opts.data.bands + self.opts.data.env)
-            self.model = nn.Linear(nb_bands*64*64, self.target_size)
-        
+            self.model = nn.Linear(nb_bands*64*64, self.target_size)  
             
 
         else:
@@ -192,7 +216,12 @@ class EbirdTask(pl.LightningModule):
             loss1 = self.criterion(y, pred)
             loss2 = self.criterion(y, aux_pred)
             loss = loss1 + loss2
-            
+        if self.opts.experiment.module.model == "train_linear":
+            inter= self.feature_extractor(x)
+            y_hat = self.forward(inter)
+            pred = m(y_hat).type_as(y)
+            pred_ = pred.clone().type_as(y)
+            loss = self.criterion(y, pred)
         else:
             y_hat = self.forward(x)
             if self.target_type == "log" or self.target_type == "binary":
@@ -223,8 +252,8 @@ class EbirdTask(pl.LightningModule):
             if name == "accuracy":
                 getattr(self,name)(pred_, y.type(torch.uint8))
                 #if getattr(self,name)(pred_,  y.type(torch.uint8)) != 1:
-                    #print("pred_train", pred_)
-                    #print("y", y)
+                #    print("pred_train", pred_)
+                #    print("y", y)
                     #print(batch["hotspot_id"])
                 print(nname,getattr(self,name)(pred_,  y.type(torch.uint8)))
             else:
@@ -254,8 +283,12 @@ class EbirdTask(pl.LightningModule):
         if self.opts.experiment.module.model == "linear":
             x = torch.flatten(x, start_dim=1)
 
-            
-        y_hat = self.forward(x)
+        if self.opts.experiment.module.model == "train_linear":
+            inter= self.feature_extractor(x)
+            y_hat = self.forward(inter)
+
+        else:
+            y_hat = self.forward(x)
         if self.target_type == "log" or self.target_type == "binary":
             pred = y_hat.type_as(y)
             pred_ = m(pred).clone().type_as(y)
@@ -350,7 +383,11 @@ class EbirdTask(pl.LightningModule):
  
         optimizer = self.get_optimizer(self.model, self.opts)       
         scheduler = get_scheduler(optimizer, self.opts)
-        return{
+        print("scheduler", scheduler)
+        if scheduler is None:
+            return optimizer
+        else:
+            return{
             "optimizer": optimizer,
             "lr_scheduler": {
                 "scheduler": scheduler,

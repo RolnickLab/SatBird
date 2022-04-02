@@ -69,7 +69,7 @@ def get_img_bands(band_npy):
             nir_band = (nir_band/nir_band.max())*255
             nir_band = nir_band.astype(np.uint8)
             bands+= [nir_band]
-    npy_data =np.vstack(bands) #/255
+    npy_data =np.vstack(bands)/255
     return (npy_data)
             
 def get_subset(subset):
@@ -145,7 +145,8 @@ class EbirdVisionDataset(VisionDataset):
             item_[b] = torch.from_numpy(load_file(band))
             
         
-        item_["sat"] = torch.from_numpy(npy_data)           
+        item_["sat"] = torch.from_numpy(npy_data)
+        item_["sat"] = item_["sat"]/ torch.amax(item_["sat"], dim=(-2,-1), keepdims=True)
 
         if self.transform:
             item_ = self.transform(item_)
