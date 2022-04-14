@@ -92,10 +92,10 @@ def cluster_based_on_dist(X, dist):
             label = neg
             neg -= 1
         clusters_dict[label].extend(indices)
-    return clusters_dict
+    return clusters_dict, cluster_labels
 
 
-def make_splits(splits_name, sizes, clusters_dict):
+def make_splits(splits_names, sizes, clusters_dict):
     '''
     maps each split to its indices with the size of the split , making sure that each cluster is all in one split and not scattered between different splits
     Args
@@ -129,7 +129,10 @@ def write_array_text(arr, file):
 
 
 if __name__ == "__main__":
+    np.random.seed(0)
+    random.seed(0)
     # Reading Hotspot data
+
     locs = pd.read_csv('/network/projects/_groups/ecosystem-embeddings/hotspot_split_june/hotspots_june_filtered.csv')
     locs = locs.loc[:, ~locs.columns.str.contains('^Unnamed')]
     locs = locs[locs['hotspot_id'].isin(data['hotspot'].values)].reset_index(
@@ -147,7 +150,7 @@ if __name__ == "__main__":
     # splitting ---
     X = np.unique(locs[['lat', 'lon']].values, axis=0)
 
-    clusters_dict = cluster_based_on_dist(X, dist=5)
+    clusters_dict, _ = cluster_based_on_dist(X, dist=5)
     train = 0.70
     test = 0.1
     splits_names = ['train', 'test', 'valid']
@@ -173,4 +176,3 @@ if __name__ == "__main__":
         df.to_csv(f'/network/scratch/t/tengmeli/scratch/ecosystem-embedding/training/{name}_clustered.csv')
 
     # print(df.head())
-
