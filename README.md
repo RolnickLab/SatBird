@@ -10,9 +10,9 @@ Environmental baselines are in `data_processing/env_baseline.py`
 To see an example config file check `configs/env_baseline.yaml`
 
 
-To train the model : `python ~/ecosystem-embedding/train2.py config_file=configs/custom_meli.yaml`
+To train the model : `python ~/ecosystem-embedding/train2.py args.config=configs/custom_meli.yaml`
 
-To test the model: `python ~/ecosystem-embedding/test.py config_file=configs/custom_meli.yaml test_config_file=configs/custom_test.yaml `
+To test the model: `python ~/ecosystem-embedding/test.py args.config=configs/custom_meli.yaml ++test_config_file=configs/custom_test.yaml `
 
 `config_file`must be the same as the one you used to train your model. 
 
