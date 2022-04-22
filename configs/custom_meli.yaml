@@ -1,25 +1,37 @@
+#where to save checkpoints
 save_path: "/network/scratch/t/tengmeli/ckpt/fix_final_layer"
+
+#load existing checkpoint for inference
 load_ckpt_path: "" #/network/scratch/t/tengmeli/ckpt/not_songbirds_bias_init/epoch=14-step=14429.ckpt"
 save_preds_path: ""
 log_comet: true
 
+#use geographical information
 loc:
   use: false
+  #if True :concatenate location features with satellite image features, else location features are mappe to same imension as satellite features and the features are multiplie
   concat: false
   
 comet:
   project_name: "final_layer_comparison" #"ecosystem-duck"
   tags: ["resnet18", "rgb", "same_pres_abs_ce", "means", "no_scheduler"]
+
 experiment:
+  #TASK and name should always be ebird_classifier --> maybe remove it 
   task: "ebird_classifier"
   name: "ebird_classifier"
   seed: 42
 
   module:
-    model: "resnet18" #"train_linear" #"resnet18"
+    #choose model : "resnet18" "resnet50" "inceptionv3" "linear" (just a linear model)
+    model: "resnet18"
+    #"linear" or "linear_net" for a 2 layer MLP
     fc: "linear"
+    #use pretraine weights ( trochvision ) 
     pretrained: false
     resume: "/home/mila/t/tengmeli/ecosystem-embedding/outputs/2022-03-29/08-40-05/final_layer_comparison/b84c264fb4c8477f95cad55bbf85d709/checkpoints/epoch=1273-step=408953.ckpt"
+    
+    #initializes biases of the output layer sothat sigmoid(bias) = mean over the training set for each species
     init_bias: "means"
     means_path: "/network/scratch/t/tengmeli/scratch/ecosystem-embedding/training/means_all_species.npy"
     lr: 0.0001
@@ -29,7 +41,7 @@ optimizer: "SGD"  #"Adam"
 #auto lr will only work if there is only one optimizer 
 auto_lr_find: True
 scheduler: 
-  name: "" #"ReduceLROnPlateau" #"ReduceLROnPlateau" #or "StepLR" "WarmUp"
+  name: "" #"" for no schuler, "ReduceLROnPlateau" #"ReduceLROnPlateau" or "StepLR" "WarmUp"
   reduce_lr_plateau: 
     factor: 0.5
     lr_schedule_patience: 20
@@ -63,13 +75,18 @@ data:
   loaders:
     num_workers: 8
     batch_size: 24
-  #What kind of satellite input ? "refl" for "raw" reflectance values or "img" for 0-255 values (only supported for "rgb" and "nir" bands)
+  #What kind of satellite input ? "refl" for "raw" reflectance values or 
+  #"img" for 0-255 values (only supported for "rgb" and "nir" bands)
   datatype: "refl" 
   
-  bands: ["r","g","b", "nir"]  #"r", "g", "b", "nir" or "rgb", "nir"
-  res: 10 
+  bands: ["r","g","b", "nir"]  #any subset of ["r", "g", "b", "nir"] if working with "refl" data or ["rgb", "nir"] if using "img" 
+  
+  res: 10 #resolution of the images
 
-  env: [] #["ped", "bioclim"] #"all" "ped" or "bioclim"
+  #o you want to use environmental data (pedological and bioclimatic (low res) data)
+  env: [] #["ped", "bioclim"] #ped" or "bioclim" or both or empty list
+  
+  #resolution of pedological and bioclimatic data in meters
   ped: 
       #pedological rasters
       res: 250
@@ -84,7 +101,8 @@ data:
     test: "test_june_vf.csv"
     
   target:
-    type: "probs"  #binary or probs
+    type: "probs"  #binary for classification targets  or "probs" for regression (default should be "probs")
+    
     # choose subset of birds : "ducks" for trying on species [37] or [2] for cooper's hawk (non passerine) "songbirds" (307 species) or None (full set 684 species) "not_songbirds"
     subset: "not_songbirds"
  
@@ -115,13 +133,15 @@ data:
       maxchan: false
       subset: ["sat"]
       custom: [[87.0467011965099, 91.21045367500467, 67.50251448722302, 100],[67.55043009747773, 51.443316800384295, 49.65159018638426, 50]]
-      #[[894.6719, 932.5726, 693.2768,2817.9849], #693.2768,2817.9849],
-      #[883.9763,747.6857, 749.3098, 1342.6334]] #749.3098, 1342.6334]]
+
       #ImageNet values 
       #[[0.485, 0.456, 0.406],[0.229, 0.224, 0.225]]
-      #Mean-std computed on training set
-      #[[894.6719, 932.5726,693.2768], [883.9763,747.6857,749.3098]]
-      #[894.6719, 932.5726,693.2768, 2817.9849], [883.9763,747.6857,749.3098, 1342.6334]
+     
+      #Mean-std computed on training set for reflectance values (r,g,b, nir)
+      #[894.6719, 932.5726,693.2768, 2817.9849], [883.9763,747.6857,749.3098, 1342.6334]      
+      #Mean-std for "rgb" computed on training set
+      #[87.0467011965099, 91.21045367500467, 67.50251448722302],[67.55043009747773, 51.443316800384295, 49.65159018638426]
+
     - name: normalize
       ignore: true
       maxchan: false
