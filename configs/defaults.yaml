@@ -173,16 +173,16 @@ losses:
       ignore: True
       scale: 10
     - name: mse
-      ignore: True
+      ignore: False
       scale: 10
     - name: topk
-      ignore: True
+      ignore: False
       scale: 1
     - name: kl
       ignore: True
       scale : 1
     - name: accuracy
-      ignore: False
+      ignore: True
       scale: 1
 
         

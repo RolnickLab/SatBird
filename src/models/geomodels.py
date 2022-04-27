@@ -67,3 +67,23 @@ class FCNet(nn.Module):
             return torch.matmul(x, self.class_emb.weight[class_of_interest, :]) + self.class_emb.bias[class_of_interest]
         else:
             return torch.matmul(x, self.class_emb.weight[class_of_interest, :])
+
+        
+class MLPDecoder(nn.Module):
+    def __init__(self, input_size, target_size, flatten = True):
+        super().__init__()
+        self.mlp_dim = input_size
+        if flatten:
+            modules = [nn.AdaptiveAvgPool2d((1,1)), 
+                       nn.Flatten(), 
+                       nn.Linear(self.mlp_dim, self.mlp_dim), 
+                       nn.ReLU(), 
+                       nn.Linear(self.mlp_dim, target_size)]
+        else: 
+            modules = [nn.Linear(self.mlp_dim, self.mlp_dim), 
+                       nn.ReLU(), 
+                       nn.Linear(self.mlp_dim, target_size)]
+        self.model = nn.Sequential(*modules)
+        
+    def forward(self, x):
+        return self.model(x)

@@ -195,8 +195,8 @@ class EbirdTask(pl.LightningModule):
        # from pdb import set_trace; set_trace()
         """Training step"""
         m = nn.Sigmoid()
-        x = batch['sat'].squeeze(1) #.to(device)
-        y = batch['target'] #.to(device)      
+        x = batch['sat'].squeeze(1) 
+        y = batch['target']
         if self.opts.experiment.module.model == "linear":
             x = torch.flatten(x, start_dim=1)
         #check weights are moving

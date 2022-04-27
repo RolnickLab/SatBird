@@ -98,7 +98,7 @@ class EbirdVisionDataset(VisionDataset):
                  mode : Optional[str] = "train",
                  datatype = "refl",
                  target = "probs", 
-                 subset = None, use_loc = False)-> None:
+                 subset = None, use_loc = False, loc_type = None)-> None:
         """
         df_paths: dataframe with paths to data for each hotspot
         bands: list of bands to include, anysubset of  ["r", "g", "b", "nir"] or  "rgb" (for image dataset) 
@@ -121,6 +121,8 @@ class EbirdVisionDataset(VisionDataset):
         self.target = target
         self.subset = get_subset(subset) 
         self.use_loc = use_loc
+        self.loc_type = loc_type
+
         
     def __len__(self):
         return self.total_images
@@ -146,7 +148,7 @@ class EbirdVisionDataset(VisionDataset):
             
         
         item_["sat"] = torch.from_numpy(npy_data)
-        item_["sat"] = item_["sat"]/ torch.amax(item_["sat"], dim=(-2,-1), keepdims=True)
+        #item_["sat"] = item_["sat"]/ torch.amax(item_["sat"], dim=(-2,-1), keepdims=True)
 
         if self.transform:
             item_ = self.transform(item_)
@@ -186,6 +188,7 @@ class EbirdVisionDataset(VisionDataset):
         
             item_["num_complete_checklists"] = species["num_complete_checklists"]
         
+
         if "meta" in self.df.columns: 
             meta = load_file(get_path(self.df, index, "meta"))
             #add metadata information (hotspot info)
@@ -195,10 +198,14 @@ class EbirdVisionDataset(VisionDataset):
             item_["hotspot_id"] = os.path.basename(get_path(self.df, index, "b")).strip(".npy")
         
         if self.use_loc:
-            
-            lon, lat = torch.Tensor([item_["lon"]]), torch.Tensor([item_["lat"]])
-            loc = torch.cat((lon, lat)).unsqueeze(0)
-            loc = encode_loc(convert_loc_to_tensor(loc))
-            item_["loc"] = loc
-
+            if self.loc_type == "latlon":
+                lon, lat = torch.Tensor([item_["lon"]]), torch.Tensor([item_["lat"]])
+                loc = torch.cat((lon, lat)).unsqueeze(0)
+                loc = encode_loc(convert_loc_to_tensor(loc))
+                item_["loc"] = loc
+            elif self.loc_type == "state":
+                item_["state_id"] = self.df["state_id"][index]
+                item_["loc"] = torch.zeros([51])
+                item_["loc"][item_["state_id"]] = 1 
+        
         return item_

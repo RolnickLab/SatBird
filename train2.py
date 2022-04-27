@@ -10,6 +10,7 @@ from addict import Dict
 from omegaconf import OmegaConf, DictConfig
 from src.trainer.trainer import EbirdTask, EbirdDataModule
 import src.trainer.geo_trainer as geo_trainer
+import src.trainer.state_trainer as state_trainer
 import pytorch_lightning as pl
 from pytorch_lightning import loggers as pl_loggers
 from pytorch_lightning import Trainer
@@ -132,10 +133,14 @@ def main(opts):
     if not conf.loc.use :
         task = EbirdTask(conf)
         datamodule = EbirdDataModule(conf)
-    else:
+    elif conf.loc.loc_type == "latlon":
         print("Using geo information")
         task = geo_trainer.EbirdTask(conf)
         datamodule = geo_trainer.EbirdDataModule(conf)
+    elif conf.loc.loc_type == "state":
+        print("Using geo information")
+        task = state_trainer.EbirdTask(conf)
+        datamodule = state_trainer.EbirdDataModule(conf)
         
     
     trainer_args = cast(Dict[str, Any], OmegaConf.to_object(conf.trainer))
