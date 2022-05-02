@@ -1,32 +1,87 @@
 import torch
 import torch.nn as nn
 import torchmetrics
+from torchmetrics import  Metric
 
 class CustomCrossEntropyLoss(nn.Module):
     def __init__(self, lambd_pres = 1, lambd_abs = 1):
         super().__init__()
         self.lambd_abs = lambd_abs
         self.lambd_pres =lambd_pres
-    def __call__(self, pred, target):
-        return (-self.lambd_pres *target * torch.log(pred) - self.lambd_abs * (1-target) *torch.log(1 - pred)).sum()
+    def __call__(self, p, q):
+        return (-self.lambd_pres *p * torch.log(q) - self.lambd_abs * (1-p) *torch.log(1 - q)).mean()
+
+class CustomCrossEntropy(Metric):
+    def __init__(self, lambd_pres = 1, lambd_abs = 1, dist_sync_on_step=False):
+        super().__init__(dist_sync_on_step=dist_sync_on_step)
+        self.lambd_abs = lambd_abs
+        self.lambd_pres =lambd_pres
+        self.add_state("correct", default = torch.FloatTensor([0]), dist_reduce_fx="sum")
+        self.add_state("total", default=torch.FloatTensor([0]), dist_reduce_fx="sum")
+        
+    def update(self, p: torch.Tensor, q: torch.Tensor):
+        """
+        p: target distribution
+        q: predicted distribution
+        """
+        self.correct += (-self.lambd_pres *p * torch.log(q) - self.lambd_abs * (1-p) *torch.log(1 - q)).sum()
+        self.total += p.numel()
+    def compute(self):
+        return (self.correct/self.total)
 
 
-class TopKAccuracy(nn.Module):
-    def __init__(self,k=30):
+class CustomKL(Metric):
+    def __init__(self, dist_sync_on_step=False):
+        super().__init__(dist_sync_on_step=dist_sync_on_step)
+        self.add_state("correct", default=torch.FloatTensor([0]), dist_reduce_fx="sum")
+        self.add_state("total", default=torch.FloatTensor([0]), dist_reduce_fx="sum")
+        
+    def update(self, p: torch.Tensor, q: torch.Tensor):
+        """
+        p: target distribution
+        q: predicted distribution
+        """
+        self.correct += (torch.nansum(p*torch.log(p/q)) + torch.nansum((1-p)*torch.log((1-p)/(1-q))))
+        self.total += p.numel()
+    def compute(self):
+        return (self.correct/self.total)
+    
+class Presence_k(nn.Module):
+    """
+    compare accuracy by binarizing targets  1 if species are present with proba > k 
+    """
+    def __init__(self, k):
         super().__init__()
-        self.k=k
-    def __call__(self, pred, target):
-        v_topk, i_topk = torch.topk(target, self.k)
-        v_pred, i_pred = torch.topk(pred, self.k)
-        counts = torch.zeros(len(i_topk))
-        for i,elem in enumerate(i_topk):
-            count = 0
-            for it in i_pred[i]:
-                if it in elem:
-                    count += 1
-            counts[i] = count/self.k
-        diff = sum(torch.abs(v_pred - v_topk))
-        return (counts.mean(), diff.mean())
+        self.k = k
+    def __call__(self,  target, pred):
+        pres = ((pred > self.k) == (target > self.k)).mean()
+        return (pres)
+
+class CustomTopK(Metric):
+    def __init__(self, dist_sync_on_step=False):
+        super().__init__(dist_sync_on_step=dist_sync_on_step)
+
+        self.add_state("correct", default=torch.FloatTensor([0]), dist_reduce_fx="sum")
+        self.add_state("total", default=torch.FloatTensor([0]), dist_reduce_fx="sum")
+
+    def update(self, target: torch.Tensor, preds: torch.Tensor):
+        #preds, target = self._input_format(preds, target)
+        assert preds.shape == target.shape
+        non_zero_counts = torch.count_nonzero(target, dim=1)
+        for i, elem in enumerate(target):
+            ki = non_zero_counts[i]
+            v_pred, i_pred = torch.topk(preds[i], k = ki)
+            v_targ, i_targ = torch.topk(elem, k = ki)
+            if ki == 0 :
+                self.correct += 1
+            else:
+                self.correct += len(set(i_pred.cpu().numpy()).intersection(set(i_targ.cpu().numpy()))) / ki
+        self.total += target.shape[0]
+
+    def compute(self):
+        return (self.correct / self.total).float()
+    
+
 
 def get_metric(metric):
     """Returns the transform function associated to a
@@ -41,12 +96,16 @@ def get_metric(metric):
         return torchmetrics.MeanSquaredError()
     
     elif metric.name == "topk" and not metric.ignore is True :
-        k = metric.k
-        return TopKAccuracy(k)
+        return CustomTopK()
     
     elif metric.name == "ce" and not metric.ignore is True :
-        return CustomCrossEntropyLoss(metric.lambd_pres, metric.lambd_abs)
+        return CustomCrossEntropy(metric.lambd_pres, metric.lambd_abs)
     
+    elif metric.name == "kl" and not metric.ignore is True :
+        return CustomKL()
+    
+    elif metric.name == "accuracy" and not metric.ignore is True:
+        return torchmetrics.Accuracy()
     elif metric.ignore is True :
         return None
 
@@ -54,9 +113,9 @@ def get_metric(metric):
 
 def get_metrics(opts):
     metrics = []
-
+    
     for m in opts.losses.metrics:
         metrics.append((m.name, get_metric(m), m.scale))
     metrics = [(a,b,c) for (a,b,c) in metrics if b is not None]
-
+    print(metrics)
     return metrics

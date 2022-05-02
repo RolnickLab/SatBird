@@ -7,6 +7,17 @@ import matplotlib.pyplot as plt
 import numpy as np
 import rasterio
 
+MEANS = {"bio_1":11.994303908599168, "bio_2":12.162265840542254, "bio_3":36.942481755599964, "bio_4":805.720459451272, "bio_5":29.44890890443498, "bio_6":-4.561721325088685, "bio_7":34.01063026068749, "bio_8":15.816412685879353, "bio_9":7.808452188833704,
+    "bio_10":21.77499490648628, "bio_11":1.9399000365976449, "bio_12":902.9704985980738, "bio_13":114.61111788370108, "bio_14":42.027672802633184, "bio_15":37.11493780524879, "bio_16":315.34206997439964, "bio_17":145.09703766914544,
+    "bio_18":231.19724491039864, "bio_19":220.06619529440448, "bdticm": 2230.563616964524,
+ "bldfie": 1374.6855161376368,
+ "cecsol": 20.45478794345159,
+ "clyppt":19.0492131234996,
+ "orcdrc": 31.119631901840492,
+ "phihox": 61.24246465724193,
+ "sltppt": 36.68711656441718,
+  "sndppt" : 44.25620165377434 }
+
 
 bioclimatic_raster_names = [
     "bio_1", "bio_2", "bio_3", "bio_4", "bio_5", "bio_6", "bio_7", "bio_8", "bio_9",
@@ -16,7 +27,7 @@ bioclimatic_raster_names = [
 pedologic_raster_names = [
     "bdticm", "bldfie", "cecsol", "clyppt", "orcdrc", "phihox", "sltppt", "sndppt"
 ]
-raster_names = bioclimatic_raster_names + pedologic_raster_names
+raster_names =bioclimatic_raster_names + pedologic_raster_names
 
 
 class Raster(object):
@@ -221,7 +232,8 @@ class PatchExtractor(object):
         kwargs : dict
             Updates the default arguments passed to Raster (nan, out_of_bounds, etc.)
         """
-        r_us = Raster(self.root_path / raster_name, self.country, size=self.size, **kwargs)
+        
+        r_us = Raster(self.root_path / raster_name, self.country, size=self.size, nan = MEANS[raster_name], **kwargs)
         #r_fr = Raster(self.root_path / raster_name, "FR", size=self.size, **kwargs)
 
         self.rasters_us.append(r_us)
