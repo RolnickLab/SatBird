@@ -2,7 +2,23 @@ import torch
 import torch.nn as nn
 import torchmetrics
 from torchmetrics import  Metric
-
+#from torchmetrics import PearsonCorrCoef
+eps=1e-7
+class CustomCrossEntropyLoss:
+    def __init__(self, lambd_pres = 1, lambd_abs = 1):
+        super().__init__()
+        print('in my custom')
+        self.lambd_abs = lambd_abs
+        self.lambd_pres =lambd_pres
+    def __call__(self, p, q):
+        print('maximum prediction value ',q.max())
+        print('maximum target value',p.max())
+        #p=torch.clip(p, min=0, max=0.98)
+        #q=torch.clip(q, min=0, max=0.98)
+        loss=(-self.lambd_pres *p * torch.log(q+eps) - self.lambd_abs * (1-p + eps) *torch.log(1 - q)).mean()
+        print('inside_loss',loss)
+        return loss
+'''
 class CustomCrossEntropyLoss(nn.Module):
     def __init__(self, lambd_pres = 1, lambd_abs = 1):
         super().__init__()
@@ -10,7 +26,7 @@ class CustomCrossEntropyLoss(nn.Module):
         self.lambd_pres =lambd_pres
     def __call__(self, p, q):
         return (-self.lambd_pres *p * torch.log(q) - self.lambd_abs * (1-p) *torch.log(1 - q)).mean()
-
+'''
 class CustomCrossEntropy(Metric):
     def __init__(self, lambd_pres = 1, lambd_abs = 1, dist_sync_on_step=False):
         super().__init__(dist_sync_on_step=dist_sync_on_step)
@@ -100,7 +116,9 @@ def get_metric(metric):
     
     elif metric.name == "ce" and not metric.ignore is True :
         return CustomCrossEntropy(metric.lambd_pres, metric.lambd_abs)
-    
+    elif metric.name =='r2' and not metric.ignore is True:
+        return torchmetrics.ExplainedVariance(multioutput='variance_weighted')
+        #return  torchmetrics.SpearmanCorrCoef()
     elif metric.name == "kl" and not metric.ignore is True :
         return CustomKL()
     

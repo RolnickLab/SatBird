@@ -149,7 +149,7 @@ class EbirdVisionDataset(VisionDataset):
         
         item_["sat"] = torch.from_numpy(npy_data)
         #item_["sat"] = item_["sat"]/ torch.amax(item_["sat"], dim=(-2,-1), keepdims=True)
-
+    
         if self.transform:
             item_ = self.transform(item_)
         
@@ -187,7 +187,8 @@ class EbirdVisionDataset(VisionDataset):
         
         
             item_["num_complete_checklists"] = species["num_complete_checklists"]
-        
+
+        item_["state_id"] = self.df["state_id"][index]
 
         if "meta" in self.df.columns: 
             meta = load_file(get_path(self.df, index, "meta"))
@@ -196,7 +197,7 @@ class EbirdVisionDataset(VisionDataset):
             item_.update(meta)
         else: 
             item_["hotspot_id"] = os.path.basename(get_path(self.df, index, "b")).strip(".npy")
-        
+
         if self.use_loc:
             if self.loc_type == "latlon":
                 lon, lat = torch.Tensor([item_["lon"]]), torch.Tensor([item_["lat"]])
