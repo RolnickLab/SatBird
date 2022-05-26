@@ -6,7 +6,7 @@ log_comet: true
 #overfit batches (for debugging)
 overfit_debug: false
 #number of batches to overfit on 
-overfit_batches: 5
+overfit_batches: 0
 
 #use location ?
 loc:
@@ -48,7 +48,7 @@ scheduler:
     gamma: 0.5
   warmup:
     warmup_epochs: 10
-    max_epochs: 100 
+    max_epochs: 200 
   cyclical:
     warmup_epochs: 10
 
@@ -90,7 +90,11 @@ data:
     train: "train_june_vf.csv"
     val: "val_june_vf.csv"
     test: "test_june_vf.csv"
-    
+    correction: "/network/scratch/t/tengmeli/scratch/ecosystem-embedding/training/correction_factor_final.pkl"
+  correction_factor:
+      use: 'before' #choises [None, 'before' (before sigmoid) ,'after'(after sigmoid)]
+
+
   target:
     type: "probs"  #binary or probs
     # choose subset of birds : "ducks" for trying on species [37] or "songbirds" (307 species) or None (full set 684 species)
@@ -160,7 +164,7 @@ losses:
   ce:
     ignore: False
       #weights on the cross entropy
-    lambd_pres: 10
+    lambd_pres: 1
     lambd_abs: 1
   metrics:
     - name: ce
@@ -178,11 +182,14 @@ losses:
     - name: topk
       ignore: False
       scale: 1
+    - name: r2
+      ignore: Falses
+      scale: 1
     - name: kl
-      ignore: True
+      ignore: False
       scale : 1
     - name: accuracy
-      ignore: True
+      ignore: False
       scale: 1
 
         
