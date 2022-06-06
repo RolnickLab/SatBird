@@ -75,6 +75,7 @@ class EbirdTask(pl.LightningModule):
         self.save_hyperparameters(opts)
         self.config_task(opts, **kwargs)
         self.opts = opts
+        print(self.opts.save_preds_path)
         #define self.learning_rate to enable learning rate finder
         self.learning_rate = self.opts.experiment.module.lr
         #for (name, _, scale) in self.metrics:
@@ -145,7 +146,20 @@ class EbirdTask(pl.LightningModule):
             self.model = models.resnet50(pretrained=self.opts.experiment.module.pretrained)
             if len(self.opts.data.bands) != 3 or len(self.opts.data.env) > 0:
                 bands = self.opts.data.bands + self.opts.data.env
-                self.model.conv1 = nn.Conv2d(get_nb_bands(bands), 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
+                orig_channels = self.model.conv1.in_channels
+                weights = self.model.conv1.weight.data.clone()
+                self.model.conv1 = nn.Conv2d(
+                    get_nb_bands(self.bands),
+                    64,
+                    kernel_size=(7, 7),
+                    stride=(2, 2),
+                    padding=(3, 3),
+                    bias=False,
+                )
+                #assume first three channels are rgb
+                if self.opts.module.pretrained:
+                    self.model.conv1.weight.data[:, :orig_channels, :, :] = weights
+           
             if self.opts.experiment.module.fc == "linear":
                 self.model.fc = nn.Linear(2048, self.target_size)
             elif self.opts.experiment.module.fc == "linear_net":
@@ -338,7 +352,7 @@ class EbirdTask(pl.LightningModule):
                 print(y.shape, pred_.shape)
                 getattr(self,name)(y, pred_)
                 print(nname,getattr(self,name)(y, pred_) )
-            self.log(nname, getattr(self,name), on_step = True, on_epoch = True)
+            self.log(nname, getattr(self,name), on_step = False, on_epoch = True)
         
         return loss
     
@@ -431,6 +445,15 @@ class EbirdTask(pl.LightningModule):
         
         x = batch['sat'].squeeze(1)#.to(device)
         #self.model.to(device)
+        y = batch['target']#.to(device)
+        b, no_species = y.shape
+        state_id = batch['state_id']
+        self.correction_data=torch.tensor(self.correction_data,device=y.device)
+
+        correction = self.correction_data[state_id]
+        print('shapes of correction and outpu in valdiation ',correction.shape, y.shape)
+        assert correction.shape == (b, no_species), 'shape of correction factor is not as expected'
+        print("Model is on cuda", next(self.model.parameters()).is_cuda)
         if self.opts.experiment.module.model == "linear":
             x = torch.flatten(x, start_dim=1)
         y_hat = self.forward(x)
@@ -443,29 +466,15 @@ class EbirdTask(pl.LightningModule):
         else:
             pred = m(y_hat).type_as(y)
             
-            pred_ = pred.clone()
-            
             if self.opts.data.correction_factor.use=='after':
-                        preds=pred*correction
-                        cloned_pred=preds.clone().type_as(preds)
-                        pred=torch.clip(cloned_pred, min=0, max=0.98)
+                    preds=pred*correction
+                    cloned_pred=preds.clone().type_as(preds)
+                    pred=torch.clip(cloned_pred, min=0, max=1)
                         #pred=m(cloned_pred)
             
         
-        if "target" in batch.keys():
-            y = batch['target'].cpu()
-            for (name, _, scale) in self.metrics:
-                nname = "test_" + name
-                if name == "accuracy":
-                    getattr(self,name)(pred_, y.type(torch.uint8))
-                    print(nname,getattr(self,name)(pred_, y.type(torch.uint8)))
-                
-                else:
-                    getattr(self,name)(y, pred_)
-                    print(nname,getattr(self,name)(y, pred_) )
-                
         if self.opts.save_preds_path != "":       
-            for i, elem in enumerate(pred_):
+            for i, elem in enumerate(pred):
                 np.save(os.path.join(self.opts.save_preds_path, batch["hotspot_id"][i] + ".npy"), elem.cpu().detach().numpy())
         print("saved elems")
         
