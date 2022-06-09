@@ -91,8 +91,10 @@ data:
     val: "val_june_vf.csv"
     test: "test_june_vf.csv"
     correction: "/network/scratch/t/tengmeli/scratch/ecosystem-embedding/training/correction_factor_final.pkl"
+    correction_thresh: '/network/scratch/a/amna.elmustafa/tmp/ecosystem-embedding/data_processing/Htest.npy'
   correction_factor:
-      use: 'before' #choises [None, 'before' (before sigmoid) ,'after'(after sigmoid)]
+     use: None   #choises [None, 'before' (before sigmoid) ,'after'(after sigmoid)]
+     thresh : True
 
 
   target:
