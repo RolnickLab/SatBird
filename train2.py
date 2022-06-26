@@ -71,7 +71,7 @@ def load_opts(path, default, commandline_opts):
     if path is None and default is None:
         path = (
             resolve(Path(__file__)).parent.parent
-            / "config"
+            / "configs"
             / "defaults.yaml"
         )
         print(path)

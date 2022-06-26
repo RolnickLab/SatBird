@@ -1,21 +1,24 @@
 #where to save checkpoints
-save_path: "/network/scratch/a/amna.elmustafa/ecosys_ckpts/logs"
+save_path: "/network/scratch/t/tengmeli/ecosystem-embeddings/checkpoint_loc"
 
 #load existing checkpoint for inference
-load_ckpt_path: "" #/network/scratch/t/tengmeli/ckpt/not_songbirds_bias_init/epoch=14-step=14429.ckpt"
-save_preds_path: ""
+load_ckpt_path: "/network/projects/_groups/ecosystem-embeddings/ebird_checkpoints/resnet18_location_300_epochs/epoch=299-step=14099.ckpt"
+
+#~/ecosystem-embedding/outputs/2022-05-26/12-16-51/range_maps/f0314641a3d447ad9699e962088f0e11/checkpoints/epoch=307-step=14475.ckpt" #"~/ecosystem-embedding/outputs/2022-05-26/12-18-20/range_maps/1ace46dd62cc4d6eb9b532b59ac6643a/checkpoints/epoch=341-step=16073.ckpt" #"~/ecosystem-embedding/outputs/2022-05-26/12-16-51/range_maps/f0314641a3d447ad9699e962088f0e11/checkpoints/epoch=307-step=14475.ckpt"
+save_preds_path: "/network/projects/_groups/ecosystem-embeddings/ebird_checkpoints/resnet18_location_300_epochs/preds"
 log_comet: true
 
+overfit_batches: 0.0
 #use geographical information
 loc:
-  use: false
+  use: True
   #if True :concatenate location features with satellite image features, else location features are mappe to same imension as satellite features and the features are multiplie
-  loc_type: "state"   #latlon or state
-  concat: false
+  loc_type: "latlon"   #latlon or state
+  concat: True
   
 comet:
   project_name: "range_maps" #"ecosystem-duck"
-  tags: ["resnet18", "rgb_nir", "correction_after", "overfit"]
+  tags: ["resnet18", "rgb_nir","loc", "adam", "init"]
 
 experiment:
   #TASK and name should always be ebird_classifier --> maybe remove it 
@@ -85,7 +88,7 @@ data:
   res: 10 #resolution of the images
 
   #o you want to use environmental data (pedological and bioclimatic (low res) data)
-  env: [] #["ped", "bioclim"] #ped" or "bioclim" or both or empty list
+  env: [] #["ped", "bioclim"] #["ped", "bioclim"] #ped" or "bioclim" or both or empty list
   
   #resolution of pedological and bioclimatic data in meters
   ped: 
@@ -99,10 +102,10 @@ data:
     base: "/network/scratch/t/tengmeli/scratch/ecosystem-embedding/training/"
     train: "train_clustered_vf.csv"
     val: "valid_clustered_vf.csv"
-    test: "test_clustered_vf.csv"
+    test: "train_clustered_vf.csv"
     correction: "/network/scratch/t/tengmeli/scratch/ecosystem-embedding/training/correction_factor_final.pkl"
   correction_factor:
-     use: 'after' #choises [None, 'before' (before sigmoid) ,'after'(after sigmoid)]
+     use: #choises [None, 'before' (before sigmoid) ,'after'(after sigmoid)]
 
     
   target:
@@ -120,7 +123,7 @@ data:
     - name: crop
       ignore: false
       p: 1
-      ignore_band: ["bioclim", "ped"]
+      ignore_band: ["bioclim", "ped"] #["bioclim", "ped"]
       center: true # disable randomness, crop around the image's center
       height: 64
       width: 64

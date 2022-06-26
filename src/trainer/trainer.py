@@ -107,8 +107,8 @@ class EbirdTask(pl.LightningModule):
         if self.opts.experiment.module.model == "train_linear":
             self.feature_extractor = models.resnet18(pretrained=self.opts.experiment.module.pretrained)
             if len(self.opts.data.bands)!=3 or len(self.opts.data.env) > 0:
-                bands = self.opts.data.bands + self.opts.data.env
-                self.feature_extractor.conv1 = nn.Conv2d(get_nb_bands(bands), 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
+                self.bands = self.opts.data.bands + self.opts.data.env
+                self.feature_extractor.conv1 = nn.Conv2d(get_nb_bands(self.bands), 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
             if self.opts.experiment.module.fc == "linear":
                 self.feature_extractor.fc = nn.Linear(512, self.target_size)
             ckpt = torch.load(self.opts.experiment.module.resume)
@@ -131,8 +131,8 @@ class EbirdTask(pl.LightningModule):
             
             self.model = models.resnet18(pretrained=self.opts.experiment.module.pretrained)
             if len(self.opts.data.bands)!=3 or len(self.opts.data.env) > 0:
-                bands = self.opts.data.bands + self.opts.data.env
-                self.model.conv1 = nn.Conv2d(get_nb_bands(bands), 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
+                self.bands = self.opts.data.bands + self.opts.data.env
+                self.model.conv1 = nn.Conv2d(get_nb_bands(self.bands), 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
             if self.opts.experiment.module.fc == "linear":
                 self.model.fc = nn.Linear(512, self.target_size)
             elif self.opts.experiment.module.fc == "linear_net":
@@ -145,7 +145,7 @@ class EbirdTask(pl.LightningModule):
         elif self.opts.experiment.module.model == "resnet50":
             self.model = models.resnet50(pretrained=self.opts.experiment.module.pretrained)
             if len(self.opts.data.bands) != 3 or len(self.opts.data.env) > 0:
-                bands = self.opts.data.bands + self.opts.data.env
+                self.bands = self.opts.data.bands + self.opts.data.env
                 orig_channels = self.model.conv1.in_channels
                 weights = self.model.conv1.weight.data.clone()
                 self.model.conv1 = nn.Conv2d(
@@ -178,7 +178,6 @@ class EbirdTask(pl.LightningModule):
         elif self.opts.experiment.module.model == "linear":
             nb_bands = get_nb_bands(self.opts.data.bands + self.opts.data.env)
             self.model = nn.Linear(nb_bands*64*64, self.target_size)  
-            
 
         else:
             raise ValueError(f"Model type '{self.opts.experiment.module.model}' is not valid")
@@ -227,6 +226,7 @@ class EbirdTask(pl.LightningModule):
         y = batch['target']
 
         b, no_species = y.shape
+        print(y)
         state_id=batch['state_id']
 
         self.correction_data=torch.tensor(self.correction_data,device=y.device)
@@ -300,9 +300,9 @@ class EbirdTask(pl.LightningModule):
             else :
 
                 pred = m(y_hat).type_as(y)
-                print('preds maximum in trainstep', pred.max())
+                #print('preds maximum in trainstep', pred.max())
                 pred_ = pred.clone().type_as(y)
-                print('len of preds',len(pred_))
+                #print('len of preds',len(pred_))
                 
             if self.opts.data.correction_factor.use=='after':
                         preds=pred*correction
@@ -317,7 +317,7 @@ class EbirdTask(pl.LightningModule):
                 print('maximum ytrue in trainstep',y.max())
                 loss = self.criterion(y, pred)
                 print('train_loss',loss)
-        self.log("train_loss", loss, on_step = True, on_epoch= True)
+        
         if self.target_type == "log":
             pred_ = torch.exp(pred_)
        # if self.current_epoch in [0,1]:
@@ -349,11 +349,11 @@ class EbirdTask(pl.LightningModule):
                 
             else:
                 print('in metrics')
-                print(y.shape, pred_.shape)
                 getattr(self,name)(y, pred_)
                 print(nname,getattr(self,name)(y, pred_) )
+                #print(nname,getattr(self,name)(y, pred_) )
             self.log(nname, getattr(self,name), on_step = False, on_epoch = True)
-        
+        self.log("train_loss", loss, on_step = True, on_epoch= True)
         return loss
     
     #def training_epoch_end(self, outputs):
@@ -369,7 +369,7 @@ class EbirdTask(pl.LightningModule):
 
         """Validation step """
 
-        
+        #import pdb; pdb.set_trace()
         x = batch['sat'].squeeze(1)#.to(device)
 
         y = batch['target']#.to(device)
@@ -432,7 +432,7 @@ class EbirdTask(pl.LightningModule):
           
             else:
                 getattr(self,name)(y, pred_)
-                print(nname,getattr(self,name)(y, pred_) )
+            print(nname,getattr(self,name)(y, pred_) )
             self.log(nname, getattr(self, name), on_step=False, on_epoch=True) 
         self.log("val_loss", loss, on_step = True, on_epoch = True)
 
