@@ -2,7 +2,7 @@ save_path: "/network/projects/_groups/ecosystem-embeddings/exp/ckpt"
 load_ckpt : ""
 #log the experiment to comet ? 
 log_comet: true
-
+save_preds_path: ""
 #overfit batches (for debugging)
 overfit_debug: false
 #number of batches to overfit on 
@@ -29,7 +29,7 @@ experiment:
   seed: 42
 
   module:
-    model: "resnet50"
+    model: "resnet18"
     pretrained: True
     init_bias: "means"
     means_path: "/network/scratch/t/tengmeli/scratch/ecosystem-embedding/training/means_all_species.npy"
@@ -174,7 +174,7 @@ losses:
       lambd_abs: 1
       scale : 1
     - name: mae
-      ignore: True
+      ignore: False
       scale: 10
     - name: mse
       ignore: False
@@ -183,13 +183,13 @@ losses:
       ignore: False
       scale: 1
     - name: r2
-      ignore: Falses
+      ignore: True #False
       scale: 1
     - name: kl
       ignore: False
       scale : 1
     - name: accuracy
-      ignore: False
+      ignore: True
       scale: 1
 
         
@@ -215,7 +215,7 @@ trainer: # These are the parameters passed to the pytorch lightning Trainer obje
   check_val_every_n_epoch: 1
   fast_dev_run: False
   accumulate_grad_batches: 1
-  max_epochs: null
+  max_epochs: 300
   min_epochs: null
   max_steps: null
   min_steps: null
