@@ -200,6 +200,7 @@ class EbirdVisionDataset(VisionDataset):
 
         if self.use_loc:
             if self.loc_type == "latlon":
+                
                 lon, lat = torch.Tensor([item_["lon"]]), torch.Tensor([item_["lat"]])
                 loc = torch.cat((lon, lat)).unsqueeze(0)
                 loc = encode_loc(convert_loc_to_tensor(loc))
@@ -208,5 +209,5 @@ class EbirdVisionDataset(VisionDataset):
                 item_["state_id"] = self.df["state_id"][index]
                 item_["loc"] = torch.zeros([51])
                 item_["loc"][item_["state_id"]] = 1 
-        
+        #print(item_.keys())
         return item_
