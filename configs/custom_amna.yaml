@@ -18,7 +18,11 @@ loc:
   
 comet:
   project_name: "range_maps" #"ecosystem-duck"
+<<<<<<< HEAD
   tags: ["resnet18", "rgb_nir","loc", "adam", "init"]
+=======
+  tags: ["resnet18", "rgb_nir", "no_correction_after", "hardThBySpecies*10"]
+>>>>>>> 4d94e5dba0291848e0425a4e53715484996dcd45
 
 experiment:
   #TASK and name should always be ebird_classifier --> maybe remove it 
@@ -102,10 +106,12 @@ data:
     base: "/network/scratch/t/tengmeli/scratch/ecosystem-embedding/training/"
     train: "train_clustered_vf.csv"
     val: "valid_clustered_vf.csv"
-    test: "train_clustered_vf.csv"
-    correction: "/network/scratch/t/tengmeli/scratch/ecosystem-embedding/training/correction_factor_final.pkl"
+    test: "test_clustered_vf.csv"
+    correction: "/network/scratch/t/tengmeli/scratch/ecosystem-embedding/training/correction_factor_final.pkl" #soft thresholding file 
+    correction_thresh: '/network/scratch/a/amna.elmustafa/tmp/ecosystem-embedding/data_processing/Htest4.npy'  #hard thresholding file ,options:[Htest, Htest2,Htest3,Htest4] corrosponding to threshold as [mean species values , mask of species that have prob less than mean ,mask of species that have prob less than mean/10 ,mask of species that have prob less than mean*10 ]
   correction_factor:
-     use: #choises [None, 'before' (before sigmoid) ,'after'(after sigmoid)]
+     use: None   #soft thresholding choises [None, 'before' (before sigmoid) ,'after'(after sigmoid)] 
+     thresh : True     #hard thresholding
 
     
   target:

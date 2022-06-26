@@ -113,8 +113,8 @@ def main(opts):
     print("hydra_opts", hydra_opts)
     args = hydra_opts.pop("args", None)
 
-    config_path = args['config']
-    default = "/home/mila/t/tengmeli/ecosystem-embedding/configs/defaults.yaml" #args['default']
+    config_path =  "/network/scratch/a/amna.elmustafa/tmp/ecosystem-embedding/configs/custom_amna.yaml" 
+    default = "/network/scratch/a/amna.elmustafa/tmp/ecosystem-embedding/configs/defaults.yaml" #args['default']
     #default = Path(__file__).parent / "configs/defaults.yaml"
     conf = load_opts(config_path, default=default, commandline_opts=hydra_opts)
     conf.save_path = conf.save_path+os.environ["SLURM_JOB_ID"]
