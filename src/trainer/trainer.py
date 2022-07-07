@@ -206,13 +206,13 @@ class EbirdTask(pl.LightningModule):
 
 #         with open(self.opts.data.files.correction,'rb') as f:
 #             self.correction_data=pickle.load(f)
-        with open(self.opts.data.files.correction_thresh,'rb') as f:
-            self.correction_data=np.load(f)
+        #with open(self.opts.data.files.correction_thresh,'rb') as f:
+        #    self.correction_data=np.load(f)
             
             
 
         #filter nonsong birds
-        print('how correction data looks like :' , self.correction_data)
+        #print('how correction data looks like :' , self.correction_data)
         #self.correction_data=  self.correction_data[:,subset]
         #assert self.correction_data.shape[1]==len(subset)
 
@@ -233,11 +233,11 @@ class EbirdTask(pl.LightningModule):
         print(y)
         state_id=batch['state_id']
 
-        self.correction_data=torch.tensor(self.correction_data,device=y.device)
+        #self.correction_data=torch.tensor(self.correction_data,device=y.device)
        
-        correction=self.correction_data[state_id]
+        #correction=self.correction_data[state_id]
      
-        assert correction.shape==(b,no_species) ,'shape of correction factor is not as expected'
+        #assert correction.shape==(b,no_species) ,'shape of correction factor is not as expected'
         #assert correction.shape==(b,) ,'shape of correction factor is not as expected'
         #correction.unsqueeze_(-1)
         if self.opts.experiment.module.model == "linear":
@@ -380,11 +380,7 @@ class EbirdTask(pl.LightningModule):
                # print(nname,getattr(self,name)(pred_,  y.type(torch.uint8)))
                 
             else:
-<<<<<<< HEAD
-                print('in metrics')
-=======
-                
->>>>>>> 4d94e5dba0291848e0425a4e53715484996dcd45
+               
                 getattr(self,name)(y, pred_)
                 print(nname,getattr(self,name)(y, pred_) )
                 #print(nname,getattr(self,name)(y, pred_) )
@@ -411,11 +407,11 @@ class EbirdTask(pl.LightningModule):
         y = batch['target']#.to(device)
         b, no_species = y.shape
         state_id = batch['state_id']
-        self.correction_data=torch.tensor(self.correction_data,device=y.device)
+        #self.correction_data=torch.tensor(self.correction_data,device=y.device)
 
-        correction = self.correction_data[state_id]
-        print('shapes of correction and outpu in valdiation ',correction.shape, y.shape)
-        assert correction.shape == (b,no_species), 'shape of correction factor is not as expected'
+       #correction = self.correction_data[state_id]
+        #print('shapes of correction and outpu in valdiation ',correction.shape, y.shape)
+        #assert correction.shape == (b,no_species), 'shape of correction factor is not as expected'
         #correction.unsqueeze_(-1)
         print("Model is on cuda", next(self.model.parameters()).is_cuda)
         if self.opts.experiment.module.model == "linear":
@@ -533,7 +529,6 @@ class EbirdTask(pl.LightningModule):
                 np.save(os.path.join(self.opts.save_preds_path, batch["hotspot_id"][i] + ".npy"), elem.cpu().detach().numpy())
         print("saved elems")
 
-        
 
     def get_optimizer(self, model, opts):
         if self.opts.optimizer == "Adam":

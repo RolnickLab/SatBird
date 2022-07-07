@@ -113,9 +113,9 @@ def main(opts):
     print("hydra_opts", hydra_opts)
     args = hydra_opts.pop("args", None)
 
-    config_path =  "/network/scratch/a/amna.elmustafa/tmp/ecosystem-embedding/configs/custom_amna.yaml" 
-    default = "/network/scratch/a/amna.elmustafa/tmp/ecosystem-embedding/configs/defaults.yaml" #args['default']
-    #default = Path(__file__).parent / "configs/defaults.yaml"
+    #config_path =  "/network/scratch/a/amna.elmustafa/tmp/ecosystem-embedding/configs/custom_amna.yaml" 
+    #default = "/network/scratch/a/amna.elmustafa/tmp/ecosystem-embedding/configs/defaults.yaml" #args['default']
+    default = Path(__file__).parent / "configs/defaults.yaml"
     conf = load_opts(config_path, default=default, commandline_opts=hydra_opts)
     conf.save_path = conf.save_path+os.environ["SLURM_JOB_ID"]
     pl.seed_everything(conf.program.seed)
@@ -172,7 +172,7 @@ def main(opts):
     lr_monitor = LearningRateMonitor(logging_interval='epoch')
 
     
-    trainer_args["callbacks"] = [lr_monitor] #, #early_stopping_callback]checkpoint_callback, 
+    trainer_args["callbacks"] = [lr_monitor, early_stopping_callback, checkpoint_callback]
     #trainer_args["max_epochs"] = 1000
     
 
