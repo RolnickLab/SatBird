@@ -61,7 +61,7 @@ class LocEncoder(torch.nn.Module):
         if self.opts_.loc.elev:
             num_inputs = 5
         self.model = geomodels.FCNet(num_inputs, num_classes=self.target_size,num_filts=256)   
-        self.model = self.model.to(device)   
+      
         
     def forward(self, loc):
         
@@ -104,7 +104,7 @@ class EbirdTask(pl.LightningModule):
         self.learning_rate = self.opts.experiment.module.lr
 
         if self.concat:
-            self.linear_layer = nn.Linear(256+512,  self.target_size).to(device)
+            self.linear_layer = nn.Linear(256+512,  self.target_size)
         
         #assert "save_preds_path" in self.opts
         #self.save_preds_path = self.opts["save_preds_path"]
@@ -164,7 +164,7 @@ class EbirdTask(pl.LightningModule):
             self.sat_model.fc.bias.data =  means
         else:
             print("no initialization of biases")
-        self.sat_model.to(device) 
+        #self.sat_model.to(device) 
         return(self.sat_model)
     
         
@@ -192,8 +192,8 @@ class EbirdTask(pl.LightningModule):
 
     def forward(self, x:Tensor, loc_tensor = None) -> Any:
         # need to fix use of inceptionv3 to be able to use location too 
-        self.encoders["sat"].to(device)
-        self.encoders["loc"].to(device)
+        self.encoders["sat"]
+        self.encoders["loc"]
         if self.opts.experiment.module.model == "inceptionv3":
             out_sat, aux_outputs= self.encoders["sat"](x)
             out_loc = self.encoders["loc"](loc_tensor).squeeze(1)
@@ -216,9 +216,9 @@ class EbirdTask(pl.LightningModule):
         
         """Training step"""
         
-        x = batch['sat'].squeeze(1).to(device)
+        x = batch['sat'].squeeze(1)
         loc_tensor= batch["loc"]
-        y = batch['target'].to(device)      
+        y = batch['target']   
 
         #check weights are moving
         #for p in self.model.fc.parameters(): 
@@ -250,11 +250,19 @@ class EbirdTask(pl.LightningModule):
         
         for (name, _, scale) in self.metrics:
             nname = "train_" + name
-            getattr(self,name)(y,pred_)
-            self.log(nname, getattr(self,name), on_step = True, on_epoch = True)
-        self.log("train_loss", loss, on_step = True, on_epoch = True)
-
+            if name == "accuracy":
+                getattr(self,name)(pred_, y.type(torch.uint8))
+                print(nname,getattr(self,name)(pred_,  y.type(torch.uint8)))
+                
+            else:
+               
+                getattr(self,name)(y, pred_)
+                print(nname,getattr(self,name)(y, pred_) )
+              
+            self.log(nname, getattr(self,name), on_step = False, on_epoch = True)
+        self.log("train_loss", loss, on_step = True, on_epoch= True)
         return loss
+
 
     def validation_step(
         self, batch: Dict[str, Any], batch_idx: int )->None:
@@ -262,9 +270,9 @@ class EbirdTask(pl.LightningModule):
         """Validation step """
 
         
-        x = batch['sat'].squeeze(1).to(device)
+        x = batch['sat'].squeeze(1)
         loc_tensor= batch["loc"]
-        y = batch['target'].to(device)      
+        y = batch['target']    
 
         #check weights are moving
         #for p in self.model.fc.parameters(): 
@@ -293,20 +301,28 @@ class EbirdTask(pl.LightningModule):
             pred_[pred_>0.5] = 1
             pred_[pred_<0.5] = 0
         
+     
         for (name, _, scale) in self.metrics:
             nname = "val_" + name
-            getattr(self,name)(y,pred_)
-            self.log(nname, getattr(self,name), on_step = True, on_epoch = True)
-        self.log("val_loss", loss, on_step = True, on_epoch = True)
-    
+            if name == "accuracy":
+                getattr(self,name)(pred_, y.type(torch.uint8))
+                print(nname,getattr(self,name)(pred_,  y.type(torch.uint8)))
+                
+            else:
+               
+                getattr(self,name)(y, pred_)
+                print(nname,getattr(self,name)(y, pred_) )
+              
+            self.log(nname, getattr(self,name), on_step = False, on_epoch = True)
+        self.log("val_loss", loss, on_step = True, on_epoch= True)
 
     def test_step(
         self, batch: Dict[str, Any], batch_idx:int
     )-> None:
         """Test step """
         
-        x = batch['sat'].squeeze(1).to(device)
-        loc_tensor= batch["loc"].to(device)
+        x = batch['sat'].squeeze(1)
+        loc_tensor= batch["loc"]
 
         #check weights are moving
         #for p in self.model.fc.parameters(): 

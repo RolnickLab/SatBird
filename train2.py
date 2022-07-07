@@ -113,7 +113,7 @@ def main(opts):
     print("hydra_opts", hydra_opts)
     args = hydra_opts.pop("args", None)
 
-    #config_path =  "/network/scratch/a/amna.elmustafa/tmp/ecosystem-embedding/configs/custom_amna.yaml" 
+    config_path =  "/home/mila/t/tengmeli/ecosystem-embedding/configs/custom_amna.yaml" 
     #default = "/network/scratch/a/amna.elmustafa/tmp/ecosystem-embedding/configs/defaults.yaml" #args['default']
     default = Path(__file__).parent / "configs/defaults.yaml"
     conf = load_opts(config_path, default=default, commandline_opts=hydra_opts)
@@ -172,13 +172,14 @@ def main(opts):
     lr_monitor = LearningRateMonitor(logging_interval='epoch')
 
     
-    trainer_args["callbacks"] = [lr_monitor, early_stopping_callback, checkpoint_callback]
-    #trainer_args["max_epochs"] = 1000
+    trainer_args["callbacks"] = [lr_monitor, checkpoint_callback]
+    trainer_args["max_epochs"] = 1000
     
 
-    trainer_args["profiler"]="simple"
+    #trainer_args["profiler"]="simple"
     trainer_args["overfit_batches"] = conf.overfit_batches #0 if not overfitting
-    
+    if not os.path.exists(conf.save_preds_path):
+        os.makedirs(conf.save_preds_path)
    # trainer_args["track_grad_norm"]=2
     
     if not conf.loc.use :
