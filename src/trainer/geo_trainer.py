@@ -104,7 +104,7 @@ class EbirdTask(pl.LightningModule):
         self.learning_rate = self.opts.experiment.module.lr
 
         if self.concat:
-            self.linear_layer = nn.Linear(256+2048,  self.target_size).to(device)
+            self.linear_layer = nn.Linear(256+512,  self.target_size).to(device)
         
         #assert "save_preds_path" in self.opts
         #self.save_preds_path = self.opts["save_preds_path"]
@@ -212,7 +212,7 @@ class EbirdTask(pl.LightningModule):
              
     
     def training_step(
-        self, batch: Dict[str, Any], batch_idx: int , optimizer_idx)-> Tensor:
+        self, batch: Dict[str, Any], batch_idx: int)-> Tensor:
         
         """Training step"""
         
@@ -356,23 +356,70 @@ class EbirdTask(pl.LightningModule):
             raise ValueError(f"Optimizer'{self.opts.optimizer}' is not valid")
         return(optimizer)
     
+    def get_optimizer_from_params(self,param, opts):
+        
+        if self.opts.optimizer == "Adam":
+            optimizer = torch.optim.Adam(   #
+                param,
+                lr=self.learning_rate#self.opts.experiment.module.lr,  
+                )
+        elif self.opts.optimizer == "AdamW":
+            optimizer = torch.optim.AdamW(
+                param,
+                lr=self.opts.experiment.module.lr,  
+                )
+        elif self.opts.optimizer == "SGD":
+            optimizer = torch.optim.SGD(
+                param,
+                lr=self.learning_rate#self.opts.experiment.module.lr,  
+                )
+        else :
+            raise ValueError(f"Optimizer'{self.opts.optimizer}' is not valid")
+        return(optimizer)
+    
     
     def configure_optimizers(self):
+        if not self.concat:
+            self.optims = []
+            self.scheds = []
+            sat_opt = self.get_optimizer( self.encoders["sat"], self.opts)
+            loc_opt = self.get_optimizer(self.encoders["loc"].model, self.opts)    
+            self.optims.append(sat_opt)
+            self.optims.append(loc_opt)
 
-        self.optims = []
-        self.scheds = []
-        sat_opt = self.get_optimizer( self.encoders["sat"], self.opts)
-        loc_opt = self.get_optimizer(self.encoders["loc"].model, self.opts)    
-        self.optims.append(sat_opt)
-        self.optims.append(loc_opt)
-    
-        lr_scheduler = get_scheduler(self.optims[0], self.opts)
-        self.scheds.append(lr_scheduler)
+            lr_scheduler = get_scheduler(self.optims[0], self.opts)
+            self.scheds.append(lr_scheduler)
 
-        lr_scheduler_config = {"scheduler": lr_scheduler, "interval": "step"
-                                   ,"frequency": 1, "monitor": "train_loss"}
+            lr_scheduler_config = {"scheduler": lr_scheduler, "interval": "step"
+                                       ,"frequency": 1, "monitor": "val_loss"}
+
+            return self.optims, [lr_scheduler_config]
         
-        return self.optims, [lr_scheduler_config]
+        else:
+            
+
+            parameters = (
+                list(self.encoders["sat"].parameters())
+                + list(self.encoders["loc"].parameters())
+                + list(self.linear_layer.parameters())
+            )
+       
+            trainable_parameters = list(filter(lambda p: p.requires_grad, parameters))
+            print(
+                f"The model will start training with only {len(trainable_parameters)} "
+                f"trainable components out of {len(parameters)}."
+            )
+  
+            optimizer = self.get_optimizer_from_params(trainable_parameters, self.opts)
+            scheduler = get_scheduler(optimizer, self.opts)
+
+            return {
+                "optimizer": optimizer,
+                "lr_scheduler": {
+                    "scheduler": scheduler,
+                    "monitor": "val_loss",
+                            },
+                    }
         
 
 def get_scheduler(optimizer, opts):
@@ -389,7 +436,7 @@ def get_scheduler(optimizer, opts):
     elif opts.scheduler.name == "":
         return(None)
     else:
-        raise ValueError(f"Scheduler'{self.opts.scheduler.name}' is not valid")
+        raise ValueError(f"Scheduler'{opts.scheduler.name}' is not valid")
 
 class EbirdDataModule(pl.LightningDataModule):
     def __init__(self, opts) -> None:
@@ -408,6 +455,7 @@ class EbirdDataModule(pl.LightningDataModule):
         self.target = self.opts.data.target.type
         self.subset = self.opts.data.target.subset
         self.use_loc = self.opts.loc.use 
+        self.loc_type = self.opts.loc.loc_type
 
     def prepare_data(self) -> None:
         """_ = EbirdVisionDataset(
@@ -433,7 +481,8 @@ class EbirdDataModule(pl.LightningDataModule):
             datatype = self.datatype,
             target = self.target, 
             subset = self.subset,
-            use_loc = self.use_loc
+            use_loc = self.use_loc, 
+            loc_type = self.loc_type
         )
 
         self.all_test_dataset = EbirdVisionDataset(                
@@ -445,7 +494,8 @@ class EbirdDataModule(pl.LightningDataModule):
             datatype = self.datatype,
             target = self.target, 
             subset = self.subset,
-            use_loc = self.use_loc
+            use_loc = self.use_loc, 
+            loc_type = self.loc_type
             )
 
         self.all_val_dataset = EbirdVisionDataset(
@@ -457,7 +507,8 @@ class EbirdDataModule(pl.LightningDataModule):
             datatype = self.datatype,
             target = self.target, 
             subset = self.subset,
-            use_loc = self.use_loc
+            use_loc = self.use_loc, 
+            loc_type = self.loc_type
         )
 
         #TODO: Create subsets of the data
