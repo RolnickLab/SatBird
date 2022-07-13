@@ -158,13 +158,13 @@ def main(opts):
         trainer_args["logger"] = comet_logger
     
     checkpoint_callback = ModelCheckpoint(
-        monitor="val_loss",
+        monitor="val_topk",
         dirpath=conf.save_path,
         save_top_k=3,
         save_last=True,
     )
     early_stopping_callback = EarlyStopping(
-         monitor="val_loss",
+         monitor="val_topk",
         min_delta=0.00,
         patience=4,
         mode = "min"

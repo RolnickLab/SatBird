@@ -74,14 +74,13 @@ class Presence_k(nn.Module):
         return (pres)
 
 class CustomTopK(Metric):
-    def __init__(self, dist_sync_on_step=False):
-        super().__init__(dist_sync_on_step=dist_sync_on_step)
-
-        self.add_state("correct", default=torch.FloatTensor([0]), dist_reduce_fx="sum")
-        self.add_state("total", default=torch.FloatTensor([0]), dist_reduce_fx="sum")
+    def __init__(self):
+        super().__init__()
+        self.add_state("correct", default=torch.tensor(0).float(), dist_reduce_fx="sum")
+        self.add_state("total", default=torch.tensor(0).float(), dist_reduce_fx="sum")
 
     def update(self, target: torch.Tensor, preds: torch.Tensor):
-        #preds, target = self._input_format(preds, target)
+        
         assert preds.shape == target.shape
         non_zero_counts = torch.count_nonzero(target, dim=1)
         for i, elem in enumerate(target):
@@ -89,13 +88,14 @@ class CustomTopK(Metric):
             v_pred, i_pred = torch.topk(preds[i], k = ki)
             v_targ, i_targ = torch.topk(elem, k = ki)
             if ki == 0 :
-                self.correct += 1
+                pass
             else:
-                self.correct += len(set(i_pred.cpu().numpy()).intersection(set(i_targ.cpu().numpy()))) / ki
-        self.total += target.shape[0]
+                count = torch.tensor(len([k for k in i_pred if k in i_targ]))
+                self.correct += count/ki
+                self.total += 1
 
     def compute(self):
-        return (self.correct / self.total).float()
+        return self.correct.float() / self.total
     
 
 
