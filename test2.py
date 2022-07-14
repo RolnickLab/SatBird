@@ -119,7 +119,7 @@ def main(opts):
     conf = load_opts(config_path, default=default, commandline_opts=hydra_opts)
     conf.save_path = conf.save_path+os.environ["SLURM_JOB_ID"]
     pl.seed_everything(conf.program.seed)
-    
+
     if not os.path.exists(conf.save_preds_path):
         os.makedirs(conf.save_preds_path)
     with open(os.path.join(conf.save_preds_path, "config.yaml"),"w") as fp:
@@ -146,9 +146,12 @@ def main(opts):
     trainer_args = cast(Dict[str, Any], OmegaConf.to_object(conf.trainer))
     if conf.load_ckpt_path != "":
         print("Loading existing checkpoint")
-        task = task.load_from_checkpoint(conf.load_ckpt_path, save_preds_path = conf.save_preds_path)    
+    conf.load_ckpt_path = "/network/scratch/t/tengmeli/ecosystem-embeddings/checkpoint_loc_env_2035704/lastcp.ckpt"
+    #"/network/scratch/t/tengmeli/ecosystem-embeddings/checkpoint_base_2034177/epoch=53-step=2537.ckpt" #"/network/scratch/t/tengmeli/ecosystem-embeddings/checkpoint_loc_2034124/epoch=3-step=187.ckpt" #"/network/scratch/t/tengmeli/ecosystem-embeddings/checkpoint_loc2033871/last-copy.ckpt"
+    task = task.load_from_checkpoint(conf.load_ckpt_path, save_preds_path = conf.save_preds_path)    
         
     trainer = pl.Trainer(**trainer_args)
+    trainer.validate(model=task, datamodule=datamodule)
     trainer.test(model=task, datamodule=datamodule)
     
     

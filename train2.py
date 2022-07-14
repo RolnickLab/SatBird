@@ -113,7 +113,7 @@ def main(opts):
     print("hydra_opts", hydra_opts)
     args = hydra_opts.pop("args", None)
 
-    config_path =  "/home/mila/t/tengmeli/ecosystem-embedding/configs/custom_amna.yaml" 
+    config_path = args['config'] #"/home/mila/t/tengmeli/ecosystem-embedding/configs/custom_meli_2.yaml" 
     #default = "/network/scratch/a/amna.elmustafa/tmp/ecosystem-embedding/configs/defaults.yaml" #args['default']
     default = Path(__file__).parent / "configs/defaults.yaml"
     conf = load_opts(config_path, default=default, commandline_opts=hydra_opts)
@@ -158,9 +158,9 @@ def main(opts):
         trainer_args["logger"] = comet_logger
     
     checkpoint_callback = ModelCheckpoint(
-        monitor="val_topk",
+        monitor="val_loss_epoch",
         dirpath=conf.save_path,
-        save_top_k=3,
+        save_top_k=5,
         save_last=True,
     )
     early_stopping_callback = EarlyStopping(
@@ -184,7 +184,7 @@ def main(opts):
     
     if not conf.loc.use :
     
-        trainer_args["auto_lr_find"]=conf.auto_lr_find
+        #trainer_args["auto_lr_find"]=conf.auto_lr_find
         
         trainer = pl.Trainer(**trainer_args)
         if conf.log_comet:
@@ -206,7 +206,7 @@ def main(opts):
         # update hparams of the model
         #task.hparams.learning_rate = new_lr
         #task.hparams.lr = new_lr
-        trainer.tune(model = task, datamodule=datamodule)
+        #trainer.tune(model = task, datamodule=datamodule)
     else : 
         
         trainer = pl.Trainer(**trainer_args)     
