@@ -103,8 +103,7 @@ class EbirdTask(pl.LightningModule):
         self.config_task(opts, **kwargs)
         self.learning_rate = self.opts.experiment.module.lr
 
-        if self.concat:
-            self.linear_layer = nn.Linear(256+512,  self.target_size)
+            
         
         #assert "save_preds_path" in self.opts
         #self.save_preds_path = self.opts["save_preds_path"]
@@ -120,13 +119,20 @@ class EbirdTask(pl.LightningModule):
         if self.opts.experiment.module.model == "resnet18":
             
             self.sat_model = models.resnet18(pretrained=self.opts.experiment.module.pretrained)
-            if len(self.opts.data.bands)!=3 or len(self.opts.data.env) > 0:
+            if len(self.opts.data.bands) != 3 or len(self.opts.data.env) > 0:
                 bands = self.opts.data.bands + self.opts.data.env
+                orig_channels = self.sat_model.conv1.in_channels
+                weights = self.sat_model.conv1.weight.data.clone()
                 self.sat_model.conv1 = nn.Conv2d(get_nb_bands(bands), 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
+                #assume first three channels are rgb
+                if self.opts.experiment.module.pretrained:
+                    self.sat_model.conv1.weight.data[:, :orig_channels, :, :] = weights
             if self.concat:
                 self.sat_model.fc =Identity()
+                self.linear_layer = nn.Linear(256+512,  self.target_size)
             else:
                 self.sat_model.fc = nn.Linear(512, self.target_size) 
+                
 
             self.m = nn.Sigmoid()
             
@@ -134,11 +140,19 @@ class EbirdTask(pl.LightningModule):
             
         elif self.opts.experiment.module.model == "resnet50":
             self.sat_model = models.resnet50(pretrained=self.opts.experiment.module.pretrained)
-            if len(self.opts.data.bands)!=3 or len(self.opts.data.env) > 0:
+            if len(self.opts.data.bands) != 3 or len(self.opts.data.env) > 0:
                 bands = self.opts.data.bands + self.opts.data.env
+                orig_channels = self.sat_model.conv1.in_channels
+                weights = self.sat_model.conv1.weight.data.clone()
                 self.sat_model.conv1 = nn.Conv2d(get_nb_bands(bands), 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
+                #assume first three channels are rgb
+                if self.opts.experiment.module.pretrained:
+                    self.sat_model.conv1.weight.data[:, :orig_channels, :, :] = weights
+                
+                
             if self.concat:
                 self.sat_model.fc =Identity()
+                self.linear_layer = nn.Linear(256+2048,  self.target_size)
             else:
                 self.sat_model.fc = nn.Linear(2048, self.target_size) 
 
@@ -178,7 +192,7 @@ class EbirdTask(pl.LightningModule):
             self.criterion = BCELoss()
             print("Training with BCE Loss")
         else:
-            self.criterion = CustomCrossEntropyLoss(self.opts.losses.ce.lambd_pres,self.opts.losses.ce.lambd_abs) 
+            self.criterion = CustomCrossEntropyLoss() 
             print("Training with Custom CE Loss")
         
         self.encoders = {}
@@ -192,8 +206,7 @@ class EbirdTask(pl.LightningModule):
 
     def forward(self, x:Tensor, loc_tensor = None) -> Any:
         # need to fix use of inceptionv3 to be able to use location too 
-        self.encoders["sat"]
-        self.encoders["loc"]
+        
         if self.opts.experiment.module.model == "inceptionv3":
             out_sat, aux_outputs= self.encoders["sat"](x)
             out_loc = self.encoders["loc"](loc_tensor).squeeze(1)
@@ -235,11 +248,11 @@ class EbirdTask(pl.LightningModule):
             
         else:
             if self.concat:
-                y_hat = m(self.forward(x, loc_tensor))
+                pred = m(self.forward(x, loc_tensor))
             else:
                 out_sat, out_loc = self.forward(x, loc_tensor)
-                y_hat = torch.multiply(m(out_sat), out_loc)#self.forward(x)
-            pred = y_hat               
+                pred = torch.multiply(m(out_sat), out_loc)#self.forward(x)
+                         
             loss = self.criterion(y,pred)   
             
         pred_ = pred.clone()
@@ -252,15 +265,15 @@ class EbirdTask(pl.LightningModule):
             nname = "train_" + name
             if name == "accuracy":
                 getattr(self,name)(pred_, y.type(torch.uint8))
-                print(nname,getattr(self,name)(pred_,  y.type(torch.uint8)))
+                #print(nname,getattr(self,name)(pred_,  y.type(torch.uint8)))
                 
             else:
                
                 getattr(self,name)(y, pred_)
                 print(nname,getattr(self,name)(y, pred_) )
               
-            self.log(nname, getattr(self,name), on_step = False, on_epoch = True)
-        self.log("train_loss", loss, on_step = True, on_epoch= True)
+            self.log(nname, getattr(self,name)) #, on_step = False, on_epoch = True)
+        self.log("train_loss", loss) #, on_step = True, on_epoch= True)
         return loss
 
 
@@ -269,7 +282,6 @@ class EbirdTask(pl.LightningModule):
 
         """Validation step """
 
-        
         x = batch['sat'].squeeze(1)
         loc_tensor= batch["loc"]
         y = batch['target']    
@@ -289,13 +301,13 @@ class EbirdTask(pl.LightningModule):
             
         else:
             if self.concat:
-                y_hat = m(self.forward(x, loc_tensor))
+                pred = m(self.forward(x, loc_tensor))
             else:
                 out_sat, out_loc = self.forward(x, loc_tensor)
-                y_hat = torch.multiply(m(out_sat), out_loc)#self.forward(x)
-            pred = y_hat               
+                pred = torch.multiply(m(out_sat), out_loc)#self.forward(x)
+                          
             loss = self.criterion(pred, y)   
-      
+            print("val_loss", loss) 
         pred_ = pred.clone()
         if self.opts.data.target.type == "binary":
             pred_[pred_>0.5] = 1
@@ -306,12 +318,12 @@ class EbirdTask(pl.LightningModule):
             nname = "val_" + name
             if name == "accuracy":
                 getattr(self,name)(pred_, y.type(torch.uint8))
-                print(nname,getattr(self,name)(pred_,  y.type(torch.uint8)))
+                #print(nname,getattr(self,name)(pred_,  y.type(torch.uint8)))
                 
             else:
                
                 getattr(self,name)(y, pred_)
-                print(nname,getattr(self,name)(y, pred_) )
+                #print(nname,getattr(self,name)(y, pred_) )
               
             self.log(nname, getattr(self,name), on_step = False, on_epoch = True)
         self.log("val_loss", loss, on_step = True, on_epoch= True)

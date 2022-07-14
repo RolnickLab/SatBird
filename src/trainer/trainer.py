@@ -130,9 +130,22 @@ class EbirdTask(pl.LightningModule):
         elif self.opts.experiment.module.model == "resnet18":
             
             self.model = models.resnet18(pretrained=self.opts.experiment.module.pretrained)
-            if len(self.opts.data.bands)!=3 or len(self.opts.data.env) > 0:
+        
+            if len(self.opts.data.bands) != 3 or len(self.opts.data.env) > 0:
                 self.bands = self.opts.data.bands + self.opts.data.env
-                self.model.conv1 = nn.Conv2d(get_nb_bands(self.bands), 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
+                orig_channels = self.model.conv1.in_channels
+                weights = self.model.conv1.weight.data.clone()
+                self.model.conv1 = nn.Conv2d(
+                        get_nb_bands(self.bands),
+                        64,
+                        kernel_size=(7, 7),
+                        stride=(2, 2),
+                        padding=(3, 3),
+                        bias=False,
+                )
+                #assume first three channels are rgb
+                if self.opts.experiment.module.pretrained:
+                    self.model.conv1.weight.data[:, :orig_channels, :, :] = weights
             if self.opts.experiment.module.fc == "linear":
                 self.model.fc = nn.Linear(512, self.target_size)
             elif self.opts.experiment.module.fc == "linear_net":
@@ -157,7 +170,7 @@ class EbirdTask(pl.LightningModule):
                     bias=False,
                 )
                 #assume first three channels are rgb
-                if self.opts.module.pretrained:
+                if self.opts.experiment.module.pretrained:
                     self.model.conv1.weight.data[:, :orig_channels, :, :] = weights
            
             if self.opts.experiment.module.fc == "linear":
@@ -346,7 +359,7 @@ class EbirdTask(pl.LightningModule):
             elif self.target_type == "log":
                 loss =  self.criterion(pred, torch.log(y + 1e-10))
             else:
-                print('maximum ytrue in trainstep',y.max())
+                #print('maximum ytrue in trainstep',y.max())
                 loss = self.criterion(y, pred)
                 print('train_loss',loss)
         
@@ -383,9 +396,9 @@ class EbirdTask(pl.LightningModule):
                
                 getattr(self,name)(y, pred_)
                 print(nname,getattr(self,name)(y, pred_) )
-                #print(nname,getattr(self,name)(y, pred_) )
-            self.log(nname, getattr(self,name), on_step = True, on_epoch = True)
-        self.log("train_loss", loss, on_step = True, on_epoch= True)
+               
+            self.log(nname, getattr(self,name))#, on_step = True, on_epoch = True)
+        self.log("train_loss", loss) #, on_step = True, on_epoch= True)
         return loss
     
     #def training_epoch_end(self, outputs):

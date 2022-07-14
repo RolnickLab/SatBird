@@ -15,7 +15,7 @@ class CustomCrossEntropyLoss:
         #print('maximum target value',p.max())
         #p=torch.clip(p, min=0, max=0.98)
         #q=torch.clip(q, min=0, max=0.98)
-        loss=(-self.lambd_pres *p * torch.log(q+eps) - self.lambd_abs * (1-p + eps) *torch.log(1 - q)).mean()
+        loss=(-self.lambd_pres *p * torch.log(q+eps) - self.lambd_abs * (1-p) *torch.log(1 - q + eps)).mean()
         #print('inside_loss',loss)
         return loss
 '''
