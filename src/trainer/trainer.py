@@ -214,7 +214,9 @@ class EbirdTask(pl.LightningModule):
         
         metrics = get_metrics(self.opts)
         for (name, value, _) in metrics:
-            setattr(self, name, value)
+            setattr(self, "val_" + name, value)
+        for (name, value, _) in metrics:
+            setattr(self, "train_" + name, value)
         self.metrics = metrics
 
 #         with open(self.opts.data.files.correction,'rb') as f:
@@ -376,12 +378,12 @@ class EbirdTask(pl.LightningModule):
         for (name, _, scale) in self.metrics:
             nname = "train_" + name
             if name == "accuracy":
-                getattr(self,name)(pred_, y.type(torch.uint8))
+                getattr(self,nname)(pred_, y.type(torch.uint8))
                 #if getattr(self,name)(pred_,  y.type(torch.uint8)) != 1:
                 #    print("pred_train", pred_)
                 #    print("y", y)
                     #print(batch["hotspot_id"])
-                print(nname,getattr(self,name)(pred_,  y.type(torch.uint8)))
+                #print(nname,getattr(self,nname)(pred_,  y.type(torch.uint8)))
             #elif name=='r2':
                 #print('in r2')
                 #getattr(self,name)(pred_, y.type(torch.uint8))
@@ -394,10 +396,10 @@ class EbirdTask(pl.LightningModule):
                 
             else:
                
-                getattr(self,name)(y, pred_)
-                print(nname,getattr(self,name))
+                getattr(self,nname)(y, pred_)
+                #print(nname,getattr(self,name))
                
-            self.log(nname, getattr(self,name))#, on_step = True, on_epoch = True)
+            self.log(nname, getattr(self,nname))#, on_step = True, on_epoch = True)
         self.log("train_loss", loss) #, on_step = True, on_epoch= True)
         return loss
     
@@ -487,9 +489,9 @@ class EbirdTask(pl.LightningModule):
                 print(nname,getattr(self,name))
           
             else:
-                getattr(self,name)(y, pred_)
+                getattr(self,nname)(y, pred_)
             #print(nname,getattr(self,name)(y, pred_) )
-            self.log(nname, getattr(self, name), on_step=False, on_epoch=True) 
+            self.log(nname, getattr(self, nname), on_step=False, on_epoch=True) 
         self.log("val_loss", loss, on_step = True, on_epoch = True)
 
     

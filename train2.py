@@ -9,6 +9,7 @@ import hydra
 from addict import Dict
 from omegaconf import OmegaConf, DictConfig
 from src.trainer.trainer import EbirdTask, EbirdDataModule
+from src.trainer.trainer_species import EbirdSpeciesTask
 import src.trainer.geo_trainer as geo_trainer
 import src.trainer.state_trainer as state_trainer
 import pytorch_lightning as pl
@@ -129,8 +130,11 @@ def main(opts):
     print(conf.log_comet)
     
     print(conf) 
-    
-    if not conf.loc.use :
+    if "speciesAtoB" in conf.keys() and conf.speciesAtoB:
+        print("species A to B")
+        task = EbirdSpeciesTask(conf)
+        datamodule = EbirdDataModule(conf)
+    elif not conf.loc.use :
         task = EbirdTask(conf)
         datamodule = EbirdDataModule(conf)
     elif conf.loc.loc_type == "latlon":
@@ -173,40 +177,40 @@ def main(opts):
 
     
     trainer_args["callbacks"] = [lr_monitor, checkpoint_callback]
-    trainer_args["max_epochs"] = 1000
+    trainer_args["max_epochs"] = 500
     
 
     #trainer_args["profiler"]="simple"
     trainer_args["overfit_batches"] = conf.overfit_batches #0 if not overfitting
     if not os.path.exists(conf.save_preds_path):
         os.makedirs(conf.save_preds_path)
-   # trainer_args["track_grad_norm"]=2
+    #trainer_args["track_grad_norm"]=2
     
     if not conf.loc.use :
     
-        #trainer_args["auto_lr_find"]=conf.auto_lr_find
         
         trainer = pl.Trainer(**trainer_args)
         if conf.log_comet:
             trainer.logger.experiment.add_tags(list(conf.comet.tags))
-        
-        #lr_finder = trainer.tuner.lr_find(task,  datamodule=datamodule)
+        if conf.auto_lr_find:
+              
+            lr_finder = trainer.tuner.lr_find(task,  datamodule=datamodule)
 
         # Results can be found in
-        #lr_finder.results
+            lr_finder.results
 
         # Plot with
-        #fig = lr_finder.plot(suggest=True)
-        #fig.show()
-        #fig.savefig("test.jpg")
+            fig = lr_finder.plot(suggest=True)
+            fig.show()
+            fig.savefig("learningrate.jpg")
         
         # Pick point based on plot, or get suggestion
-        #new_lr = lr_finder.suggestion()
+            new_lr = lr_finder.suggestion()
 
         # update hparams of the model
-        #task.hparams.learning_rate = new_lr
-        #task.hparams.lr = new_lr
-        #trainer.tune(model = task, datamodule=datamodule)
+            task.hparams.learning_rate = new_lr
+            task.hparams.lr = new_lr
+            trainer.tune(model = task, datamodule=datamodule)
     else : 
         
         trainer = pl.Trainer(**trainer_args)     

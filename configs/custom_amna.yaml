@@ -1,11 +1,9 @@
 #where to save checkpoints
-save_path: "/network/scratch/t/tengmeli/ecosystem-embeddings/checkpoint_loc"
+save_path: "/network/scratch/t/tengmeli/ecosystem-embeddings/checkpoint_loc_"
 
 #load existing checkpoint for inference
-load_ckpt_path: "/network/projects/_groups/ecosystem-embeddings/ebird_checkpoints/resnet18_location_300_epochs/epoch=299-step=14099.ckpt"
-
-#~/ecosystem-embedding/outputs/2022-05-26/12-16-51/range_maps/f0314641a3d447ad9699e962088f0e11/checkpoints/epoch=307-step=14475.ckpt" #"~/ecosystem-embedding/outputs/2022-05-26/12-18-20/range_maps/1ace46dd62cc4d6eb9b532b59ac6643a/checkpoints/epoch=341-step=16073.ckpt" #"~/ecosystem-embedding/outputs/2022-05-26/12-16-51/range_maps/f0314641a3d447ad9699e962088f0e11/checkpoints/epoch=307-step=14475.ckpt"
-save_preds_path: "/network/projects/_groups/ecosystem-embeddings/ebird_checkpoints/resnet18_location_300_epochs/preds"
+load_ckpt_path: "" #
+save_preds_path: "/network/projects/_groups/ecosystem-embeddings/ebird_checkpoints/resnet18_base_pretrained_init_res64/preds"
 log_comet: true
 
 overfit_batches: 0.0
@@ -17,12 +15,8 @@ loc:
   concat: True
   
 comet:
-  project_name: "range_maps" #"ecosystem-duck"
-<<<<<<< HEAD
-  tags: ["resnet18", "rgb_nir","loc", "adam", "init"]
-=======
-  tags: ["resnet18", "rgb_nir", "no_correction_after", "hardThBySpecies*10"]
->>>>>>> 4d94e5dba0291848e0425a4e53715484996dcd45
+  project_name: "clean_baselines" #"ecosystem-duck"
+  tags: ["resnet18","loc"]
 
 experiment:
   #TASK and name should always be ebird_classifier --> maybe remove it 
@@ -36,7 +30,7 @@ experiment:
     #"linear" or "linear_net" for a 2 layer MLP
     fc: "linear"
     #use pretraine weights ( trochvision ) 
-    pretrained: true
+    pretrained: True
     resume: "" #"/home/mila/t/tengmeli/ecosystem-embedding/outputs/2022-03-29/08-40-05/final_layer_comparison/b84c264fb4c8477f95cad55bbf85d709/checkpoints/epoch=1273-step=408953.ckpt"
     
     #initializes biases of the output layer sothat sigmoid(bias) = mean over the training set for each species
@@ -49,10 +43,10 @@ optimizer: "Adam"  #"Adam"
 #auto lr will only work if there is only one optimizer 
 auto_lr_find: False
 scheduler: 
-  name: "" #"" for no schuler, "ReduceLROnPlateau" #"ReduceLROnPlateau" or "StepLR" "WarmUp"
+  name: "ReduceLROnPlateau" #"" for no schuler, "ReduceLROnPlateau" #"ReduceLROnPlateau" or "StepLR" "WarmUp"
   reduce_lr_plateau: 
     factor: 0.5
-    lr_schedule_patience: 20
+    lr_schedule_patience: 10
   step_lr:
     step_size: 100 
     gamma: 0.5
@@ -106,12 +100,15 @@ data:
     base: "/network/scratch/t/tengmeli/scratch/ecosystem-embedding/training/"
     train: "train_clustered_vf.csv"
     val: "valid_clustered_vf.csv"
-    test: "test_clustered_vf.csv"
+    test: "valid_clustered_vf.csv"
     correction: "/network/scratch/t/tengmeli/scratch/ecosystem-embedding/training/correction_factor_final.pkl" #soft thresholding file 
-    correction_thresh: '/network/scratch/a/amna.elmustafa/tmp/ecosystem-embedding/data_processing/Htest4.npy'  #hard thresholding file ,options:[Htest, Htest2,Htest3,Htest4] corrosponding to threshold as [mean species values , mask of species that have prob less than mean ,mask of species that have prob less than mean/10 ,mask of species that have prob less than mean*10 ]
+
+    correction_thresh: #'/network/scratch/a/amna.elmustafa/tmp/ecosystem-embedding/data_processing/Htest4.npy'  #hard thresholding file ,options:[Htest, Htest2,Htest3,Htest4] corrosponding to threshold as [mean species values , mask of species that have prob less than mean ,mask of species that have prob less than mean/10 ,mask of species that have prob less than mean*10 ]
   correction_factor:
-     use: None   #soft thresholding choises [None, 'before' (before sigmoid) ,'after'(after sigmoid)] 
-     thresh : True     #hard thresholding
+     use: #soft thresholding choises [None, 'before' (before sigmoid) ,'after'(after sigmoid)] 
+     #hard thresholding
+     thresh: false
+
 
     
   target:

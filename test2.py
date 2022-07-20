@@ -9,6 +9,7 @@ import hydra
 from addict import Dict
 from omegaconf import OmegaConf, DictConfig
 from src.trainer.trainer import EbirdTask, EbirdDataModule
+from src.trainer.trainer_species import EbirdSpeciesTask
 import src.trainer.geo_trainer as geo_trainer
 import src.trainer.state_trainer as state_trainer
 import pytorch_lightning as pl
@@ -129,10 +130,14 @@ def main(opts):
     print(conf.log_comet)
     
     print(conf) 
-    
-    if not conf.loc.use :
+    if "speciesAtoB" in conf.keys() and conf.speciesAtoB:
+            print("species A to B")
+            task = EbirdSpeciesTask(conf)
+            datamodule = EbirdDataModule(conf)
+    elif not conf.loc.use :
         task = EbirdTask(conf)
         datamodule = EbirdDataModule(conf)
+    
     elif conf.loc.loc_type == "latlon":
         print("Using geo information")
         task = geo_trainer.EbirdTask(conf)
@@ -146,7 +151,7 @@ def main(opts):
     trainer_args = cast(Dict[str, Any], OmegaConf.to_object(conf.trainer))
     if conf.load_ckpt_path != "":
         print("Loading existing checkpoint")
-    conf.load_ckpt_path = "/network/scratch/t/tengmeli/ecosystem-embeddings/checkpoint_loc_env_2035704/lastcp.ckpt"
+    conf.load_ckpt_path = "/network/scratch/t/tengmeli/ecosystem-embeddings/checkpoint_loc_2055583/epoch=365-step=17201.ckpt"
     #"/network/scratch/t/tengmeli/ecosystem-embeddings/checkpoint_base_2034177/epoch=53-step=2537.ckpt" #"/network/scratch/t/tengmeli/ecosystem-embeddings/checkpoint_loc_2034124/epoch=3-step=187.ckpt" #"/network/scratch/t/tengmeli/ecosystem-embeddings/checkpoint_loc2033871/last-copy.ckpt"
     task = task.load_from_checkpoint(conf.load_ckpt_path, save_preds_path = conf.save_preds_path)    
         
