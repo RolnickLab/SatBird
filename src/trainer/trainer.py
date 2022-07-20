@@ -395,7 +395,7 @@ class EbirdTask(pl.LightningModule):
             else:
                
                 getattr(self,name)(y, pred_)
-                print(nname,getattr(self,name)(y, pred_) )
+                print(nname,getattr(self,name))
                
             self.log(nname, getattr(self,name))#, on_step = True, on_epoch = True)
         self.log("train_loss", loss) #, on_step = True, on_epoch= True)
@@ -484,7 +484,7 @@ class EbirdTask(pl.LightningModule):
             nname = "val_" + name
             if name == "accuracy":
                 getattr(self,name)(pred_, y.type(torch.uint8))
-                print(nname,getattr(self,name)(pred_,  y.type(torch.uint8)))
+                print(nname,getattr(self,name))
           
             else:
                 getattr(self,name)(y, pred_)

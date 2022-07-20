@@ -129,7 +129,10 @@ class EbirdTask(pl.LightningModule):
                     self.sat_model.conv1.weight.data[:, :orig_channels, :, :] = weights
             if self.concat:
                 self.sat_model.fc =Identity()
-                self.linear_layer = nn.Linear(256+512,  self.target_size)
+                if self.opts.experiment.module.fc == "linear":
+                    self.linear_layer = nn.Linear(256+512,  self.target_size)
+                if self.opts.experiment.module.fc == "linear_net":
+                    self.linear_layer = nn.Sequential(nn.Linear(256+512, 512), nn.ReLU(), nn.Linear(512, self.target_size))
             else:
                 self.sat_model.fc = nn.Linear(512, self.target_size) 
                 
@@ -270,7 +273,7 @@ class EbirdTask(pl.LightningModule):
             else:
                
                 getattr(self,name)(y, pred_)
-                print(nname,getattr(self,name)(y, pred_) )
+                #print(nname,getattr(self,name)(y, pred_) )
               
             self.log(nname, getattr(self,name)) #, on_step = False, on_epoch = True)
         self.log("train_loss", loss) #, on_step = True, on_epoch= True)
