@@ -28,23 +28,22 @@ def set_up_omegaconf()-> DictConfig:
     command_line_conf = OmegaConf.from_cli()
 
     if "config_file" in command_line_conf:
-        
+        print("merging")
         config_fn = command_line_conf.config_file
 
         if os.path.isfile(config_fn):
             user_conf = OmegaConf.load(config_fn)
+            conf = OmegaConf.merge(conf, user_conf)
+        else:
+            raise FileNotFoundError(f"config_file={config_fn} is not a valid file")
 
-    if "test_config_file" in command_line_conf:
-        
-        config_fn_test = command_line_conf.test_config_file
-
-        if os.path.isfile(config_fn_test):
-            user_conf_test = OmegaConf.load(config_fn_test)
-    conf = OmegaConf.merge(conf, user_conf, user_conf_test)
- 
+    conf = OmegaConf.merge(
+        conf, command_line_conf
+    )
     conf = set_data_paths(conf)
     conf = cast(DictConfig, conf)  # convince mypy that everything is alright
-    
+
+        
     return conf
 
 
@@ -83,9 +82,9 @@ if __name__ == "__main__":
         trainer.logger.experiment.add_tags(list(conf.comet.tags))
 
     trainer = Trainer()
-    if conf.load_ckpt_path != "":
-        print("Loading existing checkpoint")
-        task = task.load_from_checkpoint(conf.load_ckpt_path, save_preds_path = conf.save_preds_path)
+   # if conf.load_ckpt_path != "":
+   #     print("Loading existing checkpoint")
+   #     task = task.load_from_checkpoint(conf.load_ckpt_path, save_preds_path = conf.save_preds_path)
 
     result = trainer.test(model=task, datamodule=datamodule)
     print(result)

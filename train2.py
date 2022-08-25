@@ -9,6 +9,7 @@ import hydra
 from addict import Dict
 from omegaconf import OmegaConf, DictConfig
 from src.trainer.trainer import EbirdTask, EbirdDataModule
+from src.trainer.trainer_species import EbirdSpeciesTask
 import src.trainer.geo_trainer as geo_trainer
 import src.trainer.state_trainer as state_trainer
 import pytorch_lightning as pl
@@ -71,7 +72,7 @@ def load_opts(path, default, commandline_opts):
     if path is None and default is None:
         path = (
             resolve(Path(__file__)).parent.parent
-            / "config"
+            / "configs"
             / "defaults.yaml"
         )
         print(path)
@@ -113,9 +114,9 @@ def main(opts):
     print("hydra_opts", hydra_opts)
     args = hydra_opts.pop("args", None)
 
-    config_path = args['config']
-    default = "/home/mila/t/tengmeli/ecosystem-embedding/configs/defaults.yaml" #args['default']
-    #default = Path(__file__).parent / "configs/defaults.yaml"
+    config_path = args['config'] #"/home/mila/t/tengmeli/ecosystem-embedding/configs/custom_meli_2.yaml" 
+    #default = "/network/scratch/a/amna.elmustafa/tmp/ecosystem-embedding/configs/defaults.yaml" #args['default']
+    default = Path(__file__).parent / "configs/defaults.yaml"
     conf = load_opts(config_path, default=default, commandline_opts=hydra_opts)
     conf.save_path = conf.save_path+os.environ["SLURM_JOB_ID"]
     pl.seed_everything(conf.program.seed)
@@ -129,8 +130,11 @@ def main(opts):
     print(conf.log_comet)
     
     print(conf) 
-    
-    if not conf.loc.use :
+    if "speciesAtoB" in conf.keys() and conf.speciesAtoB:
+        print("species A to B")
+        task = EbirdSpeciesTask(conf)
+        datamodule = EbirdDataModule(conf)
+    elif not conf.loc.use :
         task = EbirdTask(conf)
         datamodule = EbirdDataModule(conf)
     elif conf.loc.loc_type == "latlon":
@@ -158,13 +162,13 @@ def main(opts):
         trainer_args["logger"] = comet_logger
     
     checkpoint_callback = ModelCheckpoint(
-        monitor="val_loss",
+        monitor="val_loss_epoch",
         dirpath=conf.save_path,
-        save_top_k=3,
+        save_top_k=5,
         save_last=True,
     )
     early_stopping_callback = EarlyStopping(
-         monitor="val_loss",
+         monitor="val_topk",
         min_delta=0.00,
         patience=4,
         mode = "min"
@@ -172,40 +176,41 @@ def main(opts):
     lr_monitor = LearningRateMonitor(logging_interval='epoch')
 
     
-    trainer_args["callbacks"] = [lr_monitor] #, #early_stopping_callback]checkpoint_callback, 
-    #trainer_args["max_epochs"] = 1000
+    trainer_args["callbacks"] = [lr_monitor, checkpoint_callback]
+    trainer_args["max_epochs"] = 500
     
 
-    trainer_args["profiler"]="simple"
+    #trainer_args["profiler"]="simple"
     trainer_args["overfit_batches"] = conf.overfit_batches #0 if not overfitting
-    
-   # trainer_args["track_grad_norm"]=2
+    if not os.path.exists(conf.save_preds_path):
+        os.makedirs(conf.save_preds_path)
+    #trainer_args["track_grad_norm"]=2
     
     if not conf.loc.use :
     
-        trainer_args["auto_lr_find"]=conf.auto_lr_find
         
         trainer = pl.Trainer(**trainer_args)
         if conf.log_comet:
             trainer.logger.experiment.add_tags(list(conf.comet.tags))
-        
-        #lr_finder = trainer.tuner.lr_find(task,  datamodule=datamodule)
+        if conf.auto_lr_find:
+              
+            lr_finder = trainer.tuner.lr_find(task,  datamodule=datamodule)
 
         # Results can be found in
-        #lr_finder.results
+            lr_finder.results
 
         # Plot with
-        #fig = lr_finder.plot(suggest=True)
-        #fig.show()
-        #fig.savefig("test.jpg")
+            fig = lr_finder.plot(suggest=True)
+            fig.show()
+            fig.savefig("learningrate.jpg")
         
         # Pick point based on plot, or get suggestion
-        #new_lr = lr_finder.suggestion()
+            new_lr = lr_finder.suggestion()
 
         # update hparams of the model
-        #task.hparams.learning_rate = new_lr
-        #task.hparams.lr = new_lr
-        trainer.tune(model = task, datamodule=datamodule)
+            task.hparams.learning_rate = new_lr
+            task.hparams.lr = new_lr
+            trainer.tune(model = task, datamodule=datamodule)
     else : 
         
         trainer = pl.Trainer(**trainer_args)     

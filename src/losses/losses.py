@@ -2,7 +2,23 @@ import torch
 import torch.nn as nn
 import torchmetrics
 from torchmetrics import  Metric
-
+#from torchmetrics import PearsonCorrCoef
+eps=1e-7
+class CustomCrossEntropyLoss:
+    def __init__(self, lambd_pres = 1, lambd_abs = 1):
+        super().__init__()
+        #print('in my custom')
+        self.lambd_abs = lambd_abs
+        self.lambd_pres =lambd_pres
+    def __call__(self, p, q):
+        #print('maximum prediction value ',q.max())
+        #print('maximum target value',p.max())
+        #p=torch.clip(p, min=0, max=0.98)
+        #q=torch.clip(q, min=0, max=0.98)
+        loss=(-self.lambd_pres *p * torch.log(q+eps) - self.lambd_abs * (1-p) *torch.log(1 - q + eps)).mean()
+        #print('inside_loss',loss)
+        return loss
+'''
 class CustomCrossEntropyLoss(nn.Module):
     def __init__(self, lambd_pres = 1, lambd_abs = 1):
         super().__init__()
@@ -10,7 +26,7 @@ class CustomCrossEntropyLoss(nn.Module):
         self.lambd_pres =lambd_pres
     def __call__(self, p, q):
         return (-self.lambd_pres *p * torch.log(q) - self.lambd_abs * (1-p) *torch.log(1 - q)).mean()
-
+'''
 class CustomCrossEntropy(Metric):
     def __init__(self, lambd_pres = 1, lambd_abs = 1, dist_sync_on_step=False):
         super().__init__(dist_sync_on_step=dist_sync_on_step)
@@ -58,14 +74,13 @@ class Presence_k(nn.Module):
         return (pres)
 
 class CustomTopK(Metric):
-    def __init__(self, dist_sync_on_step=False):
-        super().__init__(dist_sync_on_step=dist_sync_on_step)
-
-        self.add_state("correct", default=torch.FloatTensor([0]), dist_reduce_fx="sum")
-        self.add_state("total", default=torch.FloatTensor([0]), dist_reduce_fx="sum")
+    def __init__(self):
+        super().__init__()
+        self.add_state("correct", default=torch.tensor(0).float(), dist_reduce_fx="sum")
+        self.add_state("total", default=torch.tensor(0).float(), dist_reduce_fx="sum")
 
     def update(self, target: torch.Tensor, preds: torch.Tensor):
-        #preds, target = self._input_format(preds, target)
+        
         assert preds.shape == target.shape
         non_zero_counts = torch.count_nonzero(target, dim=1)
         for i, elem in enumerate(target):
@@ -73,13 +88,14 @@ class CustomTopK(Metric):
             v_pred, i_pred = torch.topk(preds[i], k = ki)
             v_targ, i_targ = torch.topk(elem, k = ki)
             if ki == 0 :
-                self.correct += 1
+                pass
             else:
-                self.correct += len(set(i_pred.cpu().numpy()).intersection(set(i_targ.cpu().numpy()))) / ki
-        self.total += target.shape[0]
+                count = torch.tensor(len([k for k in i_pred if k in i_targ]))
+                self.correct += count/ki
+                self.total += 1
 
     def compute(self):
-        return (self.correct / self.total).float()
+        return self.correct.float() / self.total
     
 
 
@@ -100,7 +116,9 @@ def get_metric(metric):
     
     elif metric.name == "ce" and not metric.ignore is True :
         return CustomCrossEntropy(metric.lambd_pres, metric.lambd_abs)
-    
+    elif metric.name =='r2' and not metric.ignore is True:
+        return torchmetrics.ExplainedVariance(multioutput='variance_weighted')
+        #return  torchmetrics.SpearmanCorrCoef()
     elif metric.name == "kl" and not metric.ignore is True :
         return CustomKL()
     
@@ -108,8 +126,9 @@ def get_metric(metric):
         return torchmetrics.Accuracy()
     elif metric.ignore is True :
         return None
-
-    raise ValueError("Unknown metric_item {}".format(metric))
+    else:
+        return(None)
+        #raise ValueError("Unknown metric_item {}".format(metric))
 
 def get_metrics(opts):
     metrics = []

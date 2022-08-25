@@ -2,11 +2,11 @@ save_path: "/network/projects/_groups/ecosystem-embeddings/exp/ckpt"
 load_ckpt : ""
 #log the experiment to comet ? 
 log_comet: true
-
+save_preds_path: ""
 #overfit batches (for debugging)
 overfit_debug: false
 #number of batches to overfit on 
-overfit_batches: 5
+overfit_batches: 0
 
 #use location ?
 loc:
@@ -29,7 +29,7 @@ experiment:
   seed: 42
 
   module:
-    model: "resnet50"
+    model: "resnet18"
     pretrained: True
     init_bias: "means"
     means_path: "/network/scratch/t/tengmeli/scratch/ecosystem-embedding/training/means_all_species.npy"
@@ -48,7 +48,7 @@ scheduler:
     gamma: 0.5
   warmup:
     warmup_epochs: 10
-    max_epochs: 100 
+    max_epochs: 200 
   cyclical:
     warmup_epochs: 10
 
@@ -90,7 +90,13 @@ data:
     train: "train_june_vf.csv"
     val: "val_june_vf.csv"
     test: "test_june_vf.csv"
-    
+    correction: "/network/scratch/t/tengmeli/scratch/ecosystem-embedding/training/correction_factor_final.pkl"
+    correction_thresh: '/network/scratch/a/amna.elmustafa/tmp/ecosystem-embedding/data_processing/Htest.npy'
+  correction_factor:
+     use: None   #choises [None, 'before' (before sigmoid) ,'after'(after sigmoid)]
+     thresh : True
+
+
   target:
     type: "probs"  #binary or probs
     # choose subset of birds : "ducks" for trying on species [37] or "songbirds" (307 species) or None (full set 684 species)
@@ -160,7 +166,7 @@ losses:
   ce:
     ignore: False
       #weights on the cross entropy
-    lambd_pres: 10
+    lambd_pres: 1
     lambd_abs: 1
   metrics:
     - name: ce
@@ -170,7 +176,7 @@ losses:
       lambd_abs: 1
       scale : 1
     - name: mae
-      ignore: True
+      ignore: False
       scale: 10
     - name: mse
       ignore: False
@@ -178,8 +184,11 @@ losses:
     - name: topk
       ignore: False
       scale: 1
+    - name: r2
+      ignore: True #False
+      scale: 1
     - name: kl
-      ignore: True
+      ignore: False
       scale : 1
     - name: accuracy
       ignore: True
@@ -208,7 +217,7 @@ trainer: # These are the parameters passed to the pytorch lightning Trainer obje
   check_val_every_n_epoch: 1
   fast_dev_run: False
   accumulate_grad_batches: 1
-  max_epochs: null
+  max_epochs: 300
   min_epochs: null
   max_steps: null
   min_steps: null
