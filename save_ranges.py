@@ -17,14 +17,14 @@ species=pd.read_csv('species_data.csv')
 #get shape file (scientific names x geometry (from R package))
 shape_file=gdp.read_file('bigdata.shp')
 #mapp=defaultdict(lambda : defaultdict(lambda : 0))  
-
+sub_locs=locs.loc[:1000,:]
 #map from shape file to hotspot locs      #map of(locations x scientific names)
 mapp=defaultdict(partial(defaultdict, int))
 
-for index, row in tqdm(locs.iterrows()):
+for index, row in tqdm(sub_locs.iterrows()):
     #print(loc)
     loc=Point(row['lon'],row['lat'])
-    Id=all_data['hotspot_id']
+    Id=all_data['hotspot_id'][index]
     
     for s in (species['scientific_name']):
     
@@ -35,12 +35,15 @@ for index, row in tqdm(locs.iterrows()):
             #print(f)
             poly=shape(f['geometry']) if f['geometry'] else None
             if poly:
-                if loc.within(poly) or loc.touches(poly):
+                if loc.within(poly):
+                #or loc.touches(poly):
                     
                    mapp[(row['lon'],row['lat'])][s]=True
                    break
+                else:
+                     mapp[(row['lon'],row['lat'])][s]=False
     # saving seperate file for each location
-    file_name=os.path.join('range_maps',str(Id)+'.pkl')
+    file_name=os.path.join('range_maps',Id +'.pkl')
     with open(file_name,'wb') as f :
         pickle.dump(mapp[(row['lon'],row['lat'])],f)
     print(f'done saving {loc}')
