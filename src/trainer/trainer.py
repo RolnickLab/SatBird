@@ -231,9 +231,9 @@ class EbirdTask(pl.LightningModule):
         #filter nonsong birds
         #print('how correction data looks like :' , self.correction_data)
         
-        with open('/network/scratch/t/tengmeli/scratch/ecosystem-embedding/ebird_data/L10000991_complete_checklists.pkl', 'rb') as f:
-              data = pickle.load(f)
-        sp_list=list(data['SCIENTIFIC NAME'])
+#         with open('/network/scratch/t/tengmeli/scratch/ecosystem-embedding/ebird_data/L10000991_complete_checklists.pkl', 'rb') as f:
+#               data = pickle.load(f)
+#         sp_list=list(data['SCIENTIFIC NAME'])
         #self.correction_data=self.correction_data.loc[:,sp_list]
         #print(self.correction_data, 'subset',subset)
         self.correction=  self.correction_data.iloc[:,subset]
@@ -302,10 +302,8 @@ class EbirdTask(pl.LightningModule):
                     #mask=torch.le(pred, correction)
                     mask=correction
                     cloned_pred=pred.clone().type_as(pred)
-                    print('cloned before ', cloned_pred)
                     
                     cloned_pred[~mask]=0
-                    print('cloned after ',cloned_pred)
                     
                     pred=cloned_pred
 
@@ -322,7 +320,6 @@ class EbirdTask(pl.LightningModule):
                 y_hat*=correction
                 print('after correction ', y_hat[:10])
             pred = m(y_hat).type_as(y)
-            pred_ = pred.clone().type_as(y)
             
             if self.opts.data.correction_factor.use=='after':
                         print('preds before, ', preds[:10])
@@ -338,6 +335,9 @@ class EbirdTask(pl.LightningModule):
                 cloned_pred=pred.clone().type_as(pred)
                 cloned_pred[~mask]=0
                 pred=cloned_pred
+                
+            pred_ = pred.clone().type_as(y)
+
             
             loss = self.criterion(y, pred)
         else:
@@ -348,13 +348,12 @@ class EbirdTask(pl.LightningModule):
                 print('after correction ', y_hat[:10])
             if self.target_type == "log" or self.target_type == "binary":
                 pred = y_hat.type_as(y)
-                pred_ = m(pred).clone().type_as(y)
+                #pred_ = m(pred).clone().type_as(y)
             else :
 
                 pred = m(y_hat).type_as(y)
-                #print('preds maximum in trainstep', pred.max())
-                pred_ = pred.clone().type_as(y)
-                #print('len of preds',len(pred_))
+               
+              
                 
             if self.opts.data.correction_factor.use=='after':
                         print('preds before correction Validation',preds[:10])
@@ -369,6 +368,9 @@ class EbirdTask(pl.LightningModule):
                 cloned_pred=pred.clone().type_as(pred)
                 cloned_pred[~mask]=0
                 pred=cloned_pred
+            
+            pred_ = pred.clone().type_as(y)
+
                 
             if self.target_type == "binary":
                 loss =  self.criterion(pred, y)
@@ -466,10 +468,10 @@ class EbirdTask(pl.LightningModule):
 
         if self.target_type == "log" or self.target_type == "binary":
             pred = y_hat.type_as(y)
-            pred_ = m(pred).clone().type_as(y)
+            #pred_ = m(pred).clone().type_as(y)
         else:
             pred = m(y_hat).type_as(y)
-            pred_ = pred.clone().type_as(y)
+            #pred_ = pred.clone().type_as(y)
         
         if self.opts.data.correction_factor.use=='after':
                         print('preds before correction Validation',preds[:10])
@@ -486,6 +488,8 @@ class EbirdTask(pl.LightningModule):
                 cloned_pred[~mask]=0
                 pred=cloned_pred
                 
+        pred_ = pred.clone().type_as(y)
+
         if self.target_type == "binary":
             loss = self.criterion(pred, y)
         elif self.target_type == "log":
@@ -547,7 +551,7 @@ class EbirdTask(pl.LightningModule):
                 y_hat*=correction
         if self.target_type == "log" or self.target_type == "binary":
             pred = y_hat.type_as(y)
-            pred_ = m(pred).clone()
+            #pred_ = m(pred).clone()
         else:
             pred = m(y_hat).type_as(y)
             
@@ -562,6 +566,9 @@ class EbirdTask(pl.LightningModule):
                 cloned_pred=pred.clone().type_as(pred)
                 cloned_pred[~mask]=0
                 pred=cloned_pred
+                
+            pred_ = pred.clone().type_as(y)
+
         
         if self.opts.save_preds_path != "":       
             for i, elem in enumerate(pred):
