@@ -216,11 +216,13 @@ class EbirdTask(pl.LightningModule):
         for (name, value, _) in metrics:
             setattr(self, "val_" + name, value)
         for (name, value, _) in metrics:
+
             setattr(self, "train_" + name, value)
+            #print(getattr(self,"train_" + name))
         self.metrics = metrics
 
-#         with open(self.opts.data.files.correction,'rb') as f:
-#             self.correction_data=pickle.load(f)
+        with open(self.opts.data.files.correction_thresh,'rb') as f:
+            self.correction_data=pickle.load(f)
         #with open(self.opts.data.files.correction_thresh,'rb') as f:
         #    self.correction_data=np.load(f)
             
@@ -228,9 +230,15 @@ class EbirdTask(pl.LightningModule):
 
         #filter nonsong birds
         #print('how correction data looks like :' , self.correction_data)
-        #self.correction_data=  self.correction_data[:,subset]
-        #assert self.correction_data.shape[1]==len(subset)
-
+        
+        with open('/network/scratch/t/tengmeli/scratch/ecosystem-embedding/ebird_data/L10000991_complete_checklists.pkl', 'rb') as f:
+              data = pickle.load(f)
+        sp_list=list(data['SCIENTIFIC NAME'])
+        #self.correction_data=self.correction_data.loc[:,sp_list]
+        #print(self.correction_data, 'subset',subset)
+        self.correction=  self.correction_data.iloc[:,subset]
+        #print('correction shape ',self.correction_data)
+        assert self.correction.shape[1]==len(subset)
 
     def forward(self, x:Tensor) -> Any:
         return self.model(x)
@@ -245,12 +253,15 @@ class EbirdTask(pl.LightningModule):
         y = batch['target']
 
         b, no_species = y.shape
-        print(y)
-        state_id=batch['state_id']
+        
+        #state_id=batch['state_id']
+        hotspot_id=batch['hotspot_id']
+        #print('hotspot_id', hotspot_id)
+        correction= self.correction[self.correction_data['hotspot_id'].isin(list(hotspot_id))]
 
-        #self.correction_data=torch.tensor(self.correction_data,device=y.device)
-       
-        #correction=self.correction_data[state_id]
+        correction=torch.tensor(correction.to_numpy(),device=y.device)
+        print('corrr: ',correction)
+        #correction=self.correction
      
         #assert correction.shape==(b,no_species) ,'shape of correction factor is not as expected'
         #assert correction.shape==(b,) ,'shape of correction factor is not as expected'
@@ -291,7 +302,10 @@ class EbirdTask(pl.LightningModule):
                     #mask=torch.le(pred, correction)
                     mask=correction
                     cloned_pred=pred.clone().type_as(pred)
-                    cloned_pred[mask]=0
+                    print('cloned before ', cloned_pred)
+                    
+                    cloned_pred[~mask]=0
+                    print('cloned after ',cloned_pred)
                     
                     pred=cloned_pred
 
@@ -322,7 +336,7 @@ class EbirdTask(pl.LightningModule):
                 mask=correction
 
                 cloned_pred=pred.clone().type_as(pred)
-                cloned_pred[mask]=0
+                cloned_pred[~mask]=0
                 pred=cloned_pred
             
             loss = self.criterion(y, pred)
@@ -353,7 +367,7 @@ class EbirdTask(pl.LightningModule):
                # mask=torch.le(pred, correction)
                 mask=correction
                 cloned_pred=pred.clone().type_as(pred)
-                cloned_pred[mask]=0
+                cloned_pred[~mask]=0
                 pred=cloned_pred
                 
             if self.target_type == "binary":
@@ -397,6 +411,7 @@ class EbirdTask(pl.LightningModule):
             else:
                
                 getattr(self,nname)(y, pred_)
+               # print(getattr(self,nname)(y, pred_))
                 #print(nname,getattr(self,name))
                
             self.log(nname, getattr(self,nname))#, on_step = True, on_epoch = True)
@@ -422,7 +437,12 @@ class EbirdTask(pl.LightningModule):
         y = batch['target']#.to(device)
         b, no_species = y.shape
         state_id = batch['state_id']
-        #self.correction_data=torch.tensor(self.correction_data,device=y.device)
+        hotspot_id=batch['hotspot_id']
+        correction= self.correction[self.correction_data['hotspot_id'].isin(list(hotspot_id))]
+
+        correction=torch.tensor(correction.to_numpy(),device=y.device)
+        
+        #correction=self.correction
 
        #correction = self.correction_data[state_id]
         #print('shapes of correction and outpu in valdiation ',correction.shape, y.shape)
@@ -463,7 +483,7 @@ class EbirdTask(pl.LightningModule):
                 mask=correction
                 cloned_pred=pred.clone().type_as(pred)
                 print(cloned_pred.shape,mask.shape)
-                cloned_pred[mask]=0
+                cloned_pred[~mask]=0
                 pred=cloned_pred
                 
         if self.target_type == "binary":
@@ -490,6 +510,7 @@ class EbirdTask(pl.LightningModule):
           
             else:
                 getattr(self,nname)(y, pred_)
+                print(nname,getattr(self,nname)(y, pred_))
             #print(nname,getattr(self,name)(y, pred_) )
             self.log(nname, getattr(self, nname), on_step=False, on_epoch=True) 
         self.log("val_loss", loss, on_step = True, on_epoch = True)
@@ -506,8 +527,11 @@ class EbirdTask(pl.LightningModule):
         y = batch['target']#.to(device)
         b, no_species = y.shape
         state_id = batch['state_id']
-        #self.correction_data=torch.tensor(self.correction_data,device=y.device)
+        hotspot_id=batch['hotspot_id']
+        correction= self.correction[self.correction_data['hotspot_id'].isin(list(hotspot_id))]
 
+        correction=torch.tensor(correction.to_numpy(),device=y.device)
+        
         #correction = self.correction_data[state_id]
         #print('shapes of correction and output in validation ',correction.shape, y.shape)
         #assert correction.shape == (b, no_species), 'shape of correction factor is not as expected'
@@ -536,7 +560,7 @@ class EbirdTask(pl.LightningModule):
                 #mask=torch.le(pred, correction)
                 mask=correction
                 cloned_pred=pred.clone().type_as(pred)
-                cloned_pred[mask]=0
+                cloned_pred[~mask]=0
                 pred=cloned_pred
         
         if self.opts.save_preds_path != "":       
