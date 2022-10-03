@@ -316,9 +316,9 @@ class EbirdTask(pl.LightningModule):
             inter= self.feature_extractor(x)
             y_hat = self.forward(inter)
             if self.opts.data.correction_factor.use=='before':
-                print('y hat before correction ',y_hat[:10])
+                
                 y_hat*=correction
-                print('after correction ', y_hat[:10])
+           
             pred = m(y_hat).type_as(y)
             
             if self.opts.data.correction_factor.use=='after':
@@ -365,9 +365,12 @@ class EbirdTask(pl.LightningModule):
             elif self.opts.data.correction_factor.thresh:
                # mask=torch.le(pred, correction)
                 mask=correction
+                
                 cloned_pred=pred.clone().type_as(pred)
+                print('predictons before: ',cloned_pred)
                 cloned_pred[~mask]=0
                 pred=cloned_pred
+                print('predictions after: ',pred)
             
             pred_ = pred.clone().type_as(y)
 
@@ -567,7 +570,7 @@ class EbirdTask(pl.LightningModule):
                 cloned_pred[~mask]=0
                 pred=cloned_pred
                 
-            pred_ = pred.clone().type_as(y)
+                pred_ = pred.clone().type_as(y)
 
         
         if self.opts.save_preds_path != "":       

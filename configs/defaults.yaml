@@ -170,7 +170,7 @@ losses:
     lambd_abs: 1
   metrics:
     - name: ce
-      ignore: False
+      ignore: True
       #weights on the cross entropy
       lambd_pres: 1
       lambd_abs: 1
