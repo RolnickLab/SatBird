@@ -170,7 +170,7 @@ losses:
     lambd_abs: 1
   metrics:
     - name: ce
-      ignore: False
+      ignore: True
       #weights on the cross entropy
       lambd_pres: 1
       lambd_abs: 1
@@ -217,7 +217,7 @@ trainer: # These are the parameters passed to the pytorch lightning Trainer obje
   check_val_every_n_epoch: 1
   fast_dev_run: False
   accumulate_grad_batches: 1
-  max_epochs: 300
+  max_epochs: 900
   min_epochs: null
   max_steps: null
   min_steps: null
