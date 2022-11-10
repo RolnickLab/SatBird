@@ -13,7 +13,8 @@ Module.__module__ = "torch.nn"
 satellite = ["sat", "r", "g", "b", "ni"]
 sat = ["sat"]
 env = ["bioclim", "ped"]
-all_data = satellite + env
+landuse = ["landuse"]
+all_data = satellite + env + landuse
 
 
     
@@ -74,7 +75,7 @@ class RandomVerticalFlip:  # type: ignore[misc,name-defined]
                 elif s == "boxes" :
                     height, width = sample[s].shape[-2:]
                     sample["boxes"][:, [1, 3]] = height - sample["boxes"][:, [3, 1]]
-                
+
             #if "mask" in sample:
             #    sample["mask"] = sample["mask"].flip(-2)
 
@@ -91,8 +92,7 @@ def normalize_custom(t, mini=0, maxi=1):
     max_t = t.reshape(batch_size, -1).max(1)[0].reshape(batch_size, 1, 1, 1)
     t = t / max_t
     return mini + (maxi - mini) * t
-
-
+    
 class Normalize:
     def __init__(self, maxchan = True, custom = None, subset = satellite):
         """
@@ -120,13 +120,14 @@ class Normalize:
         #TODO 
         if self.custom:
             means, std = self.custom
-            for task in self.subset:
+            for task in self.subset: 
                 sample[task] = normalize(sample[task].type(torch.FloatTensor), means, std)
             #d = {
             #    task: normalize(tensor.type(torch.FloatTensor), means, std)
             #     for task, tensor in sample.items() if task in subset
             #}
         #    pass
+        
         return(sample)
 
 class MatchRes:
@@ -144,28 +145,26 @@ class MatchRes:
         if "bioclim" in list(sample.keys()):
             #align bioclim with ped
             Hb, Wb = sample["bioclim"].size()[-2:]
-            
-            h = (H*self.sat_res/self.bioclim_res)
-            w = (W*self.sat_res/self.bioclim_res)
-            h,w = max(ceil(h),1), max(ceil(w),1)
+            print(Hb,Wb)
+            h = (Hb*self.sat_res/self.bioclim_res)
+            w = (Wb*self.sat_res/self.bioclim_res)
             top = max(0, Hb//2 - h//2)
             left = max(0,Wb//2 - w//2)
-            
+            h,w = max(ceil(h),1), max(ceil(w),1)
             sample["bioclim"] = sample["bioclim"][ :, int(top) : int(top + h), int(left) : int(left + w)]
-
+            print(sample["bioclim"].shape)
         if "ped" in list(sample.keys()):
             #align bioclim with ped
             Hb, Wb = sample["ped"].size()[-2:]
-       
-        
-            h = (H*self.sat_res/self.ped_res)
-            w = (W*self.sat_res/self.ped_res)
-            h,w = max(ceil(h),1), max(ceil(w),1)
+            print("ped")
+            print(Hb,Wb)
+            h = (Hb*self.sat_res/self.ped_res)
+            w = (Wb*self.sat_res/self.ped_res)
             top = max(0, Hb//2 - h//2)
             left = max(0,Wb//2 - w//2)
-            
+            h,w = max(ceil(h),1), max(ceil(w),1)
             sample["ped"] = sample["ped"][ :, int(top) : int(top + h), int(left) : int(left + w)]
-
+            print(sample["ped"].shape)
         for elem in list(sample.keys()):
             if elem in env:
                 
@@ -176,9 +175,6 @@ class MatchRes:
          7.80845219,  21.77499491,   1.93990004, 902.9704986 ,
        114.61111788,  42.0276728 ,  37.11493781, 315.34206997,
        145.09703767, 231.19724491, 220.06619529]).unsqueeze(-1).unsqueeze(-1)
-                    elif elem == "ped":
-                        sample[elem] = torch.Tensor([2230.56361696, 1374.68551614,   20.45478794,   19.04921312,
-         31.1196319 ,   61.24246466,   36.68711656,   44.25620165]).unsqueeze(-1).unsqueeze(-1)
                 sample[elem] = F.interpolate(sample[elem].unsqueeze(0).float(), size=(H, W))
         return (sample)
 
@@ -202,6 +198,13 @@ class RandomCrop:  # type: ignore[misc,name-defined]
         self.ignore_band = ignore_band
         self.p = p
         
+    def  __call__(self, sample: Dict[str, Tensor]) -> Dict[str, Tensor]:
+        """
+        Args:
+            sample: the input
+        Returns:
+            the cropped input
+        """
     def  __call__(self, sample: Dict[str, Tensor]) -> Dict[str, Tensor]:
         """
         Args:
@@ -249,7 +252,7 @@ class Resize:
         for s in sample:
             if s in satellite:
                 sample[s] = F.interpolate(sample[s].float(), size=(self.h, self.w), mode = 'nearest')
-            elif s in env:
+            elif s in env or s in landuse:
                 sample[s] = F.interpolate(sample[s].float(), size=(self.h, self.w), mode = 'nearest')
         return(sample)
         
@@ -333,20 +336,3 @@ def get_transforms(opts, mode):
     using get_transform(transform_item, mode)
     """
     transforms = []
-    
-    for t in opts.data.transforms:
-        if t.name == "normalize" and not (
-        t.ignore is True or t.ignore == mode
-    ) and t.subset==["sat"]:
-            if opts.data.bands == ["r", "g", "b"]:
-                print("only taking normalization values for r,g,b")
-                means, std = t.custom
-                t.custom = [means[:3], std[:3]]
-
-            #assert (len(t.custom[0])== len(opts.data.bands))
-        transforms.append(get_transform(t, mode))
-    
-    
-    transforms = [t for t in transforms if t is not None]
-    print(transforms)
-    return transforms
