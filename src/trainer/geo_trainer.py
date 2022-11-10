@@ -33,7 +33,7 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 def get_nb_bands(bands):
     n = 0
     for b in bands:
-        if b in ["r","g","b","nir"]:
+        if b in ["r","g","b","nir", "landuse"]:
             n+=1
         elif b == "ped":
             n+=8

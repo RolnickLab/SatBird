@@ -39,7 +39,7 @@ def get_nb_bands(bands):
     """
     n = 0
     for b in bands:
-        if b in ["r","g","b","nir"]:
+        if b in ["r","g","b","nir","landuse"]:
             n+=1
         elif b == "ped":
             n+=8
@@ -222,14 +222,14 @@ class EbirdTask(pl.LightningModule):
             #print(getattr(self,"train_" + name))
         self.metrics = metrics
 
-        with open(self.opts.data.files.correction_thresh,'rb') as f:
-            self.correction_data=pickle.load(f)
+#        with open(self.opts.data.files.correction_thresh,'rb') as f:
+ #           self.correction_data=pickle.load(f)
   
 #         with open('/network/scratch/a/amna.elmustafa/tmp/ecosystem-embedding/data_processing/without_zeroed_species.pkl','rb') as f:
 #              self.subset= pickle.load(f)
-        self.correction=  self.correction_data.iloc[:,subset]
+  #      self.correction=  self.correction_data.iloc[:,subset]
 #         self.correction=  self.correction_data.loc[:,subset]
-        assert self.correction.shape[1]==len(subset)
+   #     assert self.correction.shape[1]==len(subset)
         
        
         
@@ -238,6 +238,9 @@ class EbirdTask(pl.LightningModule):
 
 
     def forward(self, x:Tensor) -> Any:
+        print("SHAPE TENSOR")
+        print(x.size())
+        print(x)
         return self.model(x)
 
     def training_step(
@@ -253,13 +256,14 @@ class EbirdTask(pl.LightningModule):
         
         #state_id=batch['state_id']
         hotspot_id=batch['hotspot_id']
+        correction = 1
         #print('hotspot_id', hotspot_id)
-        correction= self.correction[self.correction_data['hotspot_id'].isin(list(hotspot_id))]
+    #    correction= self.correction[self.correction_data['hotspot_id'].isin(list(hotspot_id))]
 
-        correction=torch.tensor(correction.to_numpy(),device=y.device)
+     #   correction=torch.tensor(correction.to_numpy(),device=y.device)
         
      
-        assert correction.shape==(b,no_species) ,'shape of correction factor is not as expected'
+      #  assert correction.shape==(b,no_species) ,'shape of correction factor is not as expected'
         
        
         if self.opts.experiment.module.model == "linear":
@@ -445,15 +449,15 @@ class EbirdTask(pl.LightningModule):
         b, no_species = y.shape
         state_id = batch['state_id']
         hotspot_id=batch['hotspot_id']
-        correction= self.correction[self.correction_data['hotspot_id'].isin(list(hotspot_id))]
+        #correction= self.correction[self.correction_data['hotspot_id'].isin(list(hotspot_id))]
 
-        correction=torch.tensor(correction.to_numpy(),device=y.device)
+        #correction=torch.tensor(correction.to_numpy(),device=y.device)
         
         #correction=self.correction
 
        #correction = self.correction_data[state_id]
         #print('shapes of correction and outpu in valdiation ',correction.shape, y.shape)
-        assert correction.shape == (b,no_species), 'shape of correction factor is not as expected'
+        #assert correction.shape == (b,no_species), 'shape of correction factor is not as expected'
         #correction.unsqueeze_(-1)
         print("Model is on cuda", next(self.model.parameters()).is_cuda)
         if self.opts.experiment.module.model == "linear":
@@ -542,9 +546,9 @@ class EbirdTask(pl.LightningModule):
         b, no_species = y.shape
         state_id = batch['state_id']
         hotspot_id=batch['hotspot_id']
-        correction= self.correction[self.correction_data['hotspot_id'].isin(list(hotspot_id))]
+        #correction= self.correction[self.correction_data['hotspot_id'].isin(list(hotspot_id))]
 
-        correction=torch.tensor(correction.to_numpy(),device=y.device)
+        #correction=torch.tensor(correction.to_numpy(),device=y.device)
         
         #correction = self.correction_data[state_id]
         #print('shapes of correction and output in validation ',correction.shape, y.shape)
