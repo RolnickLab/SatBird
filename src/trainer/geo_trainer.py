@@ -189,7 +189,8 @@ class EbirdTask(pl.LightningModule):
         self.opts = opts
         self.target_size= get_target_size(self.opts)
         self.target_type = self.opts.data.target.type
-        
+        subset = get_subset(self.opts.data.target.subset)
+
         if self.target_type == "binary":
             #self.target_type = "binary"
             self.criterion = BCELoss()
@@ -205,6 +206,13 @@ class EbirdTask(pl.LightningModule):
         for (name, value, _) in metrics:
             setattr(self, name, value)
         self.metrics = metrics
+        
+        #range maps
+        with open(self.opts.data.files.correction_thresh,'rb') as f:
+            self.correction_data=pickle.load(f)
+        self.correction=  self.correction_data.iloc[:,subset]
+
+        assert self.correction.shape[1]==len(subset)
 
 
     def forward(self, x:Tensor, loc_tensor = None) -> Any:
@@ -233,8 +241,17 @@ class EbirdTask(pl.LightningModule):
         """Training step"""
         
         x = batch['sat'].squeeze(1)
+        print('input shape',x.shape)
         loc_tensor= batch["loc"]
-        y = batch['target']   
+        y = batch['target']
+        b, no_species = y.shape        
+        hotspot_id=batch['hotspot_id']
+        correction= self.correction[self.correction_data['hotspot_id'].isin(list(hotspot_id))]
+
+        correction=torch.tensor(correction.to_numpy(),device=y.device)
+        
+     
+        assert correction.shape==(b,no_species) ,'shape of correction factor is not as expected'
 
         #check weights are moving
         #for p in self.model.fc.parameters(): 
@@ -250,11 +267,20 @@ class EbirdTask(pl.LightningModule):
             loss = loss1 + loss2
             
         else:
+            
             if self.concat:
                 pred = m(self.forward(x, loc_tensor))
             else:
                 out_sat, out_loc = self.forward(x, loc_tensor)
                 pred = torch.multiply(m(out_sat), out_loc)#self.forward(x)
+            #range maps 
+            if self.opts.data.correction_factor.thresh:
+                    mask=correction
+                    cloned_pred=pred.clone().type_as(pred)
+                    print('predictons before: ',cloned_pred)
+                    cloned_pred*=mask.int()
+                    y*=mask.int()
+                    pred=cloned_pred
                          
             loss = self.criterion(y,pred)   
             
@@ -275,8 +301,8 @@ class EbirdTask(pl.LightningModule):
                 getattr(self,name)(y, pred_)
                 #print(nname,getattr(self,name)(y, pred_) )
               
-            self.log(nname, getattr(self,name)) #, on_step = False, on_epoch = True)
-        self.log("train_loss", loss) #, on_step = True, on_epoch= True)
+            self.log(nname, getattr(self,name), on_step = True, on_epoch = True)
+        self.log("train_loss", loss , on_step = True, on_epoch= True)
         return loss
 
 
@@ -288,6 +314,12 @@ class EbirdTask(pl.LightningModule):
         x = batch['sat'].squeeze(1)
         loc_tensor= batch["loc"]
         y = batch['target']    
+        
+        b, no_species = y.shape        
+        hotspot_id=batch['hotspot_id']
+        correction= self.correction[self.correction_data['hotspot_id'].isin(list(hotspot_id))]
+        correction=torch.tensor(correction.to_numpy(),device=y.device)
+        assert correction.shape==(b,no_species) ,'shape of correction factor is not as expected'
 
         #check weights are moving
         #for p in self.model.fc.parameters(): 
@@ -308,6 +340,14 @@ class EbirdTask(pl.LightningModule):
             else:
                 out_sat, out_loc = self.forward(x, loc_tensor)
                 pred = torch.multiply(m(out_sat), out_loc)#self.forward(x)
+            #range maps 
+            if self.opts.data.correction_factor.thresh:
+                    mask=correction
+                    cloned_pred=pred.clone().type_as(pred)
+                    print('predictons before: ',cloned_pred)
+                    cloned_pred*=mask.int()
+                    y*=mask.int()
+                    pred=cloned_pred
                           
             loss = self.criterion(pred, y)   
             print("val_loss", loss) 
@@ -328,7 +368,7 @@ class EbirdTask(pl.LightningModule):
                 getattr(self,name)(y, pred_)
                 #print(nname,getattr(self,name)(y, pred_) )
               
-            self.log(nname, getattr(self,name), on_step = False, on_epoch = True)
+            self.log(nname, getattr(self,name), on_step = True, on_epoch = True)
         self.log("val_loss", loss, on_step = True, on_epoch= True)
 
     def test_step(
@@ -338,6 +378,13 @@ class EbirdTask(pl.LightningModule):
         
         x = batch['sat'].squeeze(1)
         loc_tensor= batch["loc"]
+        
+        y = batch['target']
+        b, no_species = y.shape        
+        hotspot_id=batch['hotspot_id']
+        correction= self.correction[self.correction_data['hotspot_id'].isin(list(hotspot_id))]
+        correction=torch.tensor(correction.to_numpy(),device=y.device)
+        assert correction.shape==(b,no_species) ,'shape of correction factor is not as expected'
 
         #check weights are moving
         #for p in self.model.fc.parameters(): 
@@ -353,7 +400,16 @@ class EbirdTask(pl.LightningModule):
             else:
                 out_sat, out_loc = self.forward(x, loc_tensor)
                 y_hat = torch.multiply(m(out_sat), out_loc)#self.forward(x)
-            pred = y_hat               
+                
+            pred = y_hat    
+            #range maps 
+            if self.opts.data.correction_factor.thresh:
+                    mask=correction
+                    cloned_pred=pred.clone().type_as(pred)
+                    print('predictons before: ',cloned_pred)
+                    cloned_pred*=mask.int()
+                    y*=mask.int()
+                    pred=cloned_pred
         pred_ = pred.clone().cpu()    
         if "target" in batch.keys():
             y = batch['target'].cpu()
@@ -362,9 +418,9 @@ class EbirdTask(pl.LightningModule):
                 getattr(self,name)(y,pred_)
                 self.log(nname, getattr(self,name), on_step = True, on_epoch = True) 
         
-        for i, elem in enumerate(pred_):
-            np.save(os.path.join(self.opts.save_preds_path, batch["hotspot_id"][i] + ".npy"), elem.cpu().detach().numpy())
-        print("saved elems")
+#         for i, elem in enumerate(pred_):
+#             np.save(os.path.join(self.opts.save_preds_path, batch["hotspot_id"][i] + ".npy"), elem.cpu().detach().numpy())
+#         print("saved elems")
 
     def get_optimizer(self, model, opts):
         
@@ -578,4 +634,3 @@ class EbirdDataModule(pl.LightningDataModule):
         )
 
     
-

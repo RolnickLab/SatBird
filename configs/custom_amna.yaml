@@ -13,7 +13,7 @@ log_comet: True
 overfit_batches: 0.0
 #use geographical informationf
 loc:
-  use: False
+  use: false
   #if True :concatenate location features with satellite image features, else location features are mappe to same imension as satellite features and the features are multiplie
   loc_type: "latlon"   #latlon or state
   concat: True
@@ -21,7 +21,8 @@ loc:
 comet:
   project_name: "range_maps" #"ecosystem-duck"
 
-  tags: ["resnet18", "rgb_nir", "adam", "R range_maps"]
+  tags: ["resnet18", "rgb_nir", "adam","seco_pretrain","no_range maps","224*224 warmups"]
+  #"R range_maps"]
 
 
 experiment:
@@ -37,19 +38,19 @@ experiment:
     fc: "linear"
     #use pretraine weights ( trochvision ) 
     pretrained: true
-    resume: "" #"/home/mila/t/tengmeli/ecosystem-embedding/outputs/2022-03-29/08-40-05/final_layer_comparison/b84c264fb4c8477f95cad55bbf85d709/checkpoints/epoch=1273-step=408953.ckpt"
+    resume: "/network/scratch/a/amna.elmustafa/tmp2/ecosystem-embedding/src/trainer/seco_resnet18_100k.ckpt" #"/home/mila/t/tengmeli/ecosystem-embedding/outputs/2022-03-29/08-40-05/final_layer_comparison/b84c264fb4c8477f95cad55bbf85d709/checkpoints/epoch=1273-step=408953.ckpt"
     
     #initializes biases of the output layer sothat sigmoid(bias) = mean over the training set for each species
     init_bias: ""
     means_path: "/network/scratch/t/tengmeli/scratch/ecosystem-embedding/training/means_all_species.npy"
-    lr: 0.0003
+    lr: 0.00003
 
 optimizer: "Adam"  #"Adam"
 
 #auto lr will only work if there is only one optimizer 
-auto_lr_find: False
+auto_lr_find: false
 scheduler: 
-  name: "" #"" for no schuler, "ReduceLROnPlateau" #"ReduceLROnPlateau" or "StepLR" "WarmUp"
+  name: "WarmUp" #"" for no schuler, "ReduceLROnPlateau" #"ReduceLROnPlateau" or "StepLR" "WarmUp"
   reduce_lr_plateau: 
     factor: 0.5
     lr_schedule_patience: 20
@@ -82,7 +83,7 @@ variables: &default_vars
 data:
   loaders:
     num_workers: 8
-    batch_size: 64
+    batch_size: 32
   #What kind of satellite input ? "refl" for "raw" reflectance values or 
   #"img" for 0-255 values (only supported for "rgb" and "nir" bands)
   datatype: "refl" 
@@ -113,7 +114,7 @@ data:
     #'/network/scratch/a/amna.elmustafa/tmp/ecosystem-embedding/data_processing/Htest4.npy'  #hard thresholding file ,options:[Htest, Htest2,Htest3,Htest4] corrosponding to threshold as [mean species values , mask of species that have prob less than mean ,mask of species that have prob less than mean/10 ,mask of species that have prob less than mean*10 ]
   correction_factor:
      use:  None  #soft thresholding choises [None, 'before' (before sigmoid) ,'after'(after sigmoid)] 
-     thresh : 'after'     #hard thresholding ['before','after']
+     thresh : None  #hard thresholding ['before','after']
 
     
   target:
@@ -125,8 +126,8 @@ data:
   #normalization: None
   transforms:
     - name: matchres
-      ignore: true
-      target_size: [64, 64]
+      ignore: false
+      target_size: [224, 224]
       
     - name: crop
       ignore: false
@@ -145,7 +146,7 @@ data:
       ignore: "val"
       p: 0.5
     - name: normalize
-      ignore: False
+      ignore: false
       maxchan: false
       subset: ["sat"]
       custom: [[894.6719, 932.5726,693.2768, 2817.9849], [883.9763,747.6857,749.3098, 1342.6334]]
