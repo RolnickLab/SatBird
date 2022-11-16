@@ -1,5 +1,4 @@
-import pickle
-
+import os
 import pytorch_lightning as pl
 import torch
 import torch.nn as nn
@@ -9,6 +8,7 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau, StepLR, CosineAnnealingW
 # from pl_bolts.optimizers.lr_scheduler import LinearWarmupCosineAnnealingLR
 from torch.utils.data import DataLoader, Subset
 from torchvision import models
+from torch.autograd import Variable
 import numpy as np
 from omegaconf import OmegaConf
 #from src.dataset.utils import load_opts
@@ -16,30 +16,24 @@ from src.transforms.transforms import get_transforms
 from torchvision import transforms as trsfs
 import pandas as pd
 import torch.nn.functional as F
-from src.losses.losses import CustomCrossEntropyLoss,CustomCrossEntropy, get_metrics
+from src.losses.losses import CustomCrossEntropyLoss,get_metrics
 import torchmetrics
-from torch.nn import BCELoss, BCEWithLogitsLoss
+from torch.nn import BCELoss
 from typing import Any, Dict, Optional
 from src.dataset.dataloader import EbirdVisionDataset
 from src.dataset.dataloader import get_subset
 import time 
-import os 
-import json
-import wandb
-from torch.nn.functional import l1_loss
-#criterion = CustomCrossEntropyLoss()#BCEWithLogitsLoss()
-mse=nn.MSELoss()
+import pickle 
+
+criterion = CustomCrossEntropyLoss()#BCEWithLogitsLoss()
 m = nn.Sigmoid()
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 def get_nb_bands(bands):
-    """
-    Get number of channels in the satellite input branch (stack bands of satellite + environmental variables)
-    """
     n = 0
     for b in bands:
-        if b in ["r","g","b","nir","landuse"]:
+        if b in ["r","g","b","nir", "landuse"]:
             n+=1
         elif b == "ped":
             n+=8
@@ -49,23 +43,49 @@ def get_nb_bands(bands):
             n+=3
     return(n)
 
-    
-def get_scheduler(optimizer, opts):
-    if opts.scheduler.name == "ReduceLROnPlateau":
-        return (ReduceLROnPlateau(optimizer, factor = opts.scheduler.reduce_lr_plateau.factor,
-                  patience = opts.scheduler.reduce_lr_plateau.lr_schedule_patience))
-    elif opts.scheduler.name == "StepLR":
-        return (StepLR(optimizer, opts.scheduler.step_lr.step_size, opts.scheduler.step_lr.gamma))
-#     elif opts.scheduler.name == "WarmUp":     
-#         return(LinearWarmupCosineAnnealingLR(optimizer, opts.scheduler.warmup.warmup_epochs,
-#         opts.scheduler.warmup.max_epochs))
-    elif opts.scheduler.name == "Cyclical":
-        return(CosineAnnealingWarmRestarts(optimizer, opts.scheduler.cyclical.t0, opts.scheduler.cyclical.tmult))
-    elif opts.scheduler.name == "":
-        return(None)
-    else:
-        raise ValueError(f"Scheduler'{self.opts.scheduler.name}' is not valid")
+def get_target_size(opts):
+    subset = get_subset(opts.data.target.subset)
+    target_size= len(subset) if subset is not None else opts.data.total_species
+    return(target_size)
+
+
+class LocEncoder(torch.nn.Module):
+    def __init__(self, opt,**kwargs: Any) -> None:
+        """initializes a new Lightning Module to train"""
         
+        super().__init__()
+        self.opts_ = opt
+        self.target_size = get_target_size(self.opts_)
+        
+        num_inputs = 4
+        if self.opts_.loc.elev:
+            num_inputs = 5
+        self.model = geomodels.FCNet(num_inputs, num_classes=self.target_size,num_filts=256)   
+      
+        
+    def forward(self, loc):
+        
+        return(self.model(loc, class_of_interest=None, return_feats=self.opts_.loc.concat))
+    
+    def __str__(self):
+        return("Location encoder")
+
+
+
+def create_loc_encoder(opt, verbose=0):
+    print("using location")
+    encoder = LocEncoder(opt)
+
+    if verbose > 0:
+        print(f"  - Add {encoder.__class__.__name__}")
+    return encoder
+
+class Identity(nn.Module):
+    def __init__(self):
+        super(Identity, self).__init__()
+        
+    def forward(self, x):
+        return x
 
 class EbirdTask(pl.LightningModule):
     def __init__(self, opts,**kwargs: Any) -> None:
@@ -158,6 +178,9 @@ class EbirdTask(pl.LightningModule):
                     if key_model=='conv1.weight':
                         continue
                     model_dict[key_model]=loaded_dict[key_seco]
+                    
+                    
+
            
                 self.model.load_state_dict(model_dict)
             if self.opts.experiment.module.fc == "linear":
@@ -209,6 +232,17 @@ class EbirdTask(pl.LightningModule):
         else:
             raise ValueError(f"Model type '{self.opts.experiment.module.model}' is not valid")
         
+        #multiscale experiment assuming all scales will have the same model
+        
+        if len(self.opts.data.multiscale)>1:
+            in_features=self.model.fc.in_features
+            self.model.fc =Identity()
+            self.linear_layer = nn.Linear(len(self.opts.data.multiscale)*in_features,  self.target_size)
+            model=self.model
+            self.model= nn.ModuleDict({ f'{key}_scale':model for key in self.opts.data.multiscale})
+            self.model.update({'fc':self.linear_layer})
+            #self.model= dict({ f'{key}_scale':model for key in self.opts.data.multiscale})
+            
         if self.opts.experiment.module.init_bias=="means":
             print("initializing biases with mean predictor")
             self.means = np.load(self.opts.experiment.module.means_path)[0,subset]
@@ -252,14 +286,24 @@ class EbirdTask(pl.LightningModule):
 
 
     def forward(self, x:Tensor) -> Any:
-        return self.model(x)
+        if len(self.opts.data.multiscale)>1:
+            out_sat=[]
+            for i,res in enumerate(self.opts.data.multiscale):
+                    
+                    out_sat.append(self.model[f"{res}_scale"](x[:,i,:,:,:]))
+            out_sat=torch.cat(out_sat,dim=-1)
+            print('out_sat shape',out_sat.shape)
+            assert out_sat.shape[-1]==((self.linear_layer.in_features)), 'shape of output after concat is wrong'
+            out = self.model['fc'](out_sat)
+            
+        return out
 
     def training_step(
         self, batch: Dict[str, Any], batch_idx: int )-> Tensor:
        # from pdb import set_trace; set_trace()
         """Training step"""
         m = nn.Sigmoid()
-        x = batch['sat'].squeeze(1)
+        x = batch['sat']
         print('input shape:', x.shape)
         y = batch['target']
 
@@ -601,34 +645,53 @@ class EbirdTask(pl.LightningModule):
             self.log(nname, getattr(self, nname), on_step=True, on_epoch=True) 
         self.log("test_loss", loss, on_step = True, on_epoch = True)
 
-
         
-#         if self.opts.save_preds_path != "":       
-#             for i, elem in enumerate(pred):
-#                 np.save(os.path.join(self.opts.save_preds_path, batch["hotspot_id"][i] + ".npy"), elem.cpu().detach().numpy())
+#         for i, elem in enumerate(pred_):
+#             np.save(os.path.join(self.opts.save_preds_path, batch["hotspot_id"][i] + ".npy"), elem.cpu().detach().numpy())
 #         print("saved elems")
 
-
     def get_optimizer(self, model, opts):
+        
         if self.opts.optimizer == "Adam":
             optimizer = torch.optim.Adam(   #
                 model.parameters(),
-                lr=self.learning_rate, # self.opts.experiment.module.lr,  
-                weight_decay=0.00001
+                lr=self.learning_rate#self.opts.experiment.module.lr,  
                 )
         elif self.opts.optimizer == "AdamW":
             optimizer = torch.optim.AdamW(
                 model.parameters(),
-                lr=self.learning_rate #self.opts.experiment.module.lr,  
+                lr=self.opts.experiment.module.lr,  
                 )
         elif self.opts.optimizer == "SGD":
             optimizer = torch.optim.SGD(
                 model.parameters(),
-                lr=self.learning_rate  
+                lr=self.learning_rate#self.opts.experiment.module.lr,  
                 )
         else :
             raise ValueError(f"Optimizer'{self.opts.optimizer}' is not valid")
         return(optimizer)
+    
+    def get_optimizer_from_params(self,param, opts):
+        
+        if self.opts.optimizer == "Adam":
+            optimizer = torch.optim.Adam(   #
+                param,
+                lr=self.learning_rate#self.opts.experiment.module.lr,  
+                )
+        elif self.opts.optimizer == "AdamW":
+            optimizer = torch.optim.AdamW(
+                param,
+                lr=self.opts.experiment.module.lr,  
+                )
+        elif self.opts.optimizer == "SGD":
+            optimizer = torch.optim.SGD(
+                param,
+                lr=self.learning_rate#self.opts.experiment.module.lr,  
+                )
+        else :
+            raise ValueError(f"Optimizer'{self.opts.optimizer}' is not valid")
+        return(optimizer)
+    
     
     def configure_optimizers(self) -> Dict[str, Any]:
  
@@ -646,7 +709,23 @@ class EbirdTask(pl.LightningModule):
             "frequency":1
             }
         }
+        
 
+def get_scheduler(optimizer, opts):
+    if opts.scheduler.name == "ReduceLROnPlateau":
+        return (ReduceLROnPlateau(optimizer, factor = opts.scheduler.reduce_lr_plateau.factor,
+                  patience = opts.scheduler.reduce_lr_plateau.lr_schedule_patience))
+    elif opts.scheduler.name == "StepLR":
+        return (StepLR(optimizer, opts.scheduler.step_lr.step_size, opts.scheduler.step_lr.gamma))
+#     elif opts.scheduler.name == "WarmUp":     
+#         return(LinearWarmupCosineAnnealingLR(optimizer, opts.scheduler.warmup.warmup_epochs,
+#         opts.scheduler.warmup.max_epochs))
+    elif opts.scheduler.name == "Cyclical":
+        return(CosineAnnealingWarmRestarts(optimizer, opts.scheduler.cyclical.warmup_epochs))
+    elif opts.scheduler.name == "":
+        return(None)
+    else:
+        raise ValueError(f"Scheduler'{opts.scheduler.name}' is not valid")
 
 class EbirdDataModule(pl.LightningDataModule):
     def __init__(self, opts) -> None:

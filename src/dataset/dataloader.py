@@ -2,6 +2,8 @@ from pathlib import Path
 from typing import Any, Callable, Dict, Optional, Sequence
 
 from src.dataset.geo import VisionDataset 
+from torchvision import transforms as trsfs
+
 from src.dataset.utils import load_file, is_image_file 
 from torch.utils.data import DataLoader
 from torch.nn import Module
@@ -101,6 +103,7 @@ class EbirdVisionDataset(VisionDataset):
                  target = "probs",
                  subset = None, 
                  use_loc = False, 
+                 res=[],
                  loc_type = None)-> None:
         """
         df_paths: dataframe with paths to data for each hotspot
@@ -125,6 +128,7 @@ class EbirdVisionDataset(VisionDataset):
         self.subset = get_subset(subset) 
         self.use_loc = use_loc
         self.loc_type = loc_type
+        self.res=res
         self.speciesA = get_subset("songbirds") 
         
     def __len__(self):
@@ -141,28 +145,68 @@ class EbirdVisionDataset(VisionDataset):
         
         assert len(band_npy) > 0, "No item to fetch"
         
-        if self.type == "img":
-            npy_data = get_img_bands(band_npy)
-        else:
-            bands = [load_file(band) for (_,band) in band_npy]
-            npy_data = np.stack(bands, axis = 1).astype(np.int32)
-            
-        for (b,band) in env_npy: 
-            item_[b] = torch.from_numpy(load_file(band))
-            
-        item_["sat"] = torch.from_numpy(npy_data)
-        if "landuse" in self.bands:
-            item_["landuse"] = torch.from_numpy(np.array(Image.open(get_path(self.df, index, "landuse")))/10)
-            item_["landuse"] = torch.unsqueeze(torch.unsqueeze(item_["landuse"], 0), 0)
-        if self.transform:
-            item_ = self.transform(item_)
+       
         
-
-
-        for e in self.env:
-            item_["sat"] = torch.cat([item_["sat"],item_[e]], dim = 1)
+      
+        if self.type == "img":
+                npy_data = get_img_bands(band_npy)
+        else:
+                bands = [load_file(band) for (_,band) in band_npy]
+                npy_data = np.stack(bands, axis = 1).astype(np.int32)
+        env_len=0
+        for (b,band) in env_npy: 
+                item_[b] = torch.from_numpy(load_file(band))
+                env_len+=1
+        sats=torch.from_numpy(npy_data)
+        sats=sats.squeeze(0)
+        C, _, _ = sats.shape
+        item_["sat"]=sats
         if "landuse" in self.bands:
-            item_["sat"] = torch.cat([item_["sat"],item_["landuse"]], dim = 1)
+                landuse=torch.from_numpy(np.array(Image.open(get_path(self.df, index, "landuse")))/10)
+                landuse = torch.unsqueeze(landuse, 0)
+        if  len(self.res)>1 :
+                sat_list = []
+              
+#                 item_['sat']=torch.unsqueeze(sats,0)
+                if "landuse" in self.bands:      
+                       landuselist=[]
+#                        landuse=torch.unsqueeze(landuse, 0)
+                       item_['landuse']=landuse                
+                crops, transforms= self.transform[0],self.transform[1]
+                #perform different crops and transformation on  both sat and landuse & env data
+                for c in crops:
+                    transforms.insert(0,c)
+                    t=trsfs.Compose(transforms)    
+                    item_=t(item_)
+                    sat_list.append(item_['sat'])
+                    if 'landuse' in self.bands:
+                        landuselist.append(item_['landuse'])
+            
+                item_["sat"] = torch.cat(sat_list,dim=0)  
+                if 'landuse' in self.bands:
+                    item_["landuse"] = torch.cat(landuselist,dim=0)  
+                    item_['sat'] = torch.cat((item_['sat'],item_['landuse']),dim=-3)
+                    print('shape ',item_['sat'].shape)
+                    assert item_['sat'].shape==(len(self.res),C+1,224,224),'shape of item_sat with land use is wrong'
+                else:
+                    
+                     assert item_['sat'].shape==(len(self.res),C,224,224),'shape of item_sat is wrong'
+                
+
+        elif len(self.res) <= 1:
+             item_['sat']=sats
+             t=trsfs.Compose(self.transform)
+             if "landuse" in self.bands:
+                     item_['landuse']=landuse  
+                
+             item_=t(item_)
+             if 'landuse' in self.bands:
+                 item_['sat'] = torch.cat((item_['sat'],item_['landuse']),dim=-3)
+        
+        else:
+            raise ValueError("Unknown transforms_length {}".format(len(self.transform)))
+
+             
         #print(item_["landuse"].size())
         #print(item_["sat"].size())
         if "species" in self.df.columns: 

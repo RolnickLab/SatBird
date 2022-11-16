@@ -12,6 +12,8 @@ from src.trainer.trainer import EbirdTask, EbirdDataModule
 #from src.trainer.trainer_species import EbirdSpeciesTask
 import src.trainer.geo_trainer as geo_trainer
 import src.trainer.state_trainer as state_trainer
+import src.trainer.multires_trainer as multires_trainer
+
 import pytorch_lightning as pl
 from pytorch_lightning import loggers as pl_loggers
 from pytorch_lightning import Trainer
@@ -114,9 +116,9 @@ def main(opts):
     print("hydra_opts", hydra_opts)
     args = hydra_opts.pop("args", None)
 
-    config_path = "/network/scratch/a/amna.elmustafa/tmp2/ecosystem-embedding/configs/custom_amna.yaml"
+    config_path = "/network/scratch/a/amna.elmustafa/final/ecosystem-embedding/configs/custom_amna.yaml"
     #args['config'] #"/home/mila/t/tengmeli/ecosystem-embedding/configs/custom_meli_2.yaml" 
-    default = "/network/scratch/a/amna.elmustafa/tmp2/ecosystem-embedding/configs/defaults.yaml" #args['default']
+    default = "/network/scratch/a/amna.elmustafa/final/ecosystem-embedding/configs/defaults.yaml" #args['default']
     #default = Path(__file__).parent / "configs/defaults.yaml"
     conf = load_opts(config_path, default=default, commandline_opts=hydra_opts)
     conf.save_path = conf.save_path+os.environ["SLURM_JOB_ID"]
@@ -130,15 +132,21 @@ def main(opts):
     
     print(conf.log_comet)
     
-    print(conf) 
-    if "speciesAtoB" in conf.keys() and conf.speciesAtoB:
+    print(conf)
+    print('multires len:', len(conf.data.multiscale))
+    if not conf.loc.use and len(conf.data.multiscale)>1:
+         print('using multiscale net')
+         task = multires_trainer.EbirdTask(conf)
+         datamodule = EbirdDataModule(conf)
+    elif "speciesAtoB" in conf.keys() and conf.speciesAtoB:
             print("species A to B")
             task = EbirdSpeciesTask(conf)
             datamodule = EbirdDataModule(conf)
     elif not conf.loc.use :
         task = EbirdTask(conf)
         datamodule = EbirdDataModule(conf)
-    
+   
+        
     elif conf.loc.loc_type == "latlon":
         print("Using geo information")
         task = geo_trainer.EbirdTask(conf)
@@ -152,7 +160,12 @@ def main(opts):
     trainer_args = cast(Dict[str, Any], OmegaConf.to_object(conf.trainer))
     if conf.load_ckpt_path != "":
         print("Loading existing checkpoint")
-    conf.load_ckpt_path = "/network/scratch/a/amna.elmustafa/ecosystem-embeddings/ckpts2422653/last.ckpt"
+    conf.load_ckpt_path = "/network/scratch/a/amna.elmustafa/ecosystem-embeddings/ckpts2477127/last.ckpt"
+    #"/network/scratch/a/amna.elmustafa/ecosystem-embeddings/ckpts2477166/last.ckpt"
+    #/network/scratch/a/amna.elmustafa/ecosystem-embeddings/ckpts2477165  512_224
+    #/network/scratch/a/amna.elmustafa/ecosystem-embeddings/ckpts2477127  64
+    #/network/scratch/a/amna.elmustafa/ecosystem-embeddings/ckpts2477123  512
+    # /network/scratch/a/amna.elmustafa/ecosystem-embeddings/ckpts2477120  224
     #"/network/scratch/t/tengmeli/ecosystem-embeddings/checkpoint_base_2034177/epoch=53-step=2537.ckpt" #"/network/scratch/t/tengmeli/ecosystem-embeddings/checkpoint_loc_2034124/epoch=3-step=187.ckpt" #"/network/scratch/t/tengmeli/ecosystem-embeddings/checkpoint_loc2033871/last-copy.ckpt"
     task = task.load_from_checkpoint(conf.load_ckpt_path, save_preds_path = conf.save_preds_path)    
         

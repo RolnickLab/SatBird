@@ -21,7 +21,7 @@ loc:
 comet:
   project_name: "range_maps" #"ecosystem-duck"
 
-  tags: ["resnet18", "rgb_nir", "adam","seco_pretrain","no_range maps","224*224 warmups"]
+  tags: ["resnet18", "rgb_nir", "adam","no_range maps","landuse_224"]
   #"R range_maps"]
 
 
@@ -38,12 +38,13 @@ experiment:
     fc: "linear"
     #use pretraine weights ( trochvision ) 
     pretrained: true
-    resume: "/network/scratch/a/amna.elmustafa/tmp2/ecosystem-embedding/src/trainer/seco_resnet18_100k.ckpt" #"/home/mila/t/tengmeli/ecosystem-embedding/outputs/2022-03-29/08-40-05/final_layer_comparison/b84c264fb4c8477f95cad55bbf85d709/checkpoints/epoch=1273-step=408953.ckpt"
+    resume:  ""
+    #"/network/scratch/a/amna.elmustafa/seco_resnet18_100k.ckpt" #"/home/mila/t/tengmeli/ecosystem-embedding/outputs/2022-03-29/08-40-05/final_layer_comparison/b84c264fb4c8477f95cad55bbf85d709/checkpoints/epoch=1273-step=408953.ckpt"
     
     #initializes biases of the output layer sothat sigmoid(bias) = mean over the training set for each species
     init_bias: ""
     means_path: "/network/scratch/t/tengmeli/scratch/ecosystem-embedding/training/means_all_species.npy"
-    lr: 0.00003
+    lr: 0.0003
 
 optimizer: "Adam"  #"Adam"
 
@@ -59,7 +60,7 @@ scheduler:
     gamma: 0.5
   warmup:
     warmup_epochs: 5
-    max_epochs: 200
+    max_epochs: 100
   
   cyclical:
     warmup_epochs: 10
@@ -83,18 +84,18 @@ variables: &default_vars
 data:
   loaders:
     num_workers: 8
-    batch_size: 32
+    batch_size: 64
   #What kind of satellite input ? "refl" for "raw" reflectance values or 
   #"img" for 0-255 values (only supported for "rgb" and "nir" bands)
   datatype: "refl" 
   
-  bands: ["r","g","b", "nir"]  #any subset of ["r", "g", "b", "nir"] if working with "refl" data or ["rgb", "nir"] if using "img" 
+  bands: ["r","g","b", "nir",'landuse']  #any subset of ["r", "g", "b", "nir","landuse"] if working with "refl" data or ["rgb", "nir"] if using "img" 
   
   res: 10 #resolution of the images
 
   #o you want to use environmental data (pedological and bioclimatic (low res) data)
   env:  [] #["ped", "bioclim"] #  #["ped", "bioclim"] #ped" or "bioclim" or both or empty list
-  
+  multiscale : [224]
   #resolution of pedological and bioclimatic data in meters
   ped: 
       #pedological rasters
@@ -126,7 +127,7 @@ data:
   #normalization: None
   transforms:
     - name: matchres
-      ignore: false
+      ignore: true
       target_size: [224, 224]
       
     - name: crop
@@ -134,8 +135,8 @@ data:
       p: 1
       ignore_band: ["bioclim", "ped"] #["bioclim", "ped"]
       center: true # disable randomness, crop around the image's center
-      height: 64
-      width: 64
+      height: 224
+      width: 224
     - name: resize
       ignore: false
       size: [224,224]
