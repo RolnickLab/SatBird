@@ -6,7 +6,7 @@ import torch.nn as nn
 from torch import Tensor
 from torch.nn.modules import Module
 from torch.optim.lr_scheduler import ReduceLROnPlateau, StepLR, CosineAnnealingWarmRestarts
-from pl_bolts.optimizers.lr_scheduler import LinearWarmupCosineAnnealingLR
+# from pl_bolts.optimizers.lr_scheduler import LinearWarmupCosineAnnealingLR
 from torch.utils.data import DataLoader, Subset
 from torchvision import models
 import numpy as np
@@ -62,9 +62,9 @@ def get_scheduler(optimizer, opts):
                   patience = opts.scheduler.reduce_lr_plateau.lr_schedule_patience))
     elif opts.scheduler.name == "StepLR":
         return (StepLR(optimizer, opts.scheduler.step_lr.step_size, opts.scheduler.step_lr.gamma))
-    elif opts.scheduler.name == "WarmUp":     
-        return(LinearWarmupCosineAnnealingLR(optimizer, opts.scheduler.warmup.warmup_epochs,
-        opts.scheduler.warmup.max_epochs))
+#     elif opts.scheduler.name == "WarmUp":     
+#         return(LinearWarmupCosineAnnealingLR(optimizer, opts.scheduler.warmup.warmup_epochs,
+#         opts.scheduler.warmup.max_epochs))
     elif opts.scheduler.name == "Cyclical":
         return(CosineAnnealingWarmRestarts(optimizer, opts.scheduler.cyclical.t0, opts.scheduler.cyclical.tmult))
     elif opts.scheduler.name == "":

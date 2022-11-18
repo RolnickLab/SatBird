@@ -5,7 +5,7 @@ import torch.nn as nn
 from torch import Tensor
 from torch.nn.modules import Module
 from torch.optim.lr_scheduler import ReduceLROnPlateau, StepLR, CosineAnnealingWarmRestarts
-from pl_bolts.optimizers.lr_scheduler import LinearWarmupCosineAnnealingLR
+# from pl_bolts.optimizers.lr_scheduler import LinearWarmupCosineAnnealingLR
 from torch.utils.data import DataLoader, Subset
 from torchvision import models
 from torch.autograd import Variable
@@ -116,9 +116,11 @@ class EbirdTask(pl.LightningModule):
         """
         Satellite model if we multiply output with location model output
         """
+        
         if self.opts.experiment.module.model == "resnet18":
             
             self.sat_model = models.resnet18(pretrained=self.opts.experiment.module.pretrained)
+            in_features=self.sat_model.in_features*len(self.opts.data.multires)
             if len(self.opts.data.bands) != 3 or len(self.opts.data.env) > 0:
                 bands = self.opts.data.bands + self.opts.data.env
                 orig_channels = self.sat_model.conv1.in_channels
@@ -130,11 +132,11 @@ class EbirdTask(pl.LightningModule):
             if self.concat:
                 self.sat_model.fc =Identity()
                 if self.opts.experiment.module.fc == "linear":
-                    self.linear_layer = nn.Linear(256+512,  self.target_size)
+                    self.linear_layer = nn.Linear(256+in_features,  self.target_size)
                 if self.opts.experiment.module.fc == "linear_net":
-                    self.linear_layer = nn.Sequential(nn.Linear(256+512, 512), nn.ReLU(), nn.Linear(512, self.target_size))
+                    self.linear_layer = nn.Sequential(nn.Linear(256+in_features, 512), nn.ReLU(), nn.Linear(512, self.target_size))
             else:
-                self.sat_model.fc = nn.Linear(512, self.target_size) 
+                self.sat_model.fc = nn.Linear(in_features, self.target_size) 
                 
 
             self.m = nn.Sigmoid()
@@ -142,6 +144,7 @@ class EbirdTask(pl.LightningModule):
             
             
         elif self.opts.experiment.module.model == "resnet50":
+            in_features=self.sat_model.in_features*len(self.opts.data.multires)
             self.sat_model = models.resnet50(pretrained=self.opts.experiment.module.pretrained)
             if len(self.opts.data.bands) != 3 or len(self.opts.data.env) > 0:
                 bands = self.opts.data.bands + self.opts.data.env
@@ -155,20 +158,21 @@ class EbirdTask(pl.LightningModule):
                 
             if self.concat:
                 self.sat_model.fc =Identity()
-                self.linear_layer = nn.Linear(256+2048,  self.target_size)
+                self.linear_layer = nn.Linear(256+in_features,  self.target_size)
             else:
-                self.sat_model.fc = nn.Linear(2048, self.target_size) 
+                self.sat_model.fc = nn.Linear(in_features, self.target_size) 
 
             self.m = nn.Sigmoid()
 
             
         elif self.opts.experiment.module.model == "inceptionv3":
+            in_features=self.sat_model.in_features*len(self.opts.data.multires)
             self.sat_model = models.inception_v3(pretrained=self.opts.experiment.module.pretrained)
             self.sat_model.AuxLogits.fc = nn.Linear(768, self.target_size)       
             if self.concat:
                 self.sat_model.fc =Identity()
             else:
-                self.sat_model.fc = nn.Linear(2048, self.target_size)
+                self.sat_model.fc = nn.Linear(in_features, self.target_size)
         else:
             raise ValueError(f"Model type '{self.opts.experiment.module.model}' is not valid")
             
@@ -201,7 +205,9 @@ class EbirdTask(pl.LightningModule):
         
         self.encoders = {}
         self.encoders["loc"] =  self.get_loc_model()
-        self.encoders["sat"] = self.get_sat_model()   
+        for i,res in enumerate(self.opts.data.multiscale):
+            
+            self.encoders[f"sat_{res}"] = self.get_sat_model()   
         metrics = get_metrics(self.opts)
         for (name, value, _) in metrics:
             setattr(self, name, value)
@@ -223,13 +229,17 @@ class EbirdTask(pl.LightningModule):
             out_loc = self.encoders["loc"](loc_tensor).squeeze(1)
             return out_sat, aux_outputs, out_loc
         else:
-            if not self.concat:
-                out_sat = self.encoders["sat"](x)
-                out_loc = self.encoders["loc"](loc_tensor).squeeze(1)
+             out_sat=[]
+             for i,res in enumerate(self.opts.data.multiscale):
+                    
+                    out_sat.apppend(self.encoders[f"sat_{res}"](x[i].squeeze(0)))
+             out_sat=torch.cat(out_sat,dim=0)
+             out_loc = self.encoders["loc"](loc_tensor).squeeze(1)
+             if not self.concat:
+               
                 return out_sat, out_loc
-            else:
-                out_sat = self.encoders["sat"](x)
-                out_loc = self.encoders["loc"](loc_tensor).squeeze(1)
+             else:
+                
                 concat = torch.cat((out_sat, out_loc), 1)
                 out = self.linear_layer(concat)
                 return(out)
@@ -240,8 +250,8 @@ class EbirdTask(pl.LightningModule):
         
         """Training step"""
         
-        x = batch['sat'].squeeze(1)
-        print('input shape',x.shape)
+        x = batch['sat']
+        print('input shape',x.shape) #len(multires)xbatch_sizexnb_bandsximg_sizeximg_size
         loc_tensor= batch["loc"]
         y = batch['target']
         b, no_species = y.shape        
@@ -311,7 +321,7 @@ class EbirdTask(pl.LightningModule):
 
         """Validation step """
 
-        x = batch['sat'].squeeze(1)
+        x = batch['sat']
         loc_tensor= batch["loc"]
         y = batch['target']    
         
@@ -376,7 +386,7 @@ class EbirdTask(pl.LightningModule):
     )-> None:
         """Test step """
         
-        x = batch['sat'].squeeze(1)
+        x = batch['sat']
         loc_tensor= batch["loc"]
         
         y = batch['target']
@@ -515,9 +525,9 @@ def get_scheduler(optimizer, opts):
                   patience = opts.scheduler.reduce_lr_plateau.lr_schedule_patience))
     elif opts.scheduler.name == "StepLR":
         return (StepLR(optimizer, opts.scheduler.step_lr.step_size, opts.scheduler.step_lr.gamma))
-    elif opts.scheduler.name == "WarmUp":     
-        return(LinearWarmupCosineAnnealingLR(optimizer, opts.scheduler.warmup.warmup_epochs,
-        opts.scheduler.warmup.max_epochs))
+#     elif opts.scheduler.name == "WarmUp":     
+#         return(LinearWarmupCosineAnnealingLR(optimizer, opts.scheduler.warmup.warmup_epochs,
+#         opts.scheduler.warmup.max_epochs))
     elif opts.scheduler.name == "Cyclical":
         return(CosineAnnealingWarmRestarts(optimizer, opts.scheduler.cyclical.warmup_epochs))
     elif opts.scheduler.name == "":

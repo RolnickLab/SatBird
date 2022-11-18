@@ -6,7 +6,7 @@ import torch.nn as nn
 from torch import Tensor
 from torch.nn.modules import Module
 from torch.optim.lr_scheduler import ReduceLROnPlateau, StepLR, CosineAnnealingWarmRestarts
-# from pl_bolts.optimizers.lr_scheduler import LinearWarmupCosineAnnealingLR
+from pl_bolts.optimizers.lr_scheduler import LinearWarmupCosineAnnealingLR
 from torch.utils.data import DataLoader, Subset
 from torchvision import models
 import numpy as np
@@ -56,9 +56,9 @@ def get_scheduler(optimizer, opts):
                   patience = opts.scheduler.reduce_lr_plateau.lr_schedule_patience))
     elif opts.scheduler.name == "StepLR":
         return (StepLR(optimizer, opts.scheduler.step_lr.step_size, opts.scheduler.step_lr.gamma))
-#     elif opts.scheduler.name == "WarmUp":     
-#         return(LinearWarmupCosineAnnealingLR(optimizer, opts.scheduler.warmup.warmup_epochs,
-#         opts.scheduler.warmup.max_epochs))
+    elif opts.scheduler.name == "WarmUp":     
+        return(LinearWarmupCosineAnnealingLR(optimizer, opts.scheduler.warmup.warmup_epochs,
+        opts.scheduler.warmup.max_epochs))
     elif opts.scheduler.name == "Cyclical":
         return(CosineAnnealingWarmRestarts(optimizer, opts.scheduler.cyclical.t0, opts.scheduler.cyclical.tmult))
     elif opts.scheduler.name == "":
@@ -142,8 +142,10 @@ class EbirdTask(pl.LightningModule):
                 )
                 #assume first three channels are rgb
                 if self.opts.experiment.module.pretrained:
-                    self.model.conv1.weight.data[:, :orig_channels, :, :] = weights
-            #loading seco model
+                    #self.model.conv1.weight.data[:, :orig_channels, :, :] = weights
+                    print('bands: ',self.bands, get_nb_bands(self.bands))
+                    self.model.conv1.weight.data=init_first_layer_weights(get_nb_bands(self.bands), weights)
+            #loading seco mode
             if self.opts.experiment.module.resume:
                 
                 ckpt = torch.load(self.opts.experiment.module.resume)
@@ -754,3 +756,68 @@ class EbirdDataModule(pl.LightningDataModule):
             num_workers = self.num_workers,
             shuffle = False,
         )
+
+
+def init_first_layer_weights(in_channels: int, rgb_weights,
+                             hs_weight_init: str = 'random'):
+    '''Initializes the weights for filters in the first conv layer.
+      If we are using RGB-only, then just initializes var to rgb_weights. Otherwise, uses
+      hs_weight_init to determine how to initialize the weights for non-RGB bands.
+      Args
+      - int: in_channesl, input channels
+          - in_channesl is  either 3 (RGB), 7 (lxv3), or 9 (Landsat7) or 2 (NL)
+      - rgb_weights: ndarray of np.float32, shape [64, 3, F, F]
+      - hs_weight_init: str, one of ['random', 'same', 'samescaled']
+      Returs
+      -torch tensor : final_weights
+      '''
+
+    out_channels, rgb_channels, H, W = rgb_weights.shape
+    print('rgb weight shape ', rgb_weights.shape)
+    rgb_weights = torch.tensor(rgb_weights, device='cuda')
+    ms_channels = in_channels - rgb_channels
+    if in_channels == 3:
+            final_weights = rgb_weights
+
+    elif in_channels < 3: 
+        with torch.no_grad():
+            mean = rgb_weights.mean()
+            std = rgb_weights.std()
+            final_weights = torch.empty((out_channels, in_channels, H, W), device='cuda')
+            final_weights = torch.nn.init.trunc_normal_(final_weights, mean, std)
+    elif in_channels > 3:
+        # spectral images
+
+        if hs_weight_init == 'same':
+
+            with torch.no_grad():
+                mean = rgb_weights.mean(dim=1, keepdim=True)  # mean across the in_channel dimension
+                mean = torch.tile(mean, (1, ms_channels, 1, 1))
+                ms_weights = mean
+
+        elif hs_weight_init == 'random':
+            start = time.time()
+            with torch.no_grad():
+                mean = rgb_weights.mean()
+                std = rgb_weights.std()
+                ms_weights = torch.empty((out_channels, ms_channels, H, W), device='cuda')
+                ms_weights = torch.nn.init.trunc_normal_(ms_weights, mean, std)
+            print(f'random: {time.time() - start}')
+
+        elif hs_weight_init == 'samescaled':
+            start = time.time()
+            with torch.no_grad():
+                mean = rgb_weights.mean(dim=1, keepdim=True)  # mean across the in_channel dimension
+                mean = torch.tile(mean, (1, ms_channels, 1, 1))
+                ms_weights = (mean * 3) / (3 + ms_channels)
+                # scale both rgb_weights and ms_weights
+                rgb_weights = (rgb_weights * 3) / (3 + ms_channels)
+            
+
+        else:
+
+            raise ValueError(f'Unknown hs_weight_init type: {hs_weight_init}')
+
+        final_weights = torch.cat([rgb_weights, ms_weights], dim=1)
+    print('init__layer_weight shape ', final_weights.shape)
+    return final_weights
