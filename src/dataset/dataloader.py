@@ -223,7 +223,7 @@ class EbirdVisionDataset(VisionDataset):
             raise ValueError("Unknown transforms_length {}".format(len(self.transform)))
             
         for e in self.env:
-                    item_["sat"] = torch.cat([item_["sat"],item_[e]], dim = 1)
+                    item_["sat"] = torch.cat([item_["sat"],item_[e]], dim = -3)
 
              
         #print(item_["landuse"].size())

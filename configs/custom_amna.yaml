@@ -21,7 +21,7 @@ loc:
 comet:
   project_name: "range_maps" #"ecosystem-duck"
 
-  tags: ["resnet18", "rgb_nir", "adam","no_range maps","landuse_224"]
+  tags: ["resnet18", "rgb_nir", "adam","range maps","sat_512_224","debug"]
   #"R range_maps"]
 
 
@@ -84,18 +84,20 @@ variables: &default_vars
 data:
   loaders:
     num_workers: 8
-    batch_size: 64
+    batch_size: 32
   #What kind of satellite input ? "refl" for "raw" reflectance values or 
   #"img" for 0-255 values (only supported for "rgb" and "nir" bands)
   datatype: "refl" 
   
-  bands: ["r","g","b", "nir",'landuse']  #any subset of ["r", "g", "b", "nir","landuse"] if working with "refl" data or ["rgb", "nir"] if using "img" 
+  bands:  ["r","g","b", "nir","landuse"] #["r","g","b", "nir"]
+  #['landuse']
+  #["r","g","b", "nir",'landuse']  #any subset of ["r", "g", "b", "nir","landuse"] if working with "refl" data or ["rgb", "nir"] if using "img" 
   
   res: 10 #resolution of the images
 
   #o you want to use environmental data (pedological and bioclimatic (low res) data)
-  env:  [] #["ped", "bioclim"] #  #["ped", "bioclim"] #ped" or "bioclim" or both or empty list
-  multiscale : [224]
+  env: ["ped", "bioclim"]  # ["ped", "bioclim"] #  #["ped", "bioclim"] #ped" or "bioclim" or both or empty list
+  multiscale : [512]
   #resolution of pedological and bioclimatic data in meters
   ped: 
       #pedological rasters
@@ -115,7 +117,7 @@ data:
     #'/network/scratch/a/amna.elmustafa/tmp/ecosystem-embedding/data_processing/Htest4.npy'  #hard thresholding file ,options:[Htest, Htest2,Htest3,Htest4] corrosponding to threshold as [mean species values , mask of species that have prob less than mean ,mask of species that have prob less than mean/10 ,mask of species that have prob less than mean*10 ]
   correction_factor:
      use:  None  #soft thresholding choises [None, 'before' (before sigmoid) ,'after'(after sigmoid)] 
-     thresh : None  #hard thresholding ['before','after']
+     thresh : 'after'  #hard thresholding ['before','after']
 
     
   target:
@@ -127,7 +129,7 @@ data:
   #normalization: None
   transforms:
     - name: matchres
-      ignore: true
+      ignore: false
       target_size: [224, 224]
       
     - name: crop
@@ -161,12 +163,12 @@ data:
       #[87.0467011965099, 91.21045367500467, 67.50251448722302],[67.55043009747773, 51.443316800384295, 49.65159018638426]
 
     - name: normalize
-      ignore: true
+      ignore: false
       maxchan: false
       subset: ["bioclim"]
       custom: [*bioclim_means, *bioclim_std]
     - name: normalize
-      ignore: true
+      ignore: false
       maxchan: false
       subset: ["ped"]
       custom: [*ped_means, *ped_std]

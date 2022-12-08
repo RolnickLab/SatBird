@@ -48,7 +48,8 @@ scheduler:
     gamma: 0.5
   warmup:
     warmup_epochs: 10
-    max_epochs: 100 
+    max_epochs: 500
+    
   cyclical:
     warmup_epochs: 10
 
@@ -217,7 +218,7 @@ trainer: # These are the parameters passed to the pytorch lightning Trainer obje
   check_val_every_n_epoch: 1
   fast_dev_run: False
   accumulate_grad_batches: 1
-  max_epochs: 100
+  max_epochs: 400
   min_epochs: null
   max_steps: null
   min_steps: null

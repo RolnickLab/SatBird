@@ -235,11 +235,14 @@ class EbirdTask(pl.LightningModule):
         #multiscale experiment assuming all scales will have the same model
         
         if len(self.opts.data.multiscale)>1:
+            models_scales=[]
             in_features=self.model.fc.in_features
-            self.model.fc =Identity()
+            self.model.fc =nn.Sequential()
             self.linear_layer = nn.Linear(len(self.opts.data.multiscale)*in_features,  self.target_size)
             model=self.model
-            self.model= nn.ModuleDict({ f'{key}_scale':model for key in self.opts.data.multiscale})
+            for i in self.opts.data.multiscale:
+                models_scales.append(model)
+            self.model= nn.ModuleDict({ f'{key}_scale':model for key,model in zip(self.opts.data.multiscale,models_scales)})
             self.model.update({'fc':self.linear_layer})
             #self.model= dict({ f'{key}_scale':model for key in self.opts.data.multiscale})
             
@@ -279,7 +282,6 @@ class EbirdTask(pl.LightningModule):
 #         self.correction=  self.correction_data.loc[:,subset]
         assert self.correction.shape[1]==len(subset)
         
-       
         
         #watch model gradients
         #wandb.watch(self.model, log='all', log_freq=5)
@@ -287,16 +289,22 @@ class EbirdTask(pl.LightningModule):
 
     def forward(self, x:Tensor) -> Any:
         if len(self.opts.data.multiscale)>1:
+            
             out_sat=[]
             for i,res in enumerate(self.opts.data.multiscale):
                     
                     out_sat.append(self.model[f"{res}_scale"](x[:,i,:,:,:]))
+                    
             out_sat=torch.cat(out_sat,dim=-1)
-            print('out_sat shape',out_sat.shape)
+#             print(out_sat.requires_grad)
+#             print('out_sat shape',out_sat.shape)
             assert out_sat.shape[-1]==((self.linear_layer.in_features)), 'shape of output after concat is wrong'
             out = self.model['fc'](out_sat)
+            return out
+        else:
+            return self.model(x)
             
-        return out
+        
 
     def training_step(
         self, batch: Dict[str, Any], batch_idx: int )-> Tensor:

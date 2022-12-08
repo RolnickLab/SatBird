@@ -12,6 +12,7 @@ from src.trainer.trainer import EbirdTask, EbirdDataModule
 #sfrom src.trainer.trainer import EbirdSpeciesTask
 import src.trainer.geo_trainer as geo_trainer
 import src.trainer.state_trainer as state_trainer
+import src.trainer.multires_trainer as multires_trainer
 import pytorch_lightning as pl
 from pytorch_lightning import loggers as pl_loggers
 from pytorch_lightning import Trainer
@@ -118,9 +119,9 @@ def main(opts):
     print("hydra_opts", hydra_opts)
     args = hydra_opts.pop("args", None)
 
-    config_path = "/network/scratch/a/amna.elmustafa/tmp2/ecosystem-embedding/configs/custom_amna.yaml"
+    config_path = "/network/scratch/a/amna.elmustafa/final/ecosystem-embedding/configs/custom_amna.yaml"
     #args['config'] #"/home/mila/t/tengmeli/ecosystem-embedding/configs/custom_meli_2.yaml" 
-    default = "/network/scratch/a/amna.elmustafa/tmp2/ecosystem-embedding/configs/defaults.yaml" #args['default']
+    default = "/network/scratch/a/amna.elmustafa/final/ecosystem-embedding/configs/defaults.yaml" #args['default']
     #default = Path(__file__).parent / "configs/defaults.yaml"
     conf = load_opts(config_path, default=default, commandline_opts=hydra_opts)
     conf.save_path = conf.save_path+os.environ["SLURM_JOB_ID"]
@@ -139,6 +140,10 @@ def main(opts):
         print("species A to B")
         task = EbirdSpeciesTask(conf)
         datamodule = EbirdDataModule(conf)
+    elif not conf.loc.use and len(conf.data.multiscale)>1:
+         print('using multiscale net')
+         task = multires_trainer.EbirdTask(conf)
+         datamodule = EbirdDataModule(conf)
     elif not conf.loc.use :
         task = EbirdTask(conf)
         datamodule = EbirdDataModule(conf)
@@ -164,6 +169,7 @@ def main(opts):
         )
         comet_logger.experiment.add_tags(list(conf.comet.tags))
         print(conf.comet.tags)
+#         comet_logger.experiment.log_model("my-model", conf.save_path)
         trainer_args["logger"] = comet_logger
     else:
         wandb_logger = WandbLogger(project='test-project')
@@ -187,6 +193,7 @@ def main(opts):
 
     
     trainer_args["callbacks"] = [checkpoint_callback]
+    trainer_args['resume_from_checkpoint'] =conf.experiment.module.resume
    # trainer_args["max_epochs"] = 400
     
 

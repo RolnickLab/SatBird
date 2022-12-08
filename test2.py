@@ -160,13 +160,22 @@ def main(opts):
     trainer_args = cast(Dict[str, Any], OmegaConf.to_object(conf.trainer))
     if conf.load_ckpt_path != "":
         print("Loading existing checkpoint")
-    conf.load_ckpt_path = "/network/scratch/a/amna.elmustafa/ecosystem-embeddings/ckpts2477127/last.ckpt"
+    conf.load_ckpt_path = "/network/scratch/a/amna.elmustafa/ecosystem-embeddings/ckpts2527294/last.ckpt"
     #"/network/scratch/a/amna.elmustafa/ecosystem-embeddings/ckpts2477166/last.ckpt"
     #/network/scratch/a/amna.elmustafa/ecosystem-embeddings/ckpts2477165  512_224
     #/network/scratch/a/amna.elmustafa/ecosystem-embeddings/ckpts2477127  64
     #/network/scratch/a/amna.elmustafa/ecosystem-embeddings/ckpts2477123  512
     # /network/scratch/a/amna.elmustafa/ecosystem-embeddings/ckpts2477120  224
-    #"/network/scratch/t/tengmeli/ecosystem-embeddings/checkpoint_base_2034177/epoch=53-step=2537.ckpt" #"/network/scratch/t/tengmeli/ecosystem-embeddings/checkpoint_loc_2034124/epoch=3-step=187.ckpt" #"/network/scratch/t/tengmeli/ecosystem-embeddings/checkpoint_loc2033871/last-copy.ckpt"
+    # /network/scratch/a/amna.elmustafa/ecosystem-embeddings/ckpts2485167 satenv224
+    #land use only /network/scratch/a/amna.elmustafa/ecosystem-embeddings/ckpts2484606
+    # /network/scratch/a/amna.elmustafa/ecosystem-embeddings/ckpts2485253 satenvlanduse224
+    #"/network/scratch/t/tengmeli/ecosystem-embeddings/checkpoint_base_2034177/epoch=53-step=2537.ckpt" 
+    #"/network/scratch/t/tengmeli/ecosystem-embeddings/checkpoint_loc_2034124/epoch=3-step=187.ckpt" #"/network/scratch/t/tengmeli/ecosystem-embeddings/checkpoint_loc2033871/last-copy.ckpt"
+    #sat 224 512 rangemaps: /network/scratch/a/amna.elmustafa/ecosystem-embeddings/ckpts2527315
+    #above with landuse : /network/scratch/a/amna.elmustafa/ecosystem-embeddings/ckpts2527309
+    #sat landuse env 512  /network/scratch/a/amna.elmustafa/ecosystem-embeddings/ckpts2527306
+    #Sat landuse  env 224 /network/scratch/a/amna.elmustafa/ecosystem-embeddings/ckpts2527294
+    
     task = task.load_from_checkpoint(conf.load_ckpt_path, save_preds_path = conf.save_preds_path)    
         
     trainer = pl.Trainer(**trainer_args)
