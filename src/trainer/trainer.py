@@ -112,7 +112,7 @@ class EbirdTask(pl.LightningModule):
                 self.feature_extractor.conv1 = nn.Conv2d(get_nb_bands(self.bands), 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
             if self.opts.experiment.module.fc == "linear":
                 self.feature_extractor.fc = nn.Linear(512, self.target_size)
-            ckpt = torch.load(self.opts.experiment.module.resume)
+            ckpt = torch.load(self.opts.experiment.module.resum)
             for key in list(ckpt["state_dict"].keys()):
                 ckpt["state_dict"][key.replace('model.', '')] = ckpt["state_dict"].pop(key)
             self.feature_extractor.load_state_dict(ckpt["state_dict"])
@@ -143,12 +143,11 @@ class EbirdTask(pl.LightningModule):
                 #assume first three channels are rgb
                 if self.opts.experiment.module.pretrained:
                     #self.model.conv1.weight.data[:, :orig_channels, :, :] = weights
-                    print('bands: ',self.bands, get_nb_bands(self.bands))
                     self.model.conv1.weight.data=init_first_layer_weights(get_nb_bands(self.bands), weights)
             #loading seco mode
-            if self.opts.experiment.module.resume:
-                
-                ckpt = torch.load(self.opts.experiment.module.resume)
+            if self.opts.experiment.module.resum:
+                print('loading a pretrained model')
+                ckpt = torch.load(self.opts.experiment.module.resum)
                 self.model.fc = nn.Sequential()
                 loaded_dict=ckpt['state_dict']
                 model_dict=self.model.state_dict()
@@ -172,12 +171,12 @@ class EbirdTask(pl.LightningModule):
                 self.model.fc = nn.Linear(512, self.target_size)
             
         elif self.opts.experiment.module.model == "resnet50":
-            self.model = models.resnet50(pretrained=self.opts.experiment.module.pretrained)
+            model = models.resnet50(pretrained=self.opts.experiment.module.pretrained)
             if len(self.opts.data.bands) != 3 or len(self.opts.data.env) > 0:
                 self.bands = self.opts.data.bands + self.opts.data.env
-                orig_channels = self.model.conv1.in_channels
-                weights = self.model.conv1.weight.data.clone()
-                self.model.conv1 = nn.Conv2d(
+                orig_channels = model.conv1.in_channels
+                weights = model.conv1.weight.data.clone()
+                model.conv1 = nn.Conv2d(
                     get_nb_bands(self.bands),
                     64,
                     kernel_size=(7, 7),
@@ -187,7 +186,38 @@ class EbirdTask(pl.LightningModule):
                 )
                 #assume first three channels are rgb
                 if self.opts.experiment.module.pretrained:
-                    self.model.conv1.weight.data[:, :orig_channels, :, :] = weights
+                    model.conv1.weight.data[:, :orig_channels, :, :] = weights
+            #loading geossl model
+            if self.opts.experiment.module.resum:
+                path=self.opts.experiment.module.resum
+                checkpoint = torch.load(path)
+
+                loaded_dict = checkpoint['state_dict']
+
+                model_dict = model.state_dict()
+                del loaded_dict["module.queue"]
+                del loaded_dict["module.queue_ptr"]
+#                 print('loaded dict keys',loaded_dict.keys(),'model_keys',model_dict.keys())
+                model.conv1.weight.data[:, :orig_channels, :, :]=loaded_dict[list(loaded_dict.keys())[0]]
+                # load state dict keys
+                
+                for key_model, key_seco in zip(model_dict.keys(), loaded_dict.keys()):
+                    if 'fc' in key_model:
+                        print('here in fc continue')
+                        #ignore fc weight
+                        continue
+                    
+                    if key_seco=='module.encoder_q.conv1.weight':
+                        print('here in conv1')
+                        continue
+#                     print(key_model,key_seco)
+                    model_dict[key_model] = loaded_dict[key_seco]
+#                 for key in list(self.model.state_dict().keys()):
+#                     model_dict['model.'+key]=model_dict.pop(key)
+                print('ajiii: ',model.state_dict().keys())
+                msg=model.load_state_dict(model_dict,strict=False)
+                print(msg)
+                self.model=model
            
             if self.opts.experiment.module.fc == "linear":
                 self.model.fc = nn.Linear(2048, self.target_size)

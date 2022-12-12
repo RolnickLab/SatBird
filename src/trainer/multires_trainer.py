@@ -24,6 +24,7 @@ from src.dataset.dataloader import EbirdVisionDataset
 from src.dataset.dataloader import get_subset
 import time 
 import pickle 
+import copy 
 
 criterion = CustomCrossEntropyLoss()#BCEWithLogitsLoss()
 m = nn.Sigmoid()
@@ -235,16 +236,27 @@ class EbirdTask(pl.LightningModule):
         #multiscale experiment assuming all scales will have the same model
         
         if len(self.opts.data.multiscale)>1:
-            models_scales=[]
-            in_features=self.model.fc.in_features
-            self.model.fc =nn.Sequential()
-            self.linear_layer = nn.Linear(len(self.opts.data.multiscale)*in_features,  self.target_size)
-            model=self.model
-            for i in self.opts.data.multiscale:
-                models_scales.append(model)
-            self.model= nn.ModuleDict({ f'{key}_scale':model for key,model in zip(self.opts.data.multiscale,models_scales)})
-            self.model.update({'fc':self.linear_layer})
-            #self.model= dict({ f'{key}_scale':model for key in self.opts.data.multiscale})
+#             if self.opts.data.multiscale_agg=='vectors' :
+                models_scales=[]
+                in_features=self.model.fc.in_features
+                self.model.fc =nn.Sequential()
+                if self.opts.data.multiscale_agg=='vectors' :
+                    linear_layer = nn.Linear(len(self.opts.data.multiscale)*in_features,self.target_size)
+                elif self.opts.data.multiscale_agg=='features' :
+                     linear_layer = nn.Linear(in_features,self.target_size)
+                     layer3=copy.deepcopy(self.model.layer3)
+                     layer4=copy.deepcopy(self.model.layer4)
+                     avgpool=copy.deepcopy(self.model.avgpool)
+
+                for i in self.opts.data.multiscale:
+                    models_scales.append(copy.deepcopy(self.model))
+                self.model= nn.ModuleDict({ f'{key}_scale':model for key,model in zip(self.opts.data.multiscale,models_scales)})
+                self.model.update({'fc':linear_layer})
+                if self.opts.data.multiscale_agg=='features' :
+                    self.model.update({'layer3':layer3 ,'layer4':layer4 , 'avgpool':avgpool})
+                
+            #elif self.opts.data.multiscale_agg=='features' :
+                
             
         if self.opts.experiment.module.init_bias=="means":
             print("initializing biases with mean predictor")
@@ -275,11 +287,9 @@ class EbirdTask(pl.LightningModule):
 
         with open(self.opts.data.files.correction_thresh,'rb') as f:
             self.correction_data=pickle.load(f)
-  
-#         with open('/network/scratch/a/amna.elmustafa/tmp/ecosystem-embedding/data_processing/without_zeroed_species.pkl','rb') as f:
-#              self.subset= pickle.load(f)
+
         self.correction=  self.correction_data.iloc[:,subset]
-#         self.correction=  self.correction_data.loc[:,subset]
+
         assert self.correction.shape[1]==len(subset)
         
         
@@ -288,21 +298,54 @@ class EbirdTask(pl.LightningModule):
 
 
     def forward(self, x:Tensor) -> Any:
-        if len(self.opts.data.multiscale)>1:
+            assert len(self.opts.data.multiscale)>1, "the input is not multiscale, use normal trainer instead!"
             
             out_sat=[]
-            for i,res in enumerate(self.opts.data.multiscale):
-                    
-                    out_sat.append(self.model[f"{res}_scale"](x[:,i,:,:,:]))
-                    
-            out_sat=torch.cat(out_sat,dim=-1)
-#             print(out_sat.requires_grad)
-#             print('out_sat shape',out_sat.shape)
-            assert out_sat.shape[-1]==((self.linear_layer.in_features)), 'shape of output after concat is wrong'
-            out = self.model['fc'](out_sat)
+            if self.opts.data.multiscale_agg=='vectors' :
+                for i,res in enumerate(self.opts.data.multiscale):
+
+                        out_sat.append(self.model[f"{res}_scale"](x[:,i,:,:,:]))
+
+                out_sat=torch.cat(out_sat,dim=-1)
+    #             print(out_sat.requires_grad)
+    #             print('out_sat shape',out_sat.shape)
+                assert out_sat.shape[-1]== ((self.model['fc'].in_features)), 'shape of output after concat is wrong'
+                out_sat=out_sat/(2**0.5)
+                out = self.model['fc'](out_sat)
+            elif self.opts.data.multiscale_agg=='features' :
+                 scales=self.opts.data.multiscale
+                 scales.sort(reverse=True)
+                 for i,res in enumerate(scales):
+                        out = self.model[f"{res}_scale"].conv1(x[:,i,:,:,:])
+                        out = self.model[f"{res}_scale"].bn1(out)
+                        out = self.model[f"{res}_scale"].relu(out)
+                        out = self.model[f"{res}_scale"].maxpool(out)
+                        # x,_=self.attn(x)
+                        out = self.model[f"{res}_scale"].layer1(out)
+                        out = self.model[f"{res}_scale"].layer2(out)
+                        out_sat.append(out)
+                 #shape of the largest image(lowest res)
+                 print('largest res shape: ',out_sat[0].shape)
+                 b,c,h,w=out_sat[0].shape
+                 #pad other outs to match the largest image feature map
+                 for i,s in enumerate(scales[1:]):
+                        w_pad=(w-out_sat[i].shape[-1])//2
+                        h_pad=(h-out_sat[i].shape[-2])//2
+                        out_sat[i]=F.pad(out_sat[i], (w_pad,w_pad,h_pad,h_pad), "constant", 0) 
+                 out_sat=torch.stack(out_sat,dim=1)
+                 out_sat=torch.sum(out_sat,dim=1)
+                 print('out sat shape after aggregation: ',out_sat.shape) 
+                 x = self.model[f"{scales[0]}_scale"].layer3(out_sat)
+                 x = self.model[f"{scales[0]}_scale"].layer4(x)
+                 x = self.model[f"{scales[0]}_scale"].avgpool(x)
+                 x = torch.flatten(x, 1)
+               
+                 out = self.model['fc'](x)
+                 print('out shape: ',out.shape)
+
+            
             return out
-        else:
-            return self.model(x)
+
             
         
 
@@ -496,8 +539,10 @@ class EbirdTask(pl.LightningModule):
         """Validation step """
 
         #import pdb; pdb.set_trace()
-        x = batch['sat'].squeeze(1)#.to(device)
+        print('heere in valid')
 
+        x = batch['sat'].squeeze(1)#.to(device)
+         
         y = batch['target']
         b, no_species = y.shape
         state_id = batch['state_id']

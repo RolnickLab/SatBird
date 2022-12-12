@@ -141,7 +141,7 @@ class EbirdVisionDataset(VisionDataset):
         env_npy = [(b,get_path(self.df, index, b)) for b in self.env if get_path(self.df, index, b).suffix in ".npy"]
         
         item_ = {}
-    
+         
         
 #         assert len(band_npy) > 0, "No item to fetch"
         
@@ -153,35 +153,37 @@ class EbirdVisionDataset(VisionDataset):
         elif band_npy:
                 bands = [load_file(band) for (_,band) in band_npy]
                 npy_data = np.stack(bands, axis = 1).astype(np.int32)
-        env_len=0
+       
         for (b,band) in env_npy: 
                 item_[b] = torch.from_numpy(load_file(band))
-                env_len+=1
+           
         if band_npy:
             sats=torch.from_numpy(npy_data)
             sats=sats.squeeze(0)
             C, _, _ = sats.shape
             item_["sat"]=sats
+      
         if "landuse" in self.bands:
                 landuse=torch.from_numpy(np.array(Image.open(get_path(self.df, index, "landuse")))/10)
                 landuse = torch.unsqueeze(landuse, 0)
+                item_['landuse']=landuse      
         if  len(self.res)>1 :
                 sat_list = []
 
                 if "landuse" in self.bands:      
                        landuselist=[]
-
-                       item_['landuse']=landuse                
+                                
                 crops, transforms= self.transform[0],self.transform[1]
                 #perform different crops and transformation on  both sat and landuse & env data
+                
                 for c in crops:
                     transforms.insert(0,c)
                     t=trsfs.Compose(transforms)    
-                    item_=t(item_)
+                    item_t=t(item_)
                     if band_npy:
-                        sat_list.append(item_['sat'])
+                        sat_list.append(item_t['sat'])
                     if 'landuse' in self.bands:
-                        landuselist.append(item_['landuse'])
+                        landuselist.append(item_t['landuse'])
                 if  band_npy:
                     item_["sat"] = torch.cat(sat_list,dim=0)  
                 if 'landuse' in self.bands:
@@ -194,7 +196,7 @@ class EbirdVisionDataset(VisionDataset):
                 
                
                   
-#                     assert item_['sat'].shape==(len(self.res),C+1,224,224),'shape of item_sat with land use is wrong'
+#                   
 #                 else:
                     
 #                      assert item_['sat'].shape==(len(self.res),C,224,224),'shape of item_sat is wrong'
@@ -202,26 +204,33 @@ class EbirdVisionDataset(VisionDataset):
                 
 
         elif len(self.res) <= 1:
-             if band_npy:
-                 item_['sat']=sats
+          
              t=trsfs.Compose(self.transform)
-             if "landuse" in self.bands:
-                     item_['landuse']=landuse  
                 
              item_=t(item_)
              if 'landuse' in self.bands:
                  if band_npy:
                      item_['sat'] = torch.cat((item_['sat'],item_['landuse']),dim=-3)
                      
+                     
                  else:
                         item_['sat']=item_["landuse"]
-                        
         
                 
          
         else:
             raise ValueError("Unknown transforms_length {}".format(len(self.transform)))
             
+        print('in dataloader')   
+         #shape valdiation
+        if 'landuse' in self.bands:
+            if band_npy:
+                  assert item_['sat'].shape==(len(self.res),C+1,224,224),'shape of item_sat with land use is wrong'
+            else:
+                   assert item_['sat'].shape==(len(self.res),1,224,224),'shape of item_sat is wrong'
+    
+        print('after dataloader')   
+
         for e in self.env:
                     item_["sat"] = torch.cat([item_["sat"],item_[e]], dim = -3)
 

@@ -193,7 +193,7 @@ def main(opts):
 
     
     trainer_args["callbacks"] = [checkpoint_callback]
-    trainer_args['resume_from_checkpoint'] =conf.experiment.module.resume
+    #trainer_args['resume_from_checkpoint'] =conf.experiment.module.resume
    # trainer_args["max_epochs"] = 400
     
 

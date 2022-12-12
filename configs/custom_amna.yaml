@@ -21,7 +21,7 @@ loc:
 comet:
   project_name: "range_maps" #"ecosystem-duck"
 
-  tags: ["resnet18", "rgb_nir", "adam","range maps","sat_512_224","debug"]
+  tags: ["resnet18", "rgb_nir", "adam","range maps","feature map multires,padding","landuse sat"]
   #"R range_maps"]
 
 
@@ -38,13 +38,15 @@ experiment:
     fc: "linear"
     #use pretraine weights ( trochvision ) 
     pretrained: true
+    resum: ""
     resume:  ""
+    #"/network/scratch/a/amna.elmustafa/final/ecosystem-embedding/moco_geo+tp.pth.tar"
     #"/network/scratch/a/amna.elmustafa/seco_resnet18_100k.ckpt" #"/home/mila/t/tengmeli/ecosystem-embedding/outputs/2022-03-29/08-40-05/final_layer_comparison/b84c264fb4c8477f95cad55bbf85d709/checkpoints/epoch=1273-step=408953.ckpt"
     
     #initializes biases of the output layer sothat sigmoid(bias) = mean over the training set for each species
     init_bias: ""
     means_path: "/network/scratch/t/tengmeli/scratch/ecosystem-embedding/training/means_all_species.npy"
-    lr: 0.0003
+    lr: 0.003
 
 optimizer: "Adam"  #"Adam"
 
@@ -84,7 +86,7 @@ variables: &default_vars
 data:
   loaders:
     num_workers: 8
-    batch_size: 32
+    batch_size: 64
   #What kind of satellite input ? "refl" for "raw" reflectance values or 
   #"img" for 0-255 values (only supported for "rgb" and "nir" bands)
   datatype: "refl" 
@@ -96,8 +98,10 @@ data:
   res: 10 #resolution of the images
 
   #o you want to use environmental data (pedological and bioclimatic (low res) data)
-  env: ["ped", "bioclim"]  # ["ped", "bioclim"] #  #["ped", "bioclim"] #ped" or "bioclim" or both or empty list
-  multiscale : [512]
+  env: []  # ["ped", "bioclim"] #  #["ped", "bioclim"] #ped" or "bioclim" or both or empty list
+  multiscale : [512,224]
+  multiscale_bands: ['landuse','sats']    #choices: [landuse ,sat]
+  multiscale_agg: 'features'    #choices [features, vectors]
   #resolution of pedological and bioclimatic data in meters
   ped: 
       #pedological rasters
@@ -129,7 +133,7 @@ data:
   #normalization: None
   transforms:
     - name: matchres
-      ignore: false
+      ignore: true
       target_size: [224, 224]
       
     - name: crop
@@ -163,12 +167,12 @@ data:
       #[87.0467011965099, 91.21045367500467, 67.50251448722302],[67.55043009747773, 51.443316800384295, 49.65159018638426]
 
     - name: normalize
-      ignore: false
+      ignore: true
       maxchan: false
       subset: ["bioclim"]
       custom: [*bioclim_means, *bioclim_std]
     - name: normalize
-      ignore: false
+      ignore: true
       maxchan: false
       subset: ["ped"]
       custom: [*ped_means, *ped_std]

@@ -80,6 +80,9 @@ data:
   res: 10 
   
   env: ["ped", "bioclim"] #["ped", "bioclim"] #"all" "ped" or "bioclim"
+  multiscale : [512,224]
+  multiscale_bands: ['landuse','sats']    #choices: [landuse ,sat]
+  multiscale_agg: 'features'    #choices [features, vectors]
   ped: 
       #pedological rasters
       res: 250

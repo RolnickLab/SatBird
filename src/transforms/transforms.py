@@ -120,7 +120,6 @@ class Normalize:
         #TODO 
         if self.custom:
             means, std = self.custom
-            print('subset ',self.subset)
             for task in self.subset: 
                 sample[task] = normalize(sample[task].type(torch.FloatTensor), means, std)
             #d = {
