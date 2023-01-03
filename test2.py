@@ -9,9 +9,11 @@ import hydra
 from addict import Dict
 from omegaconf import OmegaConf, DictConfig
 from src.trainer.trainer import EbirdTask, EbirdDataModule
-from src.trainer.trainer_species import EbirdSpeciesTask
+#from src.trainer.trainer_species import EbirdSpeciesTask
 import src.trainer.geo_trainer as geo_trainer
 import src.trainer.state_trainer as state_trainer
+import src.trainer.multires_trainer as multires_trainer
+
 import pytorch_lightning as pl
 from pytorch_lightning import loggers as pl_loggers
 from pytorch_lightning import Trainer
@@ -114,30 +116,37 @@ def main(opts):
     print("hydra_opts", hydra_opts)
     args = hydra_opts.pop("args", None)
 
-    config_path = args['config']
-    default = "/home/mila/t/tengmeli/ecosystem-embedding/configs/defaults.yaml" #args['default']
+    config_path = "/network/scratch/a/amna.elmustafa/final/ecosystem-embedding/configs/custom_amna.yaml"
+    #args['config'] #"/home/mila/t/tengmeli/ecosystem-embedding/configs/custom_meli_2.yaml" 
+    default = "/network/scratch/a/amna.elmustafa/final/ecosystem-embedding/configs/defaults.yaml" #args['default']
     #default = Path(__file__).parent / "configs/defaults.yaml"
     conf = load_opts(config_path, default=default, commandline_opts=hydra_opts)
     conf.save_path = conf.save_path+os.environ["SLURM_JOB_ID"]
     pl.seed_everything(conf.program.seed)
 
-    if not os.path.exists(conf.save_preds_path):
-        os.makedirs(conf.save_preds_path)
-    with open(os.path.join(conf.save_preds_path, "config.yaml"),"w") as fp:
-        OmegaConf.save(config = conf, f = fp)
-    fp.close()
+    #if not os.path.exists(conf.save_preds_path):
+     #   os.makedirs(conf.save_preds_path)
+    #with open(os.path.join(conf.save_preds_path, "config.yaml"),"w") as fp:
+     #   OmegaConf.save(config = conf, f = fp)
+    #fp.close()
     
     print(conf.log_comet)
     
-    print(conf) 
-    if "speciesAtoB" in conf.keys() and conf.speciesAtoB:
+    print(conf)
+    print('multires len:', len(conf.data.multiscale))
+    if not conf.loc.use and len(conf.data.multiscale)>1:
+         print('using multiscale net')
+         task = multires_trainer.EbirdTask(conf)
+         datamodule = EbirdDataModule(conf)
+    elif "speciesAtoB" in conf.keys() and conf.speciesAtoB:
             print("species A to B")
             task = EbirdSpeciesTask(conf)
             datamodule = EbirdDataModule(conf)
     elif not conf.loc.use :
         task = EbirdTask(conf)
         datamodule = EbirdDataModule(conf)
-    
+   
+        
     elif conf.loc.loc_type == "latlon":
         print("Using geo information")
         task = geo_trainer.EbirdTask(conf)
@@ -151,13 +160,32 @@ def main(opts):
     trainer_args = cast(Dict[str, Any], OmegaConf.to_object(conf.trainer))
     if conf.load_ckpt_path != "":
         print("Loading existing checkpoint")
-    conf.load_ckpt_path = "/network/scratch/t/tengmeli/ecosystem-embeddings/checkpoint_loc_2055583/epoch=365-step=17201.ckpt"
-    #"/network/scratch/t/tengmeli/ecosystem-embeddings/checkpoint_base_2034177/epoch=53-step=2537.ckpt" #"/network/scratch/t/tengmeli/ecosystem-embeddings/checkpoint_loc_2034124/epoch=3-step=187.ckpt" #"/network/scratch/t/tengmeli/ecosystem-embeddings/checkpoint_loc2033871/last-copy.ckpt"
+    conf.load_ckpt_path = "/network/scratch/a/amna.elmustafa/ecosystem-embeddings/ckpts2527294/last.ckpt"
+    #"/network/scratch/a/amna.elmustafa/ecosystem-embeddings/ckpts2477166/last.ckpt"
+    #/network/scratch/a/amna.elmustafa/ecosystem-embeddings/ckpts2477165  512_224
+    #/network/scratch/a/amna.elmustafa/ecosystem-embeddings/ckpts2477127  64
+    #/network/scratch/a/amna.elmustafa/ecosystem-embeddings/ckpts2477123  512
+    # /network/scratch/a/amna.elmustafa/ecosystem-embeddings/ckpts2477120  224
+    # /network/scratch/a/amna.elmustafa/ecosystem-embeddings/ckpts2485167 satenv224
+    #land use only /network/scratch/a/amna.elmustafa/ecosystem-embeddings/ckpts2484606
+    # /network/scratch/a/amna.elmustafa/ecosystem-embeddings/ckpts2485253 satenvlanduse224
+    #"/network/scratch/t/tengmeli/ecosystem-embeddings/checkpoint_base_2034177/epoch=53-step=2537.ckpt" 
+    #"/network/scratch/t/tengmeli/ecosystem-embeddings/checkpoint_loc_2034124/epoch=3-step=187.ckpt" #"/network/scratch/t/tengmeli/ecosystem-embeddings/checkpoint_loc2033871/last-copy.ckpt"
+    #sat 224 512 rangemaps: /network/scratch/a/amna.elmustafa/ecosystem-embeddings/ckpts2527315
+    #above with landuse : /network/scratch/a/amna.elmustafa/ecosystem-embeddings/ckpts2527309
+    #sat landuse env 512  /network/scratch/a/amna.elmustafa/ecosystem-embeddings/ckpts2527306
+    #Sat landuse  env 224 /network/scratch/a/amna.elmustafa/ecosystem-embeddings/ckpts2527294
+    
     task = task.load_from_checkpoint(conf.load_ckpt_path, save_preds_path = conf.save_preds_path)    
         
     trainer = pl.Trainer(**trainer_args)
     trainer.validate(model=task, datamodule=datamodule)
-    trainer.test(model=task, datamodule=datamodule)
+    trainer.test(model=task, 
+                       dataloaders=datamodule.test_dataloader(),
+               
+                       #ckpt_path='best',
+                       verbose=True)
+    trainer.test(model=task, dataloaders=datamodule.train_dataloader(),verbose=True)
     
     
 if __name__ == "__main__":

@@ -30,6 +30,7 @@ module load anaconda/3
 GPUS=1
 echo "Number of GPUs: "${GPUS}
 WRAP="python train2.py args.config=configs/custom_amna.yaml"
+#WRAP='python test2.py'
 JOBNAME="correction_ecosys"
 LOG_FOLDER="/home/mila/a/amna.elmustafa/ecosys_logs"
 echo ${WRAP}
@@ -48,7 +49,7 @@ Slurm Environment Variables:
 # slurm doesn't source .bashrc automatically
 source ~/.bashrc
 
-project_dir="/network/scratch/a/amna.elmustafa/ecosystem-embedding"
+project_dir="/network/scratch/a/amna.elmustafa/final/ecosystem-embedding"
 echo "Setting directory to: $project_dir"
 cd $project_dir
 
@@ -60,7 +61,7 @@ Basic system information:
 - User: $USER
 - pwd: $(pwd)
 "
-conda activate ebird-env
+conda activate ebird
 
 #{content}
 

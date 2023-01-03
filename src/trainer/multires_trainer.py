@@ -1,5 +1,4 @@
-import pickle
-
+import os
 import pytorch_lightning as pl
 import torch
 import torch.nn as nn
@@ -9,6 +8,7 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau, StepLR, CosineAnnealingW
 from pl_bolts.optimizers.lr_scheduler import LinearWarmupCosineAnnealingLR
 from torch.utils.data import DataLoader, Subset
 from torchvision import models
+from torch.autograd import Variable
 import numpy as np
 from omegaconf import OmegaConf
 #from src.dataset.utils import load_opts
@@ -16,30 +16,25 @@ from src.transforms.transforms import get_transforms
 from torchvision import transforms as trsfs
 import pandas as pd
 import torch.nn.functional as F
-from src.losses.losses import CustomCrossEntropyLoss,CustomCrossEntropy, get_metrics
+from src.losses.losses import CustomCrossEntropyLoss,get_metrics
 import torchmetrics
-from torch.nn import BCELoss, BCEWithLogitsLoss
+from torch.nn import BCELoss
 from typing import Any, Dict, Optional
 from src.dataset.dataloader import EbirdVisionDataset
 from src.dataset.dataloader import get_subset
 import time 
-import os 
-import json
-import wandb
-from torch.nn.functional import l1_loss
-#criterion = CustomCrossEntropyLoss()#BCEWithLogitsLoss()
-mse=nn.MSELoss()
+import pickle 
+import copy 
+
+criterion = CustomCrossEntropyLoss()#BCEWithLogitsLoss()
 m = nn.Sigmoid()
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 def get_nb_bands(bands):
-    """
-    Get number of channels in the satellite input branch (stack bands of satellite + environmental variables)
-    """
     n = 0
     for b in bands:
-        if b in ["r","g","b","nir","landuse"]:
+        if b in ["r","g","b","nir", "landuse"]:
             n+=1
         elif b == "ped":
             n+=8
@@ -49,23 +44,49 @@ def get_nb_bands(bands):
             n+=3
     return(n)
 
-    
-def get_scheduler(optimizer, opts):
-    if opts.scheduler.name == "ReduceLROnPlateau":
-        return (ReduceLROnPlateau(optimizer, factor = opts.scheduler.reduce_lr_plateau.factor,
-                  patience = opts.scheduler.reduce_lr_plateau.lr_schedule_patience))
-    elif opts.scheduler.name == "StepLR":
-        return (StepLR(optimizer, opts.scheduler.step_lr.step_size, opts.scheduler.step_lr.gamma))
-    elif opts.scheduler.name == "WarmUp":     
-        return(LinearWarmupCosineAnnealingLR(optimizer, opts.scheduler.warmup.warmup_epochs,
-        opts.scheduler.warmup.max_epochs))
-    elif opts.scheduler.name == "Cyclical":
-        return(CosineAnnealingWarmRestarts(optimizer, opts.scheduler.cyclical.t0, opts.scheduler.cyclical.tmult))
-    elif opts.scheduler.name == "":
-        return(None)
-    else:
-        raise ValueError(f"Scheduler'{self.opts.scheduler.name}' is not valid")
+def get_target_size(opts):
+    subset = get_subset(opts.data.target.subset)
+    target_size= len(subset) if subset is not None else opts.data.total_species
+    return(target_size)
+
+
+class LocEncoder(torch.nn.Module):
+    def __init__(self, opt,**kwargs: Any) -> None:
+        """initializes a new Lightning Module to train"""
         
+        super().__init__()
+        self.opts_ = opt
+        self.target_size = get_target_size(self.opts_)
+        
+        num_inputs = 4
+        if self.opts_.loc.elev:
+            num_inputs = 5
+        self.model = geomodels.FCNet(num_inputs, num_classes=self.target_size,num_filts=256)   
+      
+        
+    def forward(self, loc):
+        
+        return(self.model(loc, class_of_interest=None, return_feats=self.opts_.loc.concat))
+    
+    def __str__(self):
+        return("Location encoder")
+
+
+
+def create_loc_encoder(opt, verbose=0):
+    print("using location")
+    encoder = LocEncoder(opt)
+
+    if verbose > 0:
+        print(f"  - Add {encoder.__class__.__name__}")
+    return encoder
+
+class Identity(nn.Module):
+    def __init__(self):
+        super(Identity, self).__init__()
+        
+    def forward(self, x):
+        return x
 
 class EbirdTask(pl.LightningModule):
     def __init__(self, opts,**kwargs: Any) -> None:
@@ -112,7 +133,7 @@ class EbirdTask(pl.LightningModule):
                 self.feature_extractor.conv1 = nn.Conv2d(get_nb_bands(self.bands), 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
             if self.opts.experiment.module.fc == "linear":
                 self.feature_extractor.fc = nn.Linear(512, self.target_size)
-            ckpt = torch.load(self.opts.experiment.module.resum)
+            ckpt = torch.load(self.opts.experiment.module.resume)
             for key in list(ckpt["state_dict"].keys()):
                 ckpt["state_dict"][key.replace('model.', '')] = ckpt["state_dict"].pop(key)
             self.feature_extractor.load_state_dict(ckpt["state_dict"])
@@ -142,12 +163,11 @@ class EbirdTask(pl.LightningModule):
                 )
                 #assume first three channels are rgb
                 if self.opts.experiment.module.pretrained:
-                    #self.model.conv1.weight.data[:, :orig_channels, :, :] = weights
-                    self.model.conv1.weight.data=init_first_layer_weights(get_nb_bands(self.bands), weights)
-            #loading seco mode
-            if self.opts.experiment.module.resum:
-                print('loading a pretrained model')
-                ckpt = torch.load(self.opts.experiment.module.resum)
+                    self.model.conv1.weight.data[:, :orig_channels, :, :] = weights
+            #loading seco model
+            if self.opts.experiment.module.resume:
+                
+                ckpt = torch.load(self.opts.experiment.module.resume)
                 self.model.fc = nn.Sequential()
                 loaded_dict=ckpt['state_dict']
                 model_dict=self.model.state_dict()
@@ -159,6 +179,9 @@ class EbirdTask(pl.LightningModule):
                     if key_model=='conv1.weight':
                         continue
                     model_dict[key_model]=loaded_dict[key_seco]
+                    
+                    
+
            
                 self.model.load_state_dict(model_dict)
             if self.opts.experiment.module.fc == "linear":
@@ -171,12 +194,12 @@ class EbirdTask(pl.LightningModule):
                 self.model.fc = nn.Linear(512, self.target_size)
             
         elif self.opts.experiment.module.model == "resnet50":
-            model = models.resnet50(pretrained=self.opts.experiment.module.pretrained)
+            self.model = models.resnet50(pretrained=self.opts.experiment.module.pretrained)
             if len(self.opts.data.bands) != 3 or len(self.opts.data.env) > 0:
                 self.bands = self.opts.data.bands + self.opts.data.env
-                orig_channels = model.conv1.in_channels
-                weights = model.conv1.weight.data.clone()
-                model.conv1 = nn.Conv2d(
+                orig_channels = self.model.conv1.in_channels
+                weights = self.model.conv1.weight.data.clone()
+                self.model.conv1 = nn.Conv2d(
                     get_nb_bands(self.bands),
                     64,
                     kernel_size=(7, 7),
@@ -186,38 +209,7 @@ class EbirdTask(pl.LightningModule):
                 )
                 #assume first three channels are rgb
                 if self.opts.experiment.module.pretrained:
-                    model.conv1.weight.data[:, :orig_channels, :, :] = weights
-            #loading geossl model
-            if self.opts.experiment.module.resum:
-                path=self.opts.experiment.module.resum
-                checkpoint = torch.load(path)
-
-                loaded_dict = checkpoint['state_dict']
-
-                model_dict = model.state_dict()
-                del loaded_dict["module.queue"]
-                del loaded_dict["module.queue_ptr"]
-#                 print('loaded dict keys',loaded_dict.keys(),'model_keys',model_dict.keys())
-                model.conv1.weight.data[:, :orig_channels, :, :]=loaded_dict[list(loaded_dict.keys())[0]]
-                # load state dict keys
-                
-                for key_model, key_seco in zip(model_dict.keys(), loaded_dict.keys()):
-                    if 'fc' in key_model:
-                        print('here in fc continue')
-                        #ignore fc weight
-                        continue
-                    
-                    if key_seco=='module.encoder_q.conv1.weight':
-                        print('here in conv1')
-                        continue
-#                     print(key_model,key_seco)
-                    model_dict[key_model] = loaded_dict[key_seco]
-#                 for key in list(self.model.state_dict().keys()):
-#                     model_dict['model.'+key]=model_dict.pop(key)
-                print('ajiii: ',model.state_dict().keys())
-                msg=model.load_state_dict(model_dict,strict=False)
-                print(msg)
-                self.model=model
+                    self.model.conv1.weight.data[:, :orig_channels, :, :] = weights
            
             if self.opts.experiment.module.fc == "linear":
                 self.model.fc = nn.Linear(2048, self.target_size)
@@ -241,6 +233,31 @@ class EbirdTask(pl.LightningModule):
         else:
             raise ValueError(f"Model type '{self.opts.experiment.module.model}' is not valid")
         
+        #multiscale experiment assuming all scales will have the same model
+        
+        if len(self.opts.data.multiscale)>1:
+#             if self.opts.data.multiscale_agg=='vectors' :
+                models_scales=[]
+                in_features=self.model.fc.in_features
+                self.model.fc =nn.Sequential()
+                if self.opts.data.multiscale_agg=='vectors' :
+                    linear_layer = nn.Linear(len(self.opts.data.multiscale)*in_features,self.target_size)
+                elif self.opts.data.multiscale_agg=='features' :
+                     linear_layer = nn.Linear(in_features,self.target_size)
+                     layer3=copy.deepcopy(self.model.layer3)
+                     layer4=copy.deepcopy(self.model.layer4)
+                     avgpool=copy.deepcopy(self.model.avgpool)
+
+                for i in self.opts.data.multiscale:
+                    models_scales.append(copy.deepcopy(self.model))
+                self.model= nn.ModuleDict({ f'{key}_scale':model for key,model in zip(self.opts.data.multiscale,models_scales)})
+                self.model.update({'fc':linear_layer})
+                if self.opts.data.multiscale_agg=='features' :
+                    self.model.update({'layer3':layer3 ,'layer4':layer4 , 'avgpool':avgpool})
+                
+            #elif self.opts.data.multiscale_agg=='features' :
+                
+            
         if self.opts.experiment.module.init_bias=="means":
             print("initializing biases with mean predictor")
             self.means = np.load(self.opts.experiment.module.means_path)[0,subset]
@@ -270,28 +287,74 @@ class EbirdTask(pl.LightningModule):
 
         with open(self.opts.data.files.correction_thresh,'rb') as f:
             self.correction_data=pickle.load(f)
-  
-#         with open('/network/scratch/a/amna.elmustafa/tmp/ecosystem-embedding/data_processing/without_zeroed_species.pkl','rb') as f:
-#              self.subset= pickle.load(f)
+
         self.correction=  self.correction_data.iloc[:,subset]
-#         self.correction=  self.correction_data.loc[:,subset]
+
         assert self.correction.shape[1]==len(subset)
         
-       
         
         #watch model gradients
         #wandb.watch(self.model, log='all', log_freq=5)
 
 
     def forward(self, x:Tensor) -> Any:
-        return self.model(x)
+            assert len(self.opts.data.multiscale)>1, "the input is not multiscale, use normal trainer instead!"
+            
+            out_sat=[]
+            if self.opts.data.multiscale_agg=='vectors' :
+                for i,res in enumerate(self.opts.data.multiscale):
+
+                        out_sat.append(self.model[f"{res}_scale"](x[:,i,:,:,:]))
+
+                out_sat=torch.cat(out_sat,dim=-1)
+    #             print(out_sat.requires_grad)
+    #             print('out_sat shape',out_sat.shape)
+                assert out_sat.shape[-1]== ((self.model['fc'].in_features)), 'shape of output after concat is wrong'
+                out_sat=out_sat/(2**0.5)
+                out = self.model['fc'](out_sat)
+            elif self.opts.data.multiscale_agg=='features' :
+                 scales=self.opts.data.multiscale
+                 scales.sort(reverse=True)
+                 for i,res in enumerate(scales):
+                        out = self.model[f"{res}_scale"].conv1(x[:,i,:,:,:])
+                        out = self.model[f"{res}_scale"].bn1(out)
+                        out = self.model[f"{res}_scale"].relu(out)
+                        out = self.model[f"{res}_scale"].maxpool(out)
+                        # x,_=self.attn(x)
+                        out = self.model[f"{res}_scale"].layer1(out)
+                        out = self.model[f"{res}_scale"].layer2(out)
+                        out_sat.append(out)
+                 #shape of the largest image(lowest res)
+                 print('largest res shape: ',out_sat[0].shape)
+                 b,c,h,w=out_sat[0].shape
+                 #pad other outs to match the largest image feature map
+                 for i,s in enumerate(scales[1:]):
+                        w_pad=(w-out_sat[i].shape[-1])//2
+                        h_pad=(h-out_sat[i].shape[-2])//2
+                        out_sat[i]=F.pad(out_sat[i], (w_pad,w_pad,h_pad,h_pad), "constant", 0) 
+                 out_sat=torch.stack(out_sat,dim=1)
+                 out_sat=torch.sum(out_sat,dim=1)
+                 print('out sat shape after aggregation: ',out_sat.shape) 
+                 x = self.model[f"{scales[0]}_scale"].layer3(out_sat)
+                 x = self.model[f"{scales[0]}_scale"].layer4(x)
+                 x = self.model[f"{scales[0]}_scale"].avgpool(x)
+                 x = torch.flatten(x, 1)
+               
+                 out = self.model['fc'](x)
+                 print('out shape: ',out.shape)
+
+            
+            return out
+
+            
+        
 
     def training_step(
         self, batch: Dict[str, Any], batch_idx: int )-> Tensor:
        # from pdb import set_trace; set_trace()
         """Training step"""
         m = nn.Sigmoid()
-        x = batch['sat'].squeeze(1)
+        x = batch['sat']
         print('input shape:', x.shape)
         y = batch['target']
 
@@ -476,8 +539,10 @@ class EbirdTask(pl.LightningModule):
         """Validation step """
 
         #import pdb; pdb.set_trace()
-        x = batch['sat'].squeeze(1)#.to(device)
+        print('heere in valid')
 
+        x = batch['sat'].squeeze(1)#.to(device)
+         
         y = batch['target']
         b, no_species = y.shape
         state_id = batch['state_id']
@@ -633,34 +698,53 @@ class EbirdTask(pl.LightningModule):
             self.log(nname, getattr(self, nname), on_step=True, on_epoch=True) 
         self.log("test_loss", loss, on_step = True, on_epoch = True)
 
-
         
-#         if self.opts.save_preds_path != "":       
-#             for i, elem in enumerate(pred):
-#                 np.save(os.path.join(self.opts.save_preds_path, batch["hotspot_id"][i] + ".npy"), elem.cpu().detach().numpy())
+#         for i, elem in enumerate(pred_):
+#             np.save(os.path.join(self.opts.save_preds_path, batch["hotspot_id"][i] + ".npy"), elem.cpu().detach().numpy())
 #         print("saved elems")
 
-
     def get_optimizer(self, model, opts):
+        
         if self.opts.optimizer == "Adam":
             optimizer = torch.optim.Adam(   #
                 model.parameters(),
-                lr=self.learning_rate, # self.opts.experiment.module.lr,  
-                weight_decay=0.00001
+                lr=self.learning_rate#self.opts.experiment.module.lr,  
                 )
         elif self.opts.optimizer == "AdamW":
             optimizer = torch.optim.AdamW(
                 model.parameters(),
-                lr=self.learning_rate #self.opts.experiment.module.lr,  
+                lr=self.opts.experiment.module.lr,  
                 )
         elif self.opts.optimizer == "SGD":
             optimizer = torch.optim.SGD(
                 model.parameters(),
-                lr=self.learning_rate  
+                lr=self.learning_rate#self.opts.experiment.module.lr,  
                 )
         else :
             raise ValueError(f"Optimizer'{self.opts.optimizer}' is not valid")
         return(optimizer)
+    
+    def get_optimizer_from_params(self,param, opts):
+        
+        if self.opts.optimizer == "Adam":
+            optimizer = torch.optim.Adam(   #
+                param,
+                lr=self.learning_rate#self.opts.experiment.module.lr,  
+                )
+        elif self.opts.optimizer == "AdamW":
+            optimizer = torch.optim.AdamW(
+                param,
+                lr=self.opts.experiment.module.lr,  
+                )
+        elif self.opts.optimizer == "SGD":
+            optimizer = torch.optim.SGD(
+                param,
+                lr=self.learning_rate#self.opts.experiment.module.lr,  
+                )
+        else :
+            raise ValueError(f"Optimizer'{self.opts.optimizer}' is not valid")
+        return(optimizer)
+    
     
     def configure_optimizers(self) -> Dict[str, Any]:
  
@@ -678,7 +762,23 @@ class EbirdTask(pl.LightningModule):
             "frequency":1
             }
         }
+        
 
+def get_scheduler(optimizer, opts):
+    if opts.scheduler.name == "ReduceLROnPlateau":
+        return (ReduceLROnPlateau(optimizer, factor = opts.scheduler.reduce_lr_plateau.factor,
+                  patience = opts.scheduler.reduce_lr_plateau.lr_schedule_patience))
+    elif opts.scheduler.name == "StepLR":
+        return (StepLR(optimizer, opts.scheduler.step_lr.step_size, opts.scheduler.step_lr.gamma))
+    elif opts.scheduler.name == "WarmUp":     
+        return(LinearWarmupCosineAnnealingLR(optimizer, opts.scheduler.warmup.warmup_epochs,
+        opts.scheduler.warmup.max_epochs))
+    elif opts.scheduler.name == "Cyclical":
+        return(CosineAnnealingWarmRestarts(optimizer, opts.scheduler.cyclical.warmup_epochs))
+    elif opts.scheduler.name == "":
+        return(None)
+    else:
+        raise ValueError(f"Scheduler'{opts.scheduler.name}' is not valid")
 
 class EbirdDataModule(pl.LightningDataModule):
     def __init__(self, opts) -> None:
@@ -786,68 +886,3 @@ class EbirdDataModule(pl.LightningDataModule):
             num_workers = self.num_workers,
             shuffle = False,
         )
-
-
-def init_first_layer_weights(in_channels: int, rgb_weights,
-                             hs_weight_init: str = 'random'):
-    '''Initializes the weights for filters in the first conv layer.
-      If we are using RGB-only, then just initializes var to rgb_weights. Otherwise, uses
-      hs_weight_init to determine how to initialize the weights for non-RGB bands.
-      Args
-      - int: in_channesl, input channels
-          - in_channesl is  either 3 (RGB), 7 (lxv3), or 9 (Landsat7) or 2 (NL)
-      - rgb_weights: ndarray of np.float32, shape [64, 3, F, F]
-      - hs_weight_init: str, one of ['random', 'same', 'samescaled']
-      Returs
-      -torch tensor : final_weights
-      '''
-
-    out_channels, rgb_channels, H, W = rgb_weights.shape
-    print('rgb weight shape ', rgb_weights.shape)
-    rgb_weights = torch.tensor(rgb_weights, device='cuda')
-    ms_channels = in_channels - rgb_channels
-    if in_channels == 3:
-            final_weights = rgb_weights
-
-    elif in_channels < 3: 
-        with torch.no_grad():
-            mean = rgb_weights.mean()
-            std = rgb_weights.std()
-            final_weights = torch.empty((out_channels, in_channels, H, W), device='cuda')
-            final_weights = torch.nn.init.trunc_normal_(final_weights, mean, std)
-    elif in_channels > 3:
-        # spectral images
-
-        if hs_weight_init == 'same':
-
-            with torch.no_grad():
-                mean = rgb_weights.mean(dim=1, keepdim=True)  # mean across the in_channel dimension
-                mean = torch.tile(mean, (1, ms_channels, 1, 1))
-                ms_weights = mean
-
-        elif hs_weight_init == 'random':
-            start = time.time()
-            with torch.no_grad():
-                mean = rgb_weights.mean()
-                std = rgb_weights.std()
-                ms_weights = torch.empty((out_channels, ms_channels, H, W), device='cuda')
-                ms_weights = torch.nn.init.trunc_normal_(ms_weights, mean, std)
-            print(f'random: {time.time() - start}')
-
-        elif hs_weight_init == 'samescaled':
-            start = time.time()
-            with torch.no_grad():
-                mean = rgb_weights.mean(dim=1, keepdim=True)  # mean across the in_channel dimension
-                mean = torch.tile(mean, (1, ms_channels, 1, 1))
-                ms_weights = (mean * 3) / (3 + ms_channels)
-                # scale both rgb_weights and ms_weights
-                rgb_weights = (rgb_weights * 3) / (3 + ms_channels)
-            
-
-        else:
-
-            raise ValueError(f'Unknown hs_weight_init type: {hs_weight_init}')
-
-        final_weights = torch.cat([rgb_weights, ms_weights], dim=1)
-    print('init__layer_weight shape ', final_weights.shape)
-    return final_weights

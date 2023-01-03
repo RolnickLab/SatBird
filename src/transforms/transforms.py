@@ -335,4 +335,31 @@ def get_transforms(opts, mode):
     """Get all the transform functions listed in opts.data.transforms
     using get_transform(transform_item, mode)
     """
+    crop_transforms = []
     transforms = []
+    
+    for t in opts.data.transforms:
+        if t.name == "normalize" and not (
+        t.ignore is True or t.ignore == mode
+    ) and t.subset==["sat"]:
+            if opts.data.bands == ["r", "g", "b"]:
+                print("only taking normalization values for r,g,b")
+                means, std = t.custom
+                t.custom = [means[:3], std[:3]]
+
+            #assert (len(t.custom[0])== len(opts.data.bands))
+        #account for multires
+        if t.name=='crop' and len(opts.data.multiscale)>1:
+            for res in opts.data.multiscale:
+                #adapt hight and width to vars in multires
+                t.hight, t.width=res, res
+                crop_transforms.append(get_transform(t,mode))
+        else:
+             transforms.append(get_transform(t, mode))
+    transforms = [t for t in transforms if t is not None]
+    if crop_transforms:
+        crop_transforms=[t for t in crop_transforms if t is not None]
+        print('crop transforms ',crop_transforms)
+        return crop_transforms,transforms
+    else:
+        return transforms

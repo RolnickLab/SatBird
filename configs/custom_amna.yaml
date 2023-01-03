@@ -13,7 +13,7 @@ log_comet: True
 overfit_batches: 0.0
 #use geographical informationf
 loc:
-  use: False
+  use: false
   #if True :concatenate location features with satellite image features, else location features are mappe to same imension as satellite features and the features are multiplie
   loc_type: "latlon"   #latlon or state
   concat: True
@@ -21,7 +21,8 @@ loc:
 comet:
   project_name: "range_maps" #"ecosystem-duck"
 
-  tags: ["resnet18", "rgb_nir", "adam", "R range_maps"]
+  tags: ["resnet18", "rgb_nir", "adam","range maps","feature map multires,padding","landuse sat"]
+  #"R range_maps"]
 
 
 experiment:
@@ -37,19 +38,22 @@ experiment:
     fc: "linear"
     #use pretraine weights ( trochvision ) 
     pretrained: true
-    resume: "" #"/home/mila/t/tengmeli/ecosystem-embedding/outputs/2022-03-29/08-40-05/final_layer_comparison/b84c264fb4c8477f95cad55bbf85d709/checkpoints/epoch=1273-step=408953.ckpt"
+    resum: ""
+    resume:  ""
+    #"/network/scratch/a/amna.elmustafa/final/ecosystem-embedding/moco_geo+tp.pth.tar"
+    #"/network/scratch/a/amna.elmustafa/seco_resnet18_100k.ckpt" #"/home/mila/t/tengmeli/ecosystem-embedding/outputs/2022-03-29/08-40-05/final_layer_comparison/b84c264fb4c8477f95cad55bbf85d709/checkpoints/epoch=1273-step=408953.ckpt"
     
     #initializes biases of the output layer sothat sigmoid(bias) = mean over the training set for each species
     init_bias: ""
     means_path: "/network/scratch/t/tengmeli/scratch/ecosystem-embedding/training/means_all_species.npy"
-    lr: 0.0003
+    lr: 0.003
 
 optimizer: "Adam"  #"Adam"
 
 #auto lr will only work if there is only one optimizer 
-auto_lr_find: False
+auto_lr_find: false
 scheduler: 
-  name: "" #"" for no schuler, "ReduceLROnPlateau" #"ReduceLROnPlateau" or "StepLR" "WarmUp"
+  name: "WarmUp" #"" for no schuler, "ReduceLROnPlateau" #"ReduceLROnPlateau" or "StepLR" "WarmUp"
   reduce_lr_plateau: 
     factor: 0.5
     lr_schedule_patience: 20
@@ -58,7 +62,7 @@ scheduler:
     gamma: 0.5
   warmup:
     warmup_epochs: 5
-    max_epochs: 200
+    max_epochs: 100
   
   cyclical:
     warmup_epochs: 10
@@ -87,13 +91,17 @@ data:
   #"img" for 0-255 values (only supported for "rgb" and "nir" bands)
   datatype: "refl" 
   
-  bands: ["r","g","b", "nir"]  #any subset of ["r", "g", "b", "nir"] if working with "refl" data or ["rgb", "nir"] if using "img" 
+  bands:  ["r","g","b", "nir","landuse"] #["r","g","b", "nir"]
+  #['landuse']
+  #["r","g","b", "nir",'landuse']  #any subset of ["r", "g", "b", "nir","landuse"] if working with "refl" data or ["rgb", "nir"] if using "img" 
   
   res: 10 #resolution of the images
 
   #o you want to use environmental data (pedological and bioclimatic (low res) data)
-  env:  [] #["ped", "bioclim"] #  #["ped", "bioclim"] #ped" or "bioclim" or both or empty list
-  
+  env: []  # ["ped", "bioclim"] #  #["ped", "bioclim"] #ped" or "bioclim" or both or empty list
+  multiscale : [512,224]
+  multiscale_bands: ['landuse','sats']    #choices: [landuse ,sat]
+  multiscale_agg: 'features'    #choices [features, vectors]
   #resolution of pedological and bioclimatic data in meters
   ped: 
       #pedological rasters
@@ -113,7 +121,7 @@ data:
     #'/network/scratch/a/amna.elmustafa/tmp/ecosystem-embedding/data_processing/Htest4.npy'  #hard thresholding file ,options:[Htest, Htest2,Htest3,Htest4] corrosponding to threshold as [mean species values , mask of species that have prob less than mean ,mask of species that have prob less than mean/10 ,mask of species that have prob less than mean*10 ]
   correction_factor:
      use:  None  #soft thresholding choises [None, 'before' (before sigmoid) ,'after'(after sigmoid)] 
-     thresh : 'after'     #hard thresholding ['before','after']
+     thresh : 'after'  #hard thresholding ['before','after']
 
     
   target:
@@ -126,15 +134,15 @@ data:
   transforms:
     - name: matchres
       ignore: true
-      target_size: [64, 64]
+      target_size: [224, 224]
       
     - name: crop
       ignore: false
       p: 1
       ignore_band: ["bioclim", "ped"] #["bioclim", "ped"]
       center: true # disable randomness, crop around the image's center
-      height: 64
-      width: 64
+      height: 224
+      width: 224
     - name: resize
       ignore: false
       size: [224,224]
@@ -145,7 +153,7 @@ data:
       ignore: "val"
       p: 0.5
     - name: normalize
-      ignore: False
+      ignore: false
       maxchan: false
       subset: ["sat"]
       custom: [[894.6719, 932.5726,693.2768, 2817.9849], [883.9763,747.6857,749.3098, 1342.6334]]

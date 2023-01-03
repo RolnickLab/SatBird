@@ -9,18 +9,23 @@ import hydra
 from addict import Dict
 from omegaconf import OmegaConf, DictConfig
 from src.trainer.trainer import EbirdTask, EbirdDataModule
-from src.trainer.trainer_species import EbirdSpeciesTask
+#sfrom src.trainer.trainer import EbirdSpeciesTask
 import src.trainer.geo_trainer as geo_trainer
 import src.trainer.state_trainer as state_trainer
+import src.trainer.multires_trainer as multires_trainer
 import pytorch_lightning as pl
 from pytorch_lightning import loggers as pl_loggers
 from pytorch_lightning import Trainer
-from pytorch_lightning.loggers import CometLogger
+from pytorch_lightning.loggers import CometLogger,WandbLogger
 from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint, LearningRateMonitor
 from typing import Any, Dict, Tuple, Type, cast
 from src.dataset.utils import set_data_paths
 import pdb
+import wandb
 
+# wandp = 'test-project'
+# entity = 'amna'
+# wandb.init(settings=wandb.Settings(start_method='fork'))
 hydra_config_path = Path(__file__).resolve().parent / "configs/hydra.yaml"
 
 def resolve(path):
@@ -114,9 +119,10 @@ def main(opts):
     print("hydra_opts", hydra_opts)
     args = hydra_opts.pop("args", None)
 
-    config_path = args['config'] #"/home/mila/t/tengmeli/ecosystem-embedding/configs/custom_meli_2.yaml" 
-    #default = "/network/scratch/a/amna.elmustafa/tmp/ecosystem-embedding/configs/defaults.yaml" #args['default']
-    default = Path(__file__).parent / "configs/defaults.yaml"
+    config_path = "/network/scratch/a/amna.elmustafa/final/ecosystem-embedding/configs/custom_amna.yaml"
+    #args['config'] #"/home/mila/t/tengmeli/ecosystem-embedding/configs/custom_meli_2.yaml" 
+    default = "/network/scratch/a/amna.elmustafa/final/ecosystem-embedding/configs/defaults.yaml" #args['default']
+    #default = Path(__file__).parent / "configs/defaults.yaml"
     conf = load_opts(config_path, default=default, commandline_opts=hydra_opts)
     conf.save_path = conf.save_path+os.environ["SLURM_JOB_ID"]
     pl.seed_everything(conf.program.seed)
@@ -134,6 +140,10 @@ def main(opts):
         print("species A to B")
         task = EbirdSpeciesTask(conf)
         datamodule = EbirdDataModule(conf)
+    elif not conf.loc.use and len(conf.data.multiscale)>1:
+         print('using multiscale net')
+         task = multires_trainer.EbirdTask(conf)
+         datamodule = EbirdDataModule(conf)
     elif not conf.loc.use :
         task = EbirdTask(conf)
         datamodule = EbirdDataModule(conf)
@@ -159,12 +169,18 @@ def main(opts):
         )
         comet_logger.experiment.add_tags(list(conf.comet.tags))
         print(conf.comet.tags)
+#         comet_logger.experiment.log_model("my-model", conf.save_path)
         trainer_args["logger"] = comet_logger
+    else:
+        wandb_logger = WandbLogger(project='test-project')
+        print('in wandb logger')
+        trainer_args["logger"] = wandb_logger
+    
     
     checkpoint_callback = ModelCheckpoint(
-        monitor="val_loss_epoch",
+        monitor="val_topk_epoch",
         dirpath=conf.save_path,
-        save_top_k=5,
+        save_top_k=1,
         save_last=True,
     )
     early_stopping_callback = EarlyStopping(
@@ -176,14 +192,15 @@ def main(opts):
     lr_monitor = LearningRateMonitor(logging_interval='epoch')
 
     
-    trainer_args["callbacks"] = [lr_monitor, checkpoint_callback]
-    trainer_args["max_epochs"] = 500
+    trainer_args["callbacks"] = [checkpoint_callback]
+    #trainer_args['resume_from_checkpoint'] =conf.experiment.module.resume
+   # trainer_args["max_epochs"] = 400
     
 
     #trainer_args["profiler"]="simple"
     trainer_args["overfit_batches"] = conf.overfit_batches #0 if not overfitting
-    if not os.path.exists(conf.save_preds_path):
-        os.makedirs(conf.save_preds_path)
+#     if not os.path.exists(conf.save_preds_path):
+#         os.makedirs(conf.save_preds_path)
     #trainer_args["track_grad_norm"]=2
     
     if not conf.loc.use :
@@ -197,7 +214,7 @@ def main(opts):
             lr_finder = trainer.tuner.lr_find(task,  datamodule=datamodule)
 
         # Results can be found in
-            lr_finder.results
+            #lr_finder.results
 
         # Plot with
             fig = lr_finder.plot(suggest=True)
@@ -223,6 +240,7 @@ def main(opts):
     
     
 if __name__ == "__main__":
+    #
     main()
 
     
