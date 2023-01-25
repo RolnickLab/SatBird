@@ -1,9 +1,9 @@
 #where to save checkpoints
-save_path: "/network/scratch/t/tengmeli/ecosystem-embeddings/checkpoint_base_resnet18_"
+save_path: "/network/scratch/t/tengmeli/ecosystem-embeddings/checkpoint_base_resnet18_allspecies"
 
 #load existing checkpoint for inference
 load_ckpt_path: "" 
-save_preds_path: "/network/projects/_groups/ecosystem-embeddings/ebird_checkpoints/resnet18_base_no_pretrained_init_res64/preds"
+save_preds_path: "/network/projects/_groups/ecosystem-embeddings/ebird_checkpoints/resnet18_base_allspecies_pretrained_init_res64/preds"
 log_comet: true
 
 overfit_batches: 0.0
@@ -76,10 +76,11 @@ variables: &default_vars
 data:
   loaders:
     num_workers: 8
-    batch_size: 128
+    batch_size: 64
   #What kind of satellite input ? "refl" for "raw" reflectance values or 
   #"img" for 0-255 values (only supported for "rgb" and "nir" bands)
-  datatype: "refl" 
+  datatype: "refl"
+  multiscale : [64]
   
   bands: ["r","g","b", "nir"]  #any subset of ["r", "g", "b", "nir"] if working with "refl" data or ["rgb", "nir"] if using "img" 
   
@@ -121,13 +122,13 @@ data:
   #normalization: None
   transforms:
     - name: matchres
-      ignore: true
+      ignore: False
       target_size: [64, 64]
       
     - name: crop
       ignore: false
       p: 1
-      ignore_band: ["bioclim", "ped"] #["bioclim", "ped"]
+      ignore_band:  ["bioclim", "ped"] #["bioclim", "ped"]
       center: true # disable randomness, crop around the image's center
       height: 64
       width: 64
