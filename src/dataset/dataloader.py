@@ -89,7 +89,7 @@ def get_subset(subset):
         print("using oystercatcher")#Haematopus palliatus
         return([290])
     else:
-        return None
+        return ([i for i in range(684)])
         
 class EbirdVisionDataset(VisionDataset):
     
@@ -136,13 +136,12 @@ class EbirdVisionDataset(VisionDataset):
 
     def __getitem__(self, index: int) -> Dict[str, Any]:
      
-        print(get_path(self.df, index, self.bands[0]).suffix == ".npy")
+        #print(get_path(self.df, index, self.bands[0]).suffix == ".npy")
         band_npy = [(b,get_path(self.df, index, b)) for b in self.bands if get_path(self.df, index, b).suffix == ".npy"]
         env_npy = [(b,get_path(self.df, index, b)) for b in self.env if get_path(self.df, index, b).suffix in ".npy"]
         
         item_ = {}
          
-        
 #         assert len(band_npy) > 0, "No item to fetch"
         
        
@@ -159,10 +158,10 @@ class EbirdVisionDataset(VisionDataset):
            
         if band_npy:
             sats=torch.from_numpy(npy_data)
-            sats=sats.squeeze(0)
-            C, _, _ = sats.shape
+            #sats=sats.squeeze(0)
+            _,C, _, _ = sats.shape
             item_["sat"]=sats
-      
+        """
         if "landuse" in self.bands:
                 landuse=torch.from_numpy(np.array(Image.open(get_path(self.df, index, "landuse")))/10)
                 landuse = torch.unsqueeze(landuse, 0)
@@ -200,15 +199,21 @@ class EbirdVisionDataset(VisionDataset):
 #                 else:
                     
 #                      assert item_['sat'].shape==(len(self.res),C,224,224),'shape of item_sat is wrong'
-                
-                
+          """      
+        if True:       
 
-        elif len(self.res) <= 1:
-          
-             t=trsfs.Compose(self.transform)
+        #if len(self.res<=1):
+            #print("Applying transforms")
+            # crops, transforms= self.transform[0],self.transform[1]
+                #perform different crops and transformation on  both sat and landuse & env data
                 
-             item_=t(item_)
-             if 'landuse' in self.bands:
+            #for c in crops:
+            #    transforms.insert(0,c)
+            t=trsfs.Compose(self.transform)
+
+            item_=t(item_)
+             
+            if 'landuse' in self.bands:
                  if band_npy:
                      item_['sat'] = torch.cat((item_['sat'],item_['landuse']),dim=-3)
                      
@@ -221,7 +226,6 @@ class EbirdVisionDataset(VisionDataset):
         else:
             raise ValueError("Unknown transforms_length {}".format(len(self.transform)))
             
-        print('in dataloader')   
          #shape valdiation
         if 'landuse' in self.bands:
             if band_npy:
@@ -229,10 +233,11 @@ class EbirdVisionDataset(VisionDataset):
             else:
                    assert item_['sat'].shape==(len(self.res),1,224,224),'shape of item_sat is wrong'
     
-        print('after dataloader')   
 
         for e in self.env:
-                    item_["sat"] = torch.cat([item_["sat"],item_[e]], dim = -3)
+            #print("sat_shape", item_["sat"].shape)
+            #print(item_[e].shape)
+            item_["sat"] = torch.cat([item_["sat"],item_[e]], dim = -3)
 
              
         #print(item_["landuse"].size())
@@ -359,7 +364,7 @@ class EbirdSpeciesEnvDataset(VisionDataset):
         if self.transform:
             item_ = self.transform(item_)
         
-        item_["env"] = torch.cat([item_[b] for (b,band) in env_npy], dim = 1)
+        item_["env"] = torch.cat([item_[b] for (b,band) in env_npy], dim = -3)
         
          
         if "species" in self.df.columns: 

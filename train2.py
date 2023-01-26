@@ -21,7 +21,7 @@ from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint, Learning
 from typing import Any, Dict, Tuple, Type, cast
 from src.dataset.utils import set_data_paths
 import pdb
-import wandb
+#import wandb
 
 # wandp = 'test-project'
 # entity = 'amna'
@@ -119,10 +119,10 @@ def main(opts):
     print("hydra_opts", hydra_opts)
     args = hydra_opts.pop("args", None)
 
-    config_path = "/network/scratch/a/amna.elmustafa/final/ecosystem-embedding/configs/custom_amna.yaml"
-    #args['config'] #"/home/mila/t/tengmeli/ecosystem-embedding/configs/custom_meli_2.yaml" 
-    default = "/network/scratch/a/amna.elmustafa/final/ecosystem-embedding/configs/defaults.yaml" #args['default']
-    #default = Path(__file__).parent / "configs/defaults.yaml"
+    #config_path = "/network/scratch/a/amna.elmustafa/final/ecosystem-embedding/configs/custom_amna.yaml"
+    config_path = "/home/mila/t/tengmeli/ecosystem-embedding/configs/base.yaml" 
+    #/configs/default.yaml" #args['default']
+    default = Path(__file__).parent / "configs/defaults.yaml"
     conf = load_opts(config_path, default=default, commandline_opts=hydra_opts)
     conf.save_path = conf.save_path+os.environ["SLURM_JOB_ID"]
     pl.seed_everything(conf.program.seed)
@@ -140,10 +140,6 @@ def main(opts):
         print("species A to B")
         task = EbirdSpeciesTask(conf)
         datamodule = EbirdDataModule(conf)
-    elif not conf.loc.use and len(conf.data.multiscale)>1:
-         print('using multiscale net')
-         task = multires_trainer.EbirdTask(conf)
-         datamodule = EbirdDataModule(conf)
     elif not conf.loc.use :
         task = EbirdTask(conf)
         datamodule = EbirdDataModule(conf)
@@ -155,7 +151,12 @@ def main(opts):
         print("Using geo information")
         task = state_trainer.EbirdTask(conf)
         datamodule = state_trainer.EbirdDataModule(conf)
-        
+    """
+    elif not conf.loc.use and len(conf.data.multiscale)>1:
+         print('using multiscale net')
+         task = multires_trainer.EbirdTask(conf)
+         datamodule = EbirdDataModule(conf)
+    """   
     
     trainer_args = cast(Dict[str, Any], OmegaConf.to_object(conf.trainer))
         
@@ -213,18 +214,18 @@ def main(opts):
               
             lr_finder = trainer.tuner.lr_find(task,  datamodule=datamodule)
 
-        # Results can be found in
-            #lr_finder.results
+            # Results can be found in
+            """   #lr_finder.results
 
-        # Plot with
+            # Plot with
             fig = lr_finder.plot(suggest=True)
             fig.show()
             fig.savefig("learningrate.jpg")
-        
-        # Pick point based on plot, or get suggestion
+            """
+            # Pick point based on plot, or get suggestion
             new_lr = lr_finder.suggestion()
 
-        # update hparams of the model
+            # update hparams of the model
             task.hparams.learning_rate = new_lr
             task.hparams.lr = new_lr
             trainer.tune(model = task, datamodule=datamodule)
