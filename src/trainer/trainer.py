@@ -25,7 +25,7 @@ from src.dataset.dataloader import get_subset
 import time 
 import os 
 import json
-import wandb
+#import wandb
 from torch.nn.functional import l1_loss
 #criterion = CustomCrossEntropyLoss()#BCEWithLogitsLoss()
 mse=nn.MSELoss()
@@ -85,8 +85,8 @@ class EbirdTask(pl.LightningModule):
         self.opts = opts
         self.means = None
         #get target vector size (number of species we consider)
-        subset = get_subset(self.opts.data.target.subset)
-        
+        self.subset = get_subset(self.opts.data.target.subset)
+        subset = self.subset
         self.target_size = len(subset) if subset is not None else self.opts.data.total_species
         print("Predicting ", self.target_size, "species")
         self.target_type = self.opts.data.target.type
@@ -277,7 +277,7 @@ class EbirdTask(pl.LightningModule):
 #              self.subset= pickle.load(f)
         self.correction=  self.correction_data.iloc[:,subset]
 #         self.correction=  self.correction_data[:,subset]
-
+        #self.correction_data = self.correction_data.reset_index().set_index('hotspot_id')
 #         self.correction=  self.correction_data.loc[:,subset]
         assert self.correction.shape[1]==len(subset)
         
@@ -302,8 +302,9 @@ class EbirdTask(pl.LightningModule):
         b, no_species = y.shape        
         hotspot_id=batch['hotspot_id']
         state_id=batch['state_id']
-        correction= (self.correction_data.reset_index().set_index('hotspot_id').loc[list(hotspot_id)].reset_index().set_index('index')).iloc[:,subset]       
-        correction=torch.tensor(correction.to_numpy(),device=y.device)
+        correction =  (self.correction_data.reset_index().set_index('hotspot_id').loc[list(hotspot_id)]).drop(columns = ["index"]).iloc[:,self.subset].values
+        #correction= (self.correction_data.reset_index().set_index('hotspot_id').loc[list(hotspot_id)]).iloc[:,self.subset].drop(columns = ["index"]).values
+        correction=torch.tensor(torch.from_numpy(correction),device=y.device)
 #         self.correction_data=torch.tensor(self.correction,device=y.device)    
 #         correction=self.correction[state_id]
         print(correction.shape)
@@ -356,7 +357,7 @@ class EbirdTask(pl.LightningModule):
             loss1 = self.criterion(y, pred)
             loss2 = self.criterion(y, aux_pred)
             loss = loss1 + loss2
-        if self.opts.experiment.module.model == "train_linear":
+        elif self.opts.experiment.module.model == "train_linear":
             inter= self.feature_extractor(x)
             y_hat = self.forward(inter)
             if self.opts.data.correction_factor.use=='before':
@@ -427,7 +428,8 @@ class EbirdTask(pl.LightningModule):
                     
                 pred=cloned_pred
                 print('predictions after: ',pred)
-            
+            else:
+                y= y * correction
             pred_ = pred.clone().type_as(y)
 
                 
@@ -481,9 +483,9 @@ class EbirdTask(pl.LightningModule):
         b, no_species = y.shape
         state_id = batch['state_id']
         hotspot_id=batch['hotspot_id']
-        correction= (self.correction_data.reset_index().set_index('hotspot_id').loc[list(hotspot_id)].reset_index().set_index('index')).iloc[:,subset]
-
-        correction=torch.tensor(correction.to_numpy(),device=y.device)
+        correction= (self.correction_data.reset_index().set_index('hotspot_id').loc[list(hotspot_id)]).drop(columns = ["index"]).iloc[:,self.subset].values
+        #print(correction.shape)
+        correction=torch.tensor(torch.from_numpy(correction),device=y.device)
         
        
 
@@ -533,7 +535,8 @@ class EbirdTask(pl.LightningModule):
                 cloned_pred*=mask.int()
                 y*=mask.int()
                 pred=cloned_pred
-                
+        else:
+            y = y*correction
         pred_ = pred.clone().type_as(y)
 
         if self.target_type == "binary":
@@ -578,7 +581,9 @@ class EbirdTask(pl.LightningModule):
         b, no_species = y.shape
         state_id = batch['state_id']
         hotspot_id=batch['hotspot_id']
-        correction= (self.correction_data.reset_index().set_index('hotspot_id').loc[list(hotspot_id)].reset_index().set_index('index')).iloc[:,subset]
+        correction=(self.correction_data.reset_index().set_index('hotspot_id').loc[list(hotspot_id)]).drop(columns = ["index"]).iloc[:,self.subset].values#(self.correction_data.loc[list(hotspot_id)]).drop(columns = ["index"]).values
+        correction=torch.tensor(torch.from_numpy(correction),device=y.device)
+        #(self.correction_data.reset_index().set_index('hotspot_id').loc[list(hotspot_id)].reset_index().set_index('index')).iloc[:,self.subset]
 #         self.correction=torch.tensor(self.correction,device=y.device)    
 #         correction=self.correction[state_id]
         
@@ -619,6 +624,8 @@ class EbirdTask(pl.LightningModule):
                 cloned_pred*=mask.int()
                 y*=mask.int()
                 pred=cloned_pred
+            else: 
+                y = y*correction
         loss = self.criterion(y, pred)
 
         pred_ = pred.clone().type_as(y)
