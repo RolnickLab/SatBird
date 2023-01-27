@@ -161,11 +161,13 @@ class EbirdVisionDataset(VisionDataset):
             #sats=sats.squeeze(0)
             _,C, _, _ = sats.shape
             item_["sat"]=sats
-        """
+        
         if "landuse" in self.bands:
-                landuse=torch.from_numpy(np.array(Image.open(get_path(self.df, index, "landuse")))/10)
-                landuse = torch.unsqueeze(landuse, 0)
-                item_['landuse']=landuse      
+            print("USING LANDUSE")
+            landuse=torch.from_numpy(np.array(Image.open(get_path(self.df, index, "landuse")))/10)
+            landuse = torch.unsqueeze(landuse, 0)
+            item_['landuse']=landuse      
+        """
         if  len(self.res)>1 :
                 sat_list = []
 
