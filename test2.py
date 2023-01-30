@@ -116,9 +116,9 @@ def main(opts):
     print("hydra_opts", hydra_opts)
     args = hydra_opts.pop("args", None)
 
-    config_path = "/network/scratch/a/amna.elmustafa/final/ecosystem-embedding/configs/custom_amna.yaml"
+    config_path = "/home/mila/t/tengmeli/ecosystem-embedding/configs/base.yaml"
     #args['config'] #"/home/mila/t/tengmeli/ecosystem-embedding/configs/custom_meli_2.yaml" 
-    default = "/network/scratch/a/amna.elmustafa/final/ecosystem-embedding/configs/defaults.yaml" #args['default']
+    default = "/home/mila/t/tengmeli/ecosystem-embedding/configs/defaults.yaml" #args['default']
     #default = Path(__file__).parent / "configs/defaults.yaml"
     conf = load_opts(config_path, default=default, commandline_opts=hydra_opts)
     conf.save_path = conf.save_path+os.environ["SLURM_JOB_ID"]
@@ -160,18 +160,8 @@ def main(opts):
     trainer_args = cast(Dict[str, Any], OmegaConf.to_object(conf.trainer))
     if conf.load_ckpt_path != "":
         print("Loading existing checkpoint")
-    conf.load_ckpt_path = "/network/scratch/a/amna.elmustafa/ecosystem-embeddings/ckpts2527294/last.ckpt"
-    #"/network/scratch/a/amna.elmustafa/ecosystem-embeddings/ckpts2477166/last.ckpt"
-    #/network/scratch/a/amna.elmustafa/ecosystem-embeddings/ckpts2477165  512_224
-    #/network/scratch/a/amna.elmustafa/ecosystem-embeddings/ckpts2477127  64
-    #/network/scratch/a/amna.elmustafa/ecosystem-embeddings/ckpts2477123  512
-    # /network/scratch/a/amna.elmustafa/ecosystem-embeddings/ckpts2477120  224
-    # /network/scratch/a/amna.elmustafa/ecosystem-embeddings/ckpts2485167 satenv224
-    #land use only /network/scratch/a/amna.elmustafa/ecosystem-embeddings/ckpts2484606
-    # /network/scratch/a/amna.elmustafa/ecosystem-embeddings/ckpts2485253 satenvlanduse224
-    #"/network/scratch/t/tengmeli/ecosystem-embeddings/checkpoint_base_2034177/epoch=53-step=2537.ckpt" 
-    #"/network/scratch/t/tengmeli/ecosystem-embeddings/checkpoint_loc_2034124/epoch=3-step=187.ckpt" #"/network/scratch/t/tengmeli/ecosystem-embeddings/checkpoint_loc2033871/last-copy.ckpt"
-    #sat 224 512 rangemaps: /network/scratch/a/amna.elmustafa/ecosystem-embeddings/ckpts2527315
+    conf.load_ckpt_path = "/network/scratch/t/tengmeli/ecosystem-embeddings/checkpoint_base_resnet18_allspecies2760900/last.ckpt" #last.ckpt"
+    #"/network/scratch/a/amna.elmustafa/ecosystem-embeddings/ckpts2527294/last.ckpt"
     #above with landuse : /network/scratch/a/amna.elmustafa/ecosystem-embeddings/ckpts2527309
     #sat landuse env 512  /network/scratch/a/amna.elmustafa/ecosystem-embeddings/ckpts2527306
     #Sat landuse  env 224 /network/scratch/a/amna.elmustafa/ecosystem-embeddings/ckpts2527294
@@ -185,7 +175,7 @@ def main(opts):
                
                        #ckpt_path='best',
                        verbose=True)
-    trainer.test(model=task, dataloaders=datamodule.train_dataloader(),verbose=True)
+    #trainer.test(model=task, dataloaders=datamodule.train_dataloader(),verbose=True)
     
     
 if __name__ == "__main__":
