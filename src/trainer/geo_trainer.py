@@ -34,7 +34,7 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 def get_nb_bands(bands):
     n = 0
     for b in bands:
-        if b in ["r","g","b","nir"]:
+        if b in ["r","g","b","nir", "landuse"]:
             n+=1
         elif b == "ped":
             n+=8
@@ -249,8 +249,7 @@ class EbirdTask(pl.LightningModule):
         hotspot_id=batch['hotspot_id']
         subset = get_subset(self.opts.data.target.subset)
 
-        correction= (self.correction_data.reset_index().set_index('hotspot_id').loc[list(hotspot_id)].reset_index().set_index('index')).iloc[:,subset]
-
+        correction =  (self.correction_data.reset_index().set_index('hotspot_id').loc[list(hotspot_id)]).drop(columns = ["index"]).iloc[:,self.subset].values
         correction=torch.tensor(correction.to_numpy(),device=y.device)
         
      
@@ -265,6 +264,7 @@ class EbirdTask(pl.LightningModule):
             aux_y_hat = m(aux_outputs)
             pred = torch.multiply(y_hat, out_loc)
             aux_pred = torch.multiply(aux_y_hat, out_loc)
+            y*=correction
             loss1 = self.criterion(y, pred)
             loss2 = self.criterion(y,aux_pred)
             loss = loss1 + loss2
@@ -284,6 +284,8 @@ class EbirdTask(pl.LightningModule):
                     cloned_pred*=mask.int()
                     y*=mask.int()
                     pred=cloned_pred
+            else:
+                y*=correction
                          
             loss = self.criterion(y,pred)   
             
@@ -322,7 +324,7 @@ class EbirdTask(pl.LightningModule):
         hotspot_id=batch['hotspot_id']
         subset = get_subset(self.opts.data.target.subset)
 
-        correction= (self.correction_data.reset_index().set_index('hotspot_id').loc[list(hotspot_id)].reset_index().set_index('index')).iloc[:,subset]
+        correction =  (self.correction_data.reset_index().set_index('hotspot_id').loc[list(hotspot_id)]).drop(columns = ["index"]).iloc[:,self.subset].values
         correction=torch.tensor(correction.to_numpy(),device=y.device)
         assert correction.shape==(b,no_species) ,'shape of correction factor is not as expected'
 
@@ -335,6 +337,7 @@ class EbirdTask(pl.LightningModule):
             aux_y_hat = m(aux_outputs)
             pred = torch.multiply(y_hat, out_loc)
             aux_pred = torch.multiply(aux_y_hat, out_loc)
+            y*=correction
             loss1 = self.criterion(y, pred)
             loss2 = self.criterion(y,aux_pred)
             loss = loss1 + loss2
@@ -353,7 +356,8 @@ class EbirdTask(pl.LightningModule):
                     cloned_pred*=mask.int()
                     y*=mask.int()
                     pred=cloned_pred
-                          
+            else:
+                y*=correction
             loss = self.criterion(pred, y)   
             print("val_loss", loss) 
         pred_ = pred.clone()
@@ -389,8 +393,8 @@ class EbirdTask(pl.LightningModule):
         hotspot_id=batch['hotspot_id']
         subset = get_subset(self.opts.data.target.subset)
 
-        correction= (self.correction_data.reset_index().set_index('hotspot_id').loc[list(hotspot_id)].reset_index().set_index('index')).iloc[:,subset]
-
+        correction=correction =  (self.correction_data.reset_index().set_index('hotspot_id').loc[list(hotspot_id)]).drop(columns = ["index"]).iloc[:,self.subset].values
+        
         correction=torch.tensor(correction.to_numpy(),device=y.device)
         assert correction.shape==(b,no_species) ,'shape of correction factor is not as expected'
 
@@ -411,17 +415,19 @@ class EbirdTask(pl.LightningModule):
                 
             pred = y_hat    
             #range maps 
-            if self.opts.data.correction_factor.thresh:
-                    mask=correction
-                    cloned_pred=pred.clone().type_as(pred)
-                    #just for debugging you can remove that later
-                    print('In test masking')
-                    cloned_before=copy.deepcopy(cloned_pred)
-                    print('does mask have zero values: ', (mask==0).any())
-                    cloned_pred*=mask.int()
-                    y*=mask.int()
-                    print(mask,hotspot_id)
-                    pred=cloned_pred
+            if self.opts.data.correction_factor.thresh=="after":
+                mask=correction
+                cloned_pred=pred.clone().type_as(pred)
+                #just for debugging you can remove that later
+                print('In test masking')
+                cloned_before=copy.deepcopy(cloned_pred)
+                print('does mask have zero values: ', (mask==0).any())
+                cloned_pred*=mask.int()
+                y*=mask.int()
+                print(mask,hotspot_id)
+                pred=cloned_pred
+            else:
+                 y=  y*correction
         pred_ = pred.clone().cpu()    
         if "target" in batch.keys():
             y = batch['target'].cpu()
