@@ -191,6 +191,7 @@ class EbirdTask(pl.LightningModule):
         self.target_size= get_target_size(self.opts)
         self.target_type = self.opts.data.target.type
         subset = get_subset(self.opts.data.target.subset)
+        self.subset = get_subset(self.opts.data.target.subset)
 
         if self.target_type == "binary":
             #self.target_type = "binary"
@@ -250,7 +251,7 @@ class EbirdTask(pl.LightningModule):
         subset = get_subset(self.opts.data.target.subset)
 
         correction =  (self.correction_data.reset_index().set_index('hotspot_id').loc[list(hotspot_id)]).drop(columns = ["index"]).iloc[:,self.subset].values
-        correction=torch.tensor(correction.to_numpy(),device=y.device)
+        correction=torch.tensor(correction,device=y.device)
         
      
         assert correction.shape==(b,no_species) ,'shape of correction factor is not as expected'
@@ -325,7 +326,7 @@ class EbirdTask(pl.LightningModule):
         subset = get_subset(self.opts.data.target.subset)
 
         correction =  (self.correction_data.reset_index().set_index('hotspot_id').loc[list(hotspot_id)]).drop(columns = ["index"]).iloc[:,self.subset].values
-        correction=torch.tensor(correction.to_numpy(),device=y.device)
+        correction=torch.tensor(correction,device=y.device)
         assert correction.shape==(b,no_species) ,'shape of correction factor is not as expected'
 
         #check weights are moving
@@ -395,7 +396,7 @@ class EbirdTask(pl.LightningModule):
 
         correction=correction =  (self.correction_data.reset_index().set_index('hotspot_id').loc[list(hotspot_id)]).drop(columns = ["index"]).iloc[:,self.subset].values
         
-        correction=torch.tensor(correction.to_numpy(),device=y.device)
+        correction=torch.tensor(correction,device=y.device)
         assert correction.shape==(b,no_species) ,'shape of correction factor is not as expected'
 
         #check weights are moving
