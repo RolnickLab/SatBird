@@ -96,7 +96,68 @@ class CustomTopK(Metric):
 
     def compute(self):
         return self.correct.float() / self.total
+
+class CustomTop10(Metric):
+    def __init__(self):
+        super().__init__()
+        self.add_state("correct", default=torch.tensor(0).float(), dist_reduce_fx="sum")
+        self.add_state("total", default=torch.tensor(0).float(), dist_reduce_fx="sum")
+
+    def update(self, target: torch.Tensor, preds: torch.Tensor):
+        
+        assert preds.shape == target.shape
+        non_zero_counts = torch.count_nonzero(target, dim=1)
+        for i, elem in enumerate(target):
+            ki = non_zero_counts[i]
+            if ki >=10:
+                v_pred, i_pred = torch.topk(preds[i], k = 10)
+                v_targ, i_targ = torch.topk(elem, k = 10)
+            else:
+                v_pred, i_pred = torch.topk(preds[i], 10 )
+                v_targ, i_targ = torch.topk(elem, ki)
+            if ki == 0 :
+                pass
+            else:
+                count = torch.tensor(len([k for k in i_pred if k in i_targ]))
+                if ki>=10:
+                    self.correct += count/10
+                else:
+                    self.correct += count/ki                   
+                self.total += 1
+
+    def compute(self):
+        return self.correct.float() / self.total
     
+class CustomTop30(Metric):
+    def __init__(self):
+        super().__init__()
+        self.add_state("correct", default=torch.tensor(0).float(), dist_reduce_fx="sum")
+        self.add_state("total", default=torch.tensor(0).float(), dist_reduce_fx="sum")
+
+    def update(self, target: torch.Tensor, preds: torch.Tensor):
+        
+        assert preds.shape == target.shape
+        non_zero_counts = torch.count_nonzero(target, dim=1)
+        for i, elem in enumerate(target):
+            ki = non_zero_counts[i]
+            if ki >=10:
+                v_pred, i_pred = torch.topk(preds[i], k = 30)
+                v_targ, i_targ = torch.topk(elem, k = 30)
+            else:
+                v_pred, i_pred = torch.topk(preds[i], 30 )
+                v_targ, i_targ = torch.topk(elem, k = ki)
+            if ki == 0 :
+                pass
+            else:
+                count = torch.tensor(len([k for k in i_pred if k in i_targ]))
+                if ki>=30:
+                    self.correct += count/30
+                else:
+                    self.correct += count/ki                   
+                self.total += 1
+
+    def compute(self):
+        return self.correct.float() / self.total
 
 
 def get_metric(metric):
