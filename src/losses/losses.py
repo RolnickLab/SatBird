@@ -174,6 +174,10 @@ def get_metric(metric):
     
     elif metric.name == "topk" and not metric.ignore is True :
         return CustomTopK()
+    elif metric.name == "top10" and not metric.ignore is True :
+        return CustomTop10()
+    elif metric.name == "top30" and not metric.ignore is True :
+        return CustomTop30()
     
     elif metric.name == "ce" and not metric.ignore is True :
         return CustomCrossEntropy(metric.lambd_pres, metric.lambd_abs)
@@ -195,7 +199,10 @@ def get_metrics(opts):
     metrics = []
     
     for m in opts.losses.metrics:
+        
         metrics.append((m.name, get_metric(m), m.scale))
+    metrics.append(('top10',CustomTop10(),1))
+    metrics.append(('top30',CustomTop30(),1))
     metrics = [(a,b,c) for (a,b,c) in metrics if b is not None]
     print(metrics)
     return metrics
