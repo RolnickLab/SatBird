@@ -628,12 +628,13 @@ class EbirdTask(pl.LightningModule):
                     pred=torch.clip(cloned_pred, min=0, max=0.99)
                         #pred=m(cloned_pred)
             elif self.opts.data.correction_factor.thresh=='after':
-                print('in correction')
+                print('NNNNNNNNNNNNNNNNNNNNNNN in correction')
                 mask=correction_t
                 cloned_pred=pred.clone().type_as(pred)
-              
-                cloned_pred*=mask.int()
-                y*=mask.int()
+                
+                cloned_pred*=mask
+                
+                y*=mask
                 pred=cloned_pred
             else: 
             
