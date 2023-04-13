@@ -25,6 +25,7 @@ from src.dataset.dataloader import get_subset
 import time 
 import os 
 import json
+#import wandb
 from torch.nn.functional import l1_loss
 #criterion = CustomCrossEntropyLoss()#BCEWithLogitsLoss()
 mse=nn.MSELoss()
@@ -38,7 +39,7 @@ def get_nb_bands(bands):
     """
     n = 0
     for b in bands:
-        if b in ["r","g","b","nir"]:
+        if b in ["r","g","b","nir","landuse"]:
             n+=1
         elif b == "ped":
             n+=8
@@ -84,8 +85,8 @@ class EbirdTask(pl.LightningModule):
         self.opts = opts
         self.means = None
         #get target vector size (number of species we consider)
-        subset = get_subset(self.opts.data.target.subset)
-        
+        self.subset = get_subset(self.opts.data.target.subset)
+        subset = self.subset
         self.target_size = len(subset) if subset is not None else self.opts.data.total_species
         print("Predicting ", self.target_size, "species")
         self.target_type = self.opts.data.target.type
@@ -121,11 +122,7 @@ class EbirdTask(pl.LightningModule):
             for param in self.feature_extractor.parameters():
                 param.requires_grad = False
             self.model = nn.Linear(512, self.target_size)
-            #self.means = np.load(self.opts.experiment.module.means_path)[0,subset]
-            #means = torch.Tensor(self.means)
-
-            #means = torch.logit(means, eps=1e-10)
-            #self.model.bias.data =  means
+           
 
         elif self.opts.experiment.module.model == "resnet18":
             
@@ -145,7 +142,25 @@ class EbirdTask(pl.LightningModule):
                 )
                 #assume first three channels are rgb
                 if self.opts.experiment.module.pretrained:
-                    self.model.conv1.weight.data[:, :orig_channels, :, :] = weights
+                    #self.model.conv1.weight.data[:, :orig_channels, :, :] = weights
+                    self.model.conv1.weight.data=init_first_layer_weights(get_nb_bands(self.bands), weights)
+            #loading seco mode
+            if self.opts.experiment.module.resume:
+                print('loading a pretrained model')
+                ckpt = torch.load(self.opts.experiment.module.resume)
+                self.model.fc = nn.Sequential()
+                loaded_dict=ckpt['state_dict']
+                model_dict=self.model.state_dict()
+                del loaded_dict["queue"] 
+                del loaded_dict["queue_ptr"]
+                #load state dict keys
+                for key_model, key_seco in zip(model_dict.keys(),loaded_dict.keys()):
+                    #ignore first layer weights(use imagenet ones)
+                    if key_model=='conv1.weight':
+                        continue
+                    model_dict[key_model]=loaded_dict[key_seco]
+           
+                self.model.load_state_dict(model_dict)
             if self.opts.experiment.module.fc == "linear":
                 self.model.fc = nn.Linear(512, self.target_size)
             elif self.opts.experiment.module.fc == "linear_net":
@@ -156,12 +171,12 @@ class EbirdTask(pl.LightningModule):
                 self.model.fc = nn.Linear(512, self.target_size)
             
         elif self.opts.experiment.module.model == "resnet50":
-            self.model = models.resnet50(pretrained=self.opts.experiment.module.pretrained)
+            model = models.resnet50(pretrained=self.opts.experiment.module.pretrained)
             if len(self.opts.data.bands) != 3 or len(self.opts.data.env) > 0:
                 self.bands = self.opts.data.bands + self.opts.data.env
-                orig_channels = self.model.conv1.in_channels
-                weights = self.model.conv1.weight.data.clone()
-                self.model.conv1 = nn.Conv2d(
+                orig_channels = model.conv1.in_channels
+                weights = model.conv1.weight.data.clone()
+                model.conv1 = nn.Conv2d(
                     get_nb_bands(self.bands),
                     64,
                     kernel_size=(7, 7),
@@ -171,7 +186,37 @@ class EbirdTask(pl.LightningModule):
                 )
                 #assume first three channels are rgb
                 if self.opts.experiment.module.pretrained:
-                    self.model.conv1.weight.data[:, :orig_channels, :, :] = weights
+                    model.conv1.weight.data[:, :orig_channels, :, :] = weights
+            #loading geossl model
+            if self.opts.experiment.module.resume:
+                path=self.opts.experiment.module.resume
+                checkpoint = torch.load(path)
+
+                loaded_dict = checkpoint['state_dict']
+
+                model_dict = model.state_dict()
+                del loaded_dict["module.queue"]
+                del loaded_dict["module.queue_ptr"]
+#                 print('loaded dict keys',loaded_dict.keys(),'model_keys',model_dict.keys())
+                model.conv1.weight.data[:, :orig_channels, :, :]=loaded_dict[list(loaded_dict.keys())[0]]
+                # load state dict keys
+                
+                for key_model, key_seco in zip(model_dict.keys(), loaded_dict.keys()):
+                    if 'fc' in key_model:
+                        print('here in fc continue')
+                        #ignore fc weight
+                        continue
+                    
+                    if key_seco=='module.encoder_q.conv1.weight':
+                        print('here in conv1')
+                        continue
+#                     print(key_model,key_seco)
+                    model_dict[key_model] = loaded_dict[key_seco]
+#                 for key in list(self.model.state_dict().keys()):
+#                     model_dict['model.'+key]=model_dict.pop(key)
+                msg=model.load_state_dict(model_dict,strict=False)
+                print(msg)
+                self.model=model
            
             if self.opts.experiment.module.fc == "linear":
                 self.model.fc = nn.Linear(2048, self.target_size)
@@ -216,20 +261,32 @@ class EbirdTask(pl.LightningModule):
         for (name, value, _) in metrics:
             setattr(self, "val_" + name, value)
         for (name, value, _) in metrics:
+
             setattr(self, "train_" + name, value)
+        for (name, value, _) in metrics:
+            setattr(self, "test_" + name, value)
         self.metrics = metrics
 
-#         with open(self.opts.data.files.correction,'rb') as f:
-#             self.correction_data=pickle.load(f)
-        #with open(self.opts.data.files.correction_thresh,'rb') as f:
-        #    self.correction_data=np.load(f)
-            
-            
+#         if   self.opts.data.correction_factor.thresh:
+        with open(self.opts.data.files.correction_thresh,'rb') as f:
+               
+                self.correction_t_data=pickle.load(f)
 
-        #filter nonsong birds
-        #print('how correction data looks like :' , self.correction_data)
-        #self.correction_data=  self.correction_data[:,subset]
-        #assert self.correction_data.shape[1]==len(subset)
+        if self.opts.data.correction_factor.use:
+            with open(self.opts.data.files.correction,'rb') as f:
+                self.correction_data=pickle.load(f)
+                if subset:
+                    self.correction=  self.correction_data[:,subset]
+  
+
+        
+
+#         assert self.correction.shape[1]==len(subset)
+        
+       
+        
+        #watch model gradients
+        #wandb.watch(self.model, log='all', log_freq=5)
 
 
     def forward(self, x:Tensor) -> Any:
@@ -241,20 +298,26 @@ class EbirdTask(pl.LightningModule):
         """Training step"""
         m = nn.Sigmoid()
         x = batch['sat'].squeeze(1)
-
+        print('input shape:', x.shape)
         y = batch['target']
 
-        b, no_species = y.shape
-        print(y)
+        b, no_species = y.shape        
+        hotspot_id=batch['hotspot_id']
         state_id=batch['state_id']
+#         if   self.opts.data.correction_factor.thresh:
+        correction_t =  (self.correction_t_data.reset_index().set_index('hotspot_id').loc[list(hotspot_id)]).drop(columns = ["index"]).iloc[:,self.subset].values
+        correction_t=torch.tensor(correction_t,device=y.device)
 
-        #self.correction_data=torch.tensor(self.correction_data,device=y.device)
+        if self.opts.data.correction_factor.use:
+             self.correction_data=torch.tensor(self.correction,device=y.device)  
+             correction=self.correction[state_id]
+
+#         self.correction_data=torch.tensor(self.correction,device=y.device)    
+#         correction=self.correction[state_id]
+#         print(correction.shape)
+#         assert correction.shape==(b,no_species) ,'shape of correction factor is not as expected'
+        
        
-        #correction=self.correction_data[state_id]
-     
-        #assert correction.shape==(b,no_species) ,'shape of correction factor is not as expected'
-        #assert correction.shape==(b,) ,'shape of correction factor is not as expected'
-        #correction.unsqueeze_(-1)
         if self.opts.experiment.module.model == "linear":
             x = torch.flatten(x, start_dim=1)
         #check weights are moving
@@ -277,22 +340,19 @@ class EbirdTask(pl.LightningModule):
                 aux_pred = m(aux_outputs).type_as(y)
                 if self.opts.data.correction_factor.use=='after':
                         print('preds before, ', preds[:10])
-                        preds=pred*correction
-                        aux_preds=aux_pred*corretcion
+                        #preds=pred*correction
+                        y= y * correction
+                        #aux_preds=aux_pred*corretcion
                         cloned_pred=preds.clone().type_as(preds)
                         aux_clone=aux_preds.clone().type_as(aux_preds)
                         
-                        #apply sigmoid after to normalize again ! not sure if this is mathematically correct
-                        #pred=m(cloned_pred)
-                        #aux_pred=m(aux_clone)
-                        pred=torch.clip(cloned_pred, min=0, max=0.98)
-                        aux_pred=torch.clip(aux_clone,min=0,max=0.98)
+                        
                 elif self.opts.data.correction_factor.thresh:
-                    #mask=torch.le(pred, correction)
-                    mask=correction
+                    mask=correction_t
                     cloned_pred=pred.clone().type_as(pred)
-                    cloned_pred[mask]=0
-                    
+                    print('predictons before: ',cloned_pred)
+                    cloned_pred*=mask.int()
+                    y*=mask.int()
                     pred=cloned_pred
 
             #pred = m(y_hat)
@@ -300,61 +360,81 @@ class EbirdTask(pl.LightningModule):
             loss1 = self.criterion(y, pred)
             loss2 = self.criterion(y, aux_pred)
             loss = loss1 + loss2
-        if self.opts.experiment.module.model == "train_linear":
+        elif self.opts.experiment.module.model == "train_linear":
             inter= self.feature_extractor(x)
             y_hat = self.forward(inter)
             if self.opts.data.correction_factor.use=='before':
-                print('y hat before correction ',y_hat[:10])
+                
                 y_hat*=correction
-                print('after correction ', y_hat[:10])
+           
             pred = m(y_hat).type_as(y)
-            pred_ = pred.clone().type_as(y)
             
             if self.opts.data.correction_factor.use=='after':
-                        print('preds before, ', preds[:10])
                         preds=pred*correction
+                        #y= y * correction
+
                         cloned_pred=preds.clone().type_as(preds)
 
                         #pred=m(cloned_pred)
-                        pred=torch.clip(cloned_pred, min=0, max=0.98)
-            elif self.opts.data.correction_factor.thresh:
+                        pred=torch.clip(cloned_pred, min=0, max=0.99)
+            elif self.opts.data.correction_factor.thresh=='after':
+                
                 #mask=torch.le(pred, correction)
-                mask=correction
-
+                mask=correction_t
+                
                 cloned_pred=pred.clone().type_as(pred)
-                cloned_pred[mask]=0
+                cloned_pred[~mask]=0
+                
                 pred=cloned_pred
+                
+            pred_ = pred.clone().type_as(y)
+
             
             loss = self.criterion(y, pred)
         else:
             y_hat = self.forward(x)
             if self.opts.data.correction_factor.use=='before':
-                print('y hat before correction ',y_hat[:10])
+               
                 y_hat*=correction
-                print('after correction ', y_hat[:10])
+
             if self.target_type == "log" or self.target_type == "binary":
                 pred = y_hat.type_as(y)
-                pred_ = m(pred).clone().type_as(y)
+                #pred_ = m(pred).clone().type_as(y)
             else :
 
                 pred = m(y_hat).type_as(y)
-                #print('preds maximum in trainstep', pred.max())
-                pred_ = pred.clone().type_as(y)
-                #print('len of preds',len(pred_))
+               
+              
                 
             if self.opts.data.correction_factor.use=='after':
-                        print('preds before correction Validation',preds[:10])
                         preds=pred*correction
+                        #preds=pred
+                        #y= y * correction
                         cloned_pred=preds.clone().type_as(preds)
                         #pred=m(cloned_pred)
                         pred=torch.clip(cloned_pred, min=0, max=0.98)
                         
-            elif self.opts.data.correction_factor.thresh:
-               # mask=torch.le(pred, correction)
-                mask=correction
+                        
+            elif self.opts.data.correction_factor.thresh=='after':
+          
+                mask=correction_t
+                
                 cloned_pred=pred.clone().type_as(pred)
-                cloned_pred[mask]=0
+                print('predictons before: ',cloned_pred)
+                
+                
+               
+                cloned_pred*=mask.int()
+                y*=mask.int()
+                
+                    
                 pred=cloned_pred
+                print('predictions after: ',pred)
+            else:
+            
+                y= y * correction_t
+            pred_ = pred.clone().type_as(y)
+
                 
             if self.target_type == "binary":
                 loss =  self.criterion(pred, y)
@@ -378,38 +458,21 @@ class EbirdTask(pl.LightningModule):
         for (name, _, scale) in self.metrics:
             nname = "train_" + name
             if name == "accuracy":
-                getattr(self,nname)(pred_, y.type(torch.uint8))
-                #if getattr(self,name)(pred_,  y.type(torch.uint8)) != 1:
-                #    print("pred_train", pred_)
-                #    print("y", y)
-                    #print(batch["hotspot_id"])
-                #print(nname,getattr(self,nname)(pred_,  y.type(torch.uint8)))
-            #elif name=='r2':
-                #print('in r2')
-                #getattr(self,name)(pred_, y.type(torch.uint8))
-                #if getattr(self,name)(pred_,  y.type(torch.uint8)) != 1:
-                #    print("pred_train", pred_)
-                #    print("y", y)
-                    #print(batch["hotspot_id"])
+                value= getattr(self,nname)(pred_, y.type(torch.uint8))
+            elif name=='r2':
+                value=torch.mean(getattr(self,nname)(y, pred_))
                 
-               # print(nname,getattr(self,name)(pred_,  y.type(torch.uint8)))
                 
             else:
                
-                getattr(self,nname)(y, pred_)
+                value=getattr(self,nname)(y, pred_)
+               # print(getattr(self,nname)(y, pred_))
                 #print(nname,getattr(self,name))
                
-            self.log(nname, getattr(self,nname))#, on_step = True, on_epoch = True)
-        self.log("train_loss", loss) #, on_step = True, on_epoch= True)
+            self.log(nname, value, on_epoch = True)
+        self.log("train_loss", loss,  on_epoch= True)
         return loss
-    
-    #def training_epoch_end(self, outputs):
-    #    # this will not reset the metric automatically at the epoch end so you
-        # need to call it yourself
-    #    print("Computing epoch metric")
-    #    for (name, _, scale) in self.metrics:
-    #        nname = "train_epoch" + name
-    #        self.log(nname, getattr(self,name))
+   
 
     def validation_step(
         self, batch: Dict[str, Any], batch_idx: int )->None:
@@ -419,14 +482,20 @@ class EbirdTask(pl.LightningModule):
         #import pdb; pdb.set_trace()
         x = batch['sat'].squeeze(1)#.to(device)
 
-        y = batch['target']#.to(device)
+        y = batch['target']
         b, no_species = y.shape
         state_id = batch['state_id']
-        #self.correction_data=torch.tensor(self.correction_data,device=y.device)
+        hotspot_id=batch['hotspot_id']
+#         if   self.opts.data.correction_factor.thresh:
+        correction_t =  (self.correction_t_data.reset_index().set_index('hotspot_id').loc[list(hotspot_id)]).drop(columns = ["index"]).iloc[:,self.subset].values
+        correction_t=torch.tensor(correction_t,device=y.device)
+#             
+        if  self.opts.data.correction_factor.use:
+             self.correction=torch.tensor(self.correction,device=y.device)    
+             correction=self.correction[state_id]
 
-       #correction = self.correction_data[state_id]
-        #print('shapes of correction and outpu in valdiation ',correction.shape, y.shape)
-        #assert correction.shape == (b,no_species), 'shape of correction factor is not as expected'
+     
+#         assert correction.shape == (b,no_species), 'shape of correction factor is not as expected'
         #correction.unsqueeze_(-1)
         print("Model is on cuda", next(self.model.parameters()).is_cuda)
         if self.opts.experiment.module.model == "linear":
@@ -446,26 +515,33 @@ class EbirdTask(pl.LightningModule):
 
         if self.target_type == "log" or self.target_type == "binary":
             pred = y_hat.type_as(y)
-            pred_ = m(pred).clone().type_as(y)
+            #pred_ = m(pred).clone().type_as(y)
         else:
             pred = m(y_hat).type_as(y)
-            pred_ = pred.clone().type_as(y)
         
         if self.opts.data.correction_factor.use=='after':
-                        print('preds before correction Validation',preds[:10])
+                  
+                       # print('preds before correction Validation',pred[:10])
+                        #preds=pred
                         preds=pred*correction
+#                         y= y * correction
                         cloned_pred=preds.clone().type_as(preds)
-                        pred=torch.clip(cloned_pred, min=0, max=0.98)
+                        pred=torch.clip(cloned_pred, min=0, max=0.99)
                         #pred=m(cloned_pred)
                         
-        elif self.opts.data.correction_factor.thresh:
-                #mask=torch.le(pred, correction)
-                mask=correction
+        elif self.opts.data.correction_factor.thresh=='after':
+                mask=correction_t
+
                 cloned_pred=pred.clone().type_as(pred)
-                print(cloned_pred.shape,mask.shape)
-                cloned_pred[mask]=0
+                #print(cloned_pred.shape,mask.shape)
+                cloned_pred*=mask.int()
+                y*=mask.int()
                 pred=cloned_pred
-                
+        else:
+        
+            y = y*correction_t
+        pred_ = pred.clone().type_as(y)
+
         if self.target_type == "binary":
             loss = self.criterion(pred, y)
         elif self.target_type == "log":
@@ -480,18 +556,19 @@ class EbirdTask(pl.LightningModule):
         if self.opts.data.target.type == "binary":
             pred_[pred_>=0.5] = 1
             pred_[pred_<0.5] = 0
-            #print("pred", pred_) 
-            #print("label", y)
+            
         for (name, _, scale) in self.metrics:
             nname = "val_" + name
             if name == "accuracy":
-                getattr(self,name)(pred_, y.type(torch.uint8))
+                value=getattr(self,name)(pred_, y.type(torch.uint8))
                 print(nname,getattr(self,name))
-          
+            elif name=='r2':
+               value=torch.mean(getattr(self,nname)(y, pred_))
             else:
-                getattr(self,nname)(y, pred_)
-            #print(nname,getattr(self,name)(y, pred_) )
-            self.log(nname, getattr(self, nname), on_step=False, on_epoch=True) 
+                value=getattr(self,nname)(y, pred_)
+                print(nname,getattr(self,nname)(y, pred_))
+                
+            self.log(nname,value, on_step=True, on_epoch=True) 
         self.log("val_loss", loss, on_step = True, on_epoch = True)
 
     
@@ -503,11 +580,24 @@ class EbirdTask(pl.LightningModule):
         
         x = batch['sat'].squeeze(1)#.to(device)
         #self.model.to(device)
-        y = batch['target']#.to(device)
+        y = batch['target']
         b, no_species = y.shape
         state_id = batch['state_id']
-        #self.correction_data=torch.tensor(self.correction_data,device=y.device)
+        hotspot_id=batch['hotspot_id']
+#         if   self.opts.data.correction_factor.thresh:
+        correction_t =  (self.correction_t_data.reset_index().set_index('hotspot_id').loc[list(hotspot_id)]).drop(columns = ["index"]).iloc[:,self.subset].values
+        correction_t=torch.tensor(correction_t,device=y.device)
+#             correction =  (self.correction_data.reset_index().set_index('hotspot_id').loc[list(hotspot_id)]).drop(columns = ["index"]).iloc[:,self.subset].values
+        if  self.opts.data.correction_factor.use:
+             self.correction=torch.tensor(self.correction,device=y.device)    
+             correction=self.correction[state_id]
 
+        
+        #(self.correction_data.reset_index().set_index('hotspot_id').loc[list(hotspot_id)].reset_index().set_index('index')).iloc[:,self.subset]
+#     
+#         correction=self.correction[state_id]
+        
+        
         #correction = self.correction_data[state_id]
         #print('shapes of correction and output in validation ',correction.shape, y.shape)
         #assert correction.shape == (b, no_species), 'shape of correction factor is not as expected'
@@ -519,28 +609,59 @@ class EbirdTask(pl.LightningModule):
             x = torch.flatten(x, start_dim=1)
         y_hat = self.forward(x)
         if self.opts.data.correction_factor.use=='before':
-                #print('in validation y hat before correction ',y_hat[:10])
                 y_hat*=correction
+                
+
+                
+                
         if self.target_type == "log" or self.target_type == "binary":
             pred = y_hat.type_as(y)
-            pred_ = m(pred).clone()
+            #pred_ = m(pred).clone()
         else:
             pred = m(y_hat).type_as(y)
             
             if self.opts.data.correction_factor.use=='after':
+#                     preds=pred
+#                     y= y * correction
                     preds=pred*correction
                     cloned_pred=preds.clone().type_as(preds)
-                    pred=torch.clip(cloned_pred, min=0, max=1)
+                    pred=torch.clip(cloned_pred, min=0, max=0.99)
                         #pred=m(cloned_pred)
-            elif self.opts.data.correction_factor.thresh:
-                #mask=torch.le(pred, correction)
-                mask=correction
+            elif self.opts.data.correction_factor.thresh=='after':
+                print('NNNNNNNNNNNNNNNNNNNNNNN in correction')
+                mask=correction_t
                 cloned_pred=pred.clone().type_as(pred)
-                cloned_pred[mask]=0
+                
+                cloned_pred*=mask
+                
+                y*=mask
                 pred=cloned_pred
+            else: 
+            
+                y = y*correction_t
+        loss = self.criterion(y, pred)
+
+        pred_ = pred.clone().type_as(y)
+      
+        for (name, _, scale) in self.metrics:
+            nname = "test_" + name
+            if name == "accuracy":
+                value=getattr(self,name)(pred_, y.type(torch.uint8))
+                print(nname,getattr(self,name))
+            elif name=='r2':
+                value=torch.mean(getattr(self,nname)(y, pred_))
+            else:
+                value= getattr(self,nname)(y, pred_)
+                print(nname,getattr(self,nname)(y, pred_))
+                
+            self.log(nname, value, on_epoch=True) 
+        self.log("test_loss", loss, on_epoch = True)
+
+
         
         if self.opts.save_preds_path != "":       
             for i, elem in enumerate(pred):
+           
                 np.save(os.path.join(self.opts.save_preds_path, batch["hotspot_id"][i] + ".npy"), elem.cpu().detach().numpy())
         print("saved elems")
 
@@ -600,6 +721,7 @@ class EbirdDataModule(pl.LightningDataModule):
         self.datatype = self.opts.data.datatype
         self.target = self.opts.data.target.type
         self.subset = self.opts.data.target.subset
+        self.res= self.opts.data.multiscale
         self.use_loc = self.opts.loc.use
         
     def prepare_data(self) -> None:
@@ -615,16 +737,17 @@ class EbirdDataModule(pl.LightningDataModule):
         
 
     def setup(self, stage: Optional[str]=None)->None:
-        """create the train/test/val splits"""
+        """create the train/test/val splits and prepare the transforms for the multires"""
         self.all_train_dataset = EbirdVisionDataset(
             df_paths = self.df_train,
             bands = self.bands,
             env = self.env,
-            transforms = trsfs.Compose(get_transforms(self.opts, "train")),
+            transforms =get_transforms(self.opts, "train"),
             mode = "train",
             datatype = self.datatype,
             target = self.target, 
             subset = self.subset,
+            res=self.res,
             use_loc = self.use_loc
         )
 
@@ -632,11 +755,12 @@ class EbirdDataModule(pl.LightningDataModule):
             self.df_test, 
             bands = self.bands,
             env = self.env,
-            transforms = trsfs.Compose(get_transforms(self.opts, "val")),
+            transforms = get_transforms(self.opts, "val"),
             mode = "test",
             datatype = self.datatype,
             target = self.target, 
             subset = self.subset,
+            res=self.res,
             use_loc = self.use_loc
             )
 
@@ -644,11 +768,12 @@ class EbirdDataModule(pl.LightningDataModule):
             self.df_val,
             bands=self.bands,
             env = self.env,
-            transforms = trsfs.Compose(get_transforms(self.opts, "val")),
+            transforms =get_transforms(self.opts, "val"),
             mode = "val",
             datatype = self.datatype,
             target = self.target, 
             subset = self.subset,
+            res=self.res,
             use_loc = self.use_loc
         )
 
@@ -686,3 +811,68 @@ class EbirdDataModule(pl.LightningDataModule):
             num_workers = self.num_workers,
             shuffle = False,
         )
+
+
+def init_first_layer_weights(in_channels: int, rgb_weights,
+                             hs_weight_init: str = 'random'):
+    '''Initializes the weights for filters in the first conv layer.
+      If we are using RGB-only, then just initializes var to rgb_weights. Otherwise, uses
+      hs_weight_init to determine how to initialize the weights for non-RGB bands.
+      Args
+      - int: in_channesl, input channels
+          - in_channesl is  either 3 (RGB), 7 (lxv3), or 9 (Landsat7) or 2 (NL)
+      - rgb_weights: ndarray of np.float32, shape [64, 3, F, F]
+      - hs_weight_init: str, one of ['random', 'same', 'samescaled']
+      Returs
+      -torch tensor : final_weights
+      '''
+
+    out_channels, rgb_channels, H, W = rgb_weights.shape
+    print('rgb weight shape ', rgb_weights.shape)
+    rgb_weights = torch.tensor(rgb_weights, device='cuda')
+    ms_channels = in_channels - rgb_channels
+    if in_channels == 3:
+            final_weights = rgb_weights
+
+    elif in_channels < 3: 
+        with torch.no_grad():
+            mean = rgb_weights.mean()
+            std = rgb_weights.std()
+            final_weights = torch.empty((out_channels, in_channels, H, W), device='cuda')
+            final_weights = torch.nn.init.trunc_normal_(final_weights, mean, std)
+    elif in_channels > 3:
+        # spectral images
+
+        if hs_weight_init == 'same':
+
+            with torch.no_grad():
+                mean = rgb_weights.mean(dim=1, keepdim=True)  # mean across the in_channel dimension
+                mean = torch.tile(mean, (1, ms_channels, 1, 1))
+                ms_weights = mean
+
+        elif hs_weight_init == 'random':
+            start = time.time()
+            with torch.no_grad():
+                mean = rgb_weights.mean()
+                std = rgb_weights.std()
+                ms_weights = torch.empty((out_channels, ms_channels, H, W), device='cuda')
+                ms_weights = torch.nn.init.trunc_normal_(ms_weights, mean, std)
+            print(f'random: {time.time() - start}')
+
+        elif hs_weight_init == 'samescaled':
+            start = time.time()
+            with torch.no_grad():
+                mean = rgb_weights.mean(dim=1, keepdim=True)  # mean across the in_channel dimension
+                mean = torch.tile(mean, (1, ms_channels, 1, 1))
+                ms_weights = (mean * 3) / (3 + ms_channels)
+                # scale both rgb_weights and ms_weights
+                rgb_weights = (rgb_weights * 3) / (3 + ms_channels)
+            
+
+        else:
+
+            raise ValueError(f'Unknown hs_weight_init type: {hs_weight_init}')
+
+        final_weights = torch.cat([rgb_weights, ms_weights], dim=1)
+    print('init__layer_weight shape ', final_weights.shape)
+    return final_weights
