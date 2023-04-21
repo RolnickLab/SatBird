@@ -10,9 +10,9 @@ Environmental baselines are in `data_processing/env_baseline.py`
 To see an example config file check `configs/env_baseline.yaml`
 
 
-To train the model : `python ~/ecosystem-embedding/train2.py args.config=configs/custom_meli.yaml`
+To train the model : `python ~/ecosystem-embedding/train2.py ++auto_lr_find="False" args.config=/home/mila/t/tengmeli/ecosystem-embedding/configs/base.yaml`
 
-To test the model: `python ~/ecosystem-embedding/test.py args.config=configs/custom_meli.yaml ++test_config_file=configs/custom_test.yaml `
+To test the model: `python ~/ecosystem-embedding/test2.py args.config=configs/custom_meli.yaml ++test_config_file=configs/custom_test.yaml `
 
 `config_file`must be the same as the one you used to train your model. 
 
@@ -42,8 +42,8 @@ Each LXXXX.json file contains the "hotspot_id" as well as "probs" which is the t
 In `/network/projects/_groups/ecosystem-embeddings/species_splits` are .npy files of species indices for making splits. Typically we will use `not_songbirds_idx.npy` which contains the indices of non songbirds for training. 
 
 Splits : 
-in `/network/projects/_groups/ecosystem-embeddings/species_splits/` you will find `train_june_vf.csv`, `val_june_vf.csv`, `test_june_vf.csv` which correspond to our data splits. 
+in `/network/projects/_groups/ecosystem-embeddings/species_splits/` you will find `train_clustered_vf.csv`, `val_clustered_vf.csv`, `test_clustered_vf.csv` which correspond to our data splits. 
 Each line in the csvs corresponds to one hotspot and each column point to the data for the variable of interest for the otspot (r,g,b,nir bands, species data, bioclimatic and pedologic data).
 
 
-
+usa_hotspot_data.csv saves a sample of result from the whole ebird data in the format we want. This file is huge in size (6-7 GB) so should not be opened in an editor To open the sample csv generated, used pandas read_csv and read only first few (e.g.) 5 lines to see the output
