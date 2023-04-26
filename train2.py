@@ -6,6 +6,7 @@ from os.path import expandvars
 #sys.path.append(str(Path().resolve().parent))
 #sys.path.append(str(Path().resolve().parent.parent))
 import hydra
+from hydra.utils import get_original_cwd, to_absolute_path
 from addict import Dict
 from omegaconf import OmegaConf, DictConfig
 from src.trainer.trainer import EbirdTask, EbirdDataModule
@@ -116,15 +117,14 @@ def load_opts(path, default, commandline_opts):
 def main(opts):
 
     hydra_opts = dict(OmegaConf.to_container(opts))
-    print("hydra_opts", hydra_opts)
     args = hydra_opts.pop("args", None)
 
-    #config_path = "/network/scratch/a/amna.elmustafa/final/ecosystem-embedding/configs/custom_amna.yaml"
-    config_path = "/home/mila/t/tengmeli/ecosystem-embedding/configs/base.yaml" 
-    #/configs/default.yaml" #args['default']
-    default = Path(__file__).parent / "configs/defaults.yaml"
-    conf = load_opts(config_path, default=default, commandline_opts=hydra_opts)
-    conf.save_path = conf.save_path+os.environ["SLURM_JOB_ID"]
+    base_dir = get_original_cwd()
+    config_path = os.path.join(base_dir, args['config'])
+    default_config = os.path.join(base_dir,"configs/defaults.yaml")
+
+    conf = load_opts(config_path, default=default_config, commandline_opts=hydra_opts)
+    conf.save_path = base_dir + conf.save_path + os.environ["SLURM_JOB_ID"]
     pl.seed_everything(conf.program.seed)
     
     if not os.path.exists(conf.save_path):
