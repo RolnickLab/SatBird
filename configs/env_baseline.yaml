@@ -5,18 +5,19 @@ hs_data: "/network/projects/_groups/ecosystem-embeddings/data/hotspot_data/hotsp
 #need to merge df, or do mean imputation, otherwise, if already processed, indicate relevant df in train and val
 process_hs : False
 
-save_hs : "/network/projects/_groups/ecosystem-embeddings/data/hotspot_data/baseline_processed/"
+save_hs : "/network/projects/_groups/ecosystem-embeddings/data/hotspot_data/baseline_processed_all_species/"
 
-subset: '/network/projects/_groups/ecosystem-embeddings/species_splits/not_songbirds_idx.npy'
+subset: "" #'/network/projects/_groups/ecosystem-embeddings/species_splits/not_songbirds_idx.npy'
 
-train: "/network/projects/_groups/ecosystem-embeddings/data/hotspot_data/baseline_processed/X_train.npy"
-val: "/network/projects/_groups/ecosystem-embeddings/data/hotspot_data/baseline_processed/X_valid.npy"
-y_train: "/network/projects/_groups/ecosystem-embeddings/data/hotspot_data/baseline_processed/y_train.npy"
-y_val: "/network/projects/_groups/ecosystem-embeddings/data/hotspot_data/baseline_processed/y_val.npy"
+train: "/network/projects/_groups/ecosystem-embeddings/data/hotspot_data/baseline_processed_all_species/X_train.npy"
+val: "/network/projects/_groups/ecosystem-embeddings/data/hotspot_data/baseline_processed_all_species/X_valid.npy"
+y_train: "/network/projects/_groups/ecosystem-embeddings/data/hotspot_data/baseline_processed_all_species/y_train.npy"
+y_val: "/network/projects/_groups/ecosystem-embeddings/data/hotspot_data/baseline_processed_all_species/y_val.npy"
 
 predictor: "GBR"
 
 
 path_means : "/network/scratch/t/tengmeli/scratch/ecosystem-embedding/training/means.npy"
 
-save_pred : "/network/scratch/t/tengmeli/scratch/ecosystem-embedding/training/baseline_pred_gbr.npy"
+save_pred : #path where to save predictions
+#"/network/scratch/t/tengmeli/scratch/ecosystem-embedding/training/baseline_pred_gbr.npy"
