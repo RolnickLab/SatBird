@@ -35,7 +35,7 @@ experiment:
     
     #initializes biases of the output layer sothat sigmoid(bias) = mean over the training set for each species
     init_bias: ""
-    means_path: "/network/scratch/t/tengmeli/scratch/ecosystem-embedding/training/means_all_species.npy"
+    means_path: #"/network/scratch/t/tengmeli/scratch/ecosystem-embedding/training/means_all_species.npy"
     lr: 0.0003
 
 optimizer: "Adam"  #"Adam"
@@ -101,15 +101,15 @@ data:
     base: "/network/scratch/t/tengmeli/scratch/ecosystem-embedding/training/"
     train: "train_clustered_vf.csv"
     val: "valid_clustered_vf.csv"
-    test: "valid_clustered_vf.csv"
-    correction: "/network/scratch/t/tengmeli/scratch/ecosystem-embedding/training/correction_factor_final.pkl" #soft thresholding file 
+    test: "test_clustered_vf.csv"
+    correction: "/network/projects/_groups/ecosystem-embeddings/data/correction/correction_factor_final.pkl" #soft thresholding file 
     
-    correction_thresh: '/network/scratch/t/tengmeli/scratch/ecosystem-embedding/training/final_range_map3.pkl'
+    correction_thresh: '/network/projects/_groups/ecosystem-embeddings/data/correction/final_range_map3.pkl'
     #correction_thresh: #'/network/scratch/a/amna.elmustafa/tmp/ecosystem-embedding/data_processing/Htest4.npy'  #hard thresholding file ,options:[Htest, Htest2,Htest3,Htest4] corrosponding to threshold as [mean species values , mask of species that have prob less than mean ,mask of species that have prob less than mean/10 ,mask of species that have prob less than mean*10 ]
   correction_factor:
      use: #soft thresholding choises [None, 'before' (before sigmoid) ,'after'(after sigmoid)] 
      #hard thresholding
-     thresh: false
+     thresh: True
 
 
     
