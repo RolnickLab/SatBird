@@ -76,7 +76,7 @@ def get_img_bands(band_npy):
             
 def get_subset(subset):
     if subset == "songbirds":
-        return (np.load('/network/scratch/t/tengmeli/scratch/ecosystem-embedding/songbirds_idx.npy'))
+        return (np.load('/network/projects/_groups/ecosystem-embeddings/species_splits/songbirds_idx.npy'))
     elif subset == "not_songbirds":
         return (np.load('/network/projects/_groups/ecosystem-embeddings/species_splits/not_songbirds_idx.npy'))
     elif subset == "ducks":
