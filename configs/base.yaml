@@ -1,5 +1,5 @@
 #where to save checkpoints
-save_path: "/network/scratch/t/tengmeli/ecosystem-embeddings/checkpoint_base_resnet18_allspecies"
+save_path: "/checkpoint_base_resnet18_allspecies/"
 
 #load existing checkpoint for inference
 load_ckpt_path: "" 
