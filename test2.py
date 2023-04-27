@@ -142,23 +142,24 @@ def main(opts):
         datamodule = state_trainer.EbirdDataModule(conf)
 
     trainer_args = cast(Dict[str, Any], OmegaConf.to_object(conf.trainer))
-    if conf.load_ckpt_path:
+
+    # "/network/scratch/a/amna.elmustafa/ecosystem-embeddings/ckpts2527294/last.ckpt"
+    # above with landuse : /network/scratch/a/amna.elmustafa/ecosystem-embeddings/ckpts2527309
+    # sat landuse env 512  /network/scratch/a/amna.elmustafa/ecosystem-embeddings/ckpts2527306
+    # Sat landuse  env 224 /network/scratch/a/amna.elmustafa/ecosystem-embeddings/ckpts2527294
+    print("Checkpoint: ", os.path.join(base_dir, conf.load_ckpt_path))
+    try:
         print("Loading existing checkpoint")
-        # "/network/scratch/a/amna.elmustafa/ecosystem-embeddings/ckpts2527294/last.ckpt"
-        # above with landuse : /network/scratch/a/amna.elmustafa/ecosystem-embeddings/ckpts2527309
-        # sat landuse env 512  /network/scratch/a/amna.elmustafa/ecosystem-embeddings/ckpts2527306
-        # Sat landuse  env 224 /network/scratch/a/amna.elmustafa/ecosystem-embeddings/ckpts2527294
-        print("Checkpoint: ", os.path.join(base_dir, conf.load_ckpt_path))
         task = task.load_from_checkpoint(os.path.join(base_dir, conf.load_ckpt_path),
                                          save_preds_path=conf.save_preds_path)
+    except:
+        print("No checkpoint provided...Evaluating a random model")
 
-        trainer = pl.Trainer(**trainer_args)
-        trainer.validate(model=task, datamodule=datamodule)
-        trainer.test(model=task,
-                     dataloaders=datamodule.test_dataloader(),
-                     verbose=True)
-    else:
-        print("No checkpoint provided...")
+    trainer = pl.Trainer(**trainer_args)
+    trainer.validate(model=task, datamodule=datamodule)
+    trainer.test(model=task,
+                 dataloaders=datamodule.test_dataloader(),
+                 verbose=True)
 
 
 if __name__ == "__main__":
