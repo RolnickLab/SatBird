@@ -1,9 +1,9 @@
 #where to save checkpoints
-save_path: "/checkpoint_base_resnet18_allspecies/"
+save_path: "checkpoint_base_resnet18_allspecies"
 
 #load existing checkpoint for inference
-load_ckpt_path: "" 
-save_preds_path: "/network/projects/_groups/ecosystem-embeddings/ebird_checkpoints/resnet18_base_allspecies_pretrained_init_res64/preds"
+load_ckpt_path: "checkpoint_base_resnet18_allspecies/3117679/last.ckpt"
+save_preds_path: ""
 log_comet: true
 
 overfit_batches: 0.0
@@ -35,7 +35,7 @@ experiment:
     
     #initializes biases of the output layer sothat sigmoid(bias) = mean over the training set for each species
     init_bias: ""
-    means_path: #"/network/scratch/t/tengmeli/scratch/ecosystem-embedding/training/means_all_species.npy"
+    means_path: "/network/scratch/t/tengmeli/scratch/ecosystem-embedding/training/means_all_species.npy"
     lr: 0.0003
 
 optimizer: "Adam"  #"Adam"
@@ -109,7 +109,7 @@ data:
   correction_factor:
      use: #soft thresholding choises [None, 'before' (before sigmoid) ,'after'(after sigmoid)] 
      #hard thresholding
-     thresh: True
+     thresh: false
 
 
     

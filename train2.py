@@ -104,12 +104,15 @@ def main(opts):
     hydra_opts = dict(OmegaConf.to_container(opts))
     args = hydra_opts.pop("args", None)
 
-    base_dir = get_original_cwd()
+    base_dir = args['base_dir']
+    if not base_dir:
+        base_dir = get_original_cwd()
+
     config_path = os.path.join(base_dir, args['config'])
     default_config = os.path.join(base_dir, "configs/defaults.yaml")
 
     conf = load_opts(config_path, default=default_config, commandline_opts=hydra_opts)
-    conf.save_path = base_dir + conf.save_path + os.environ["SLURM_JOB_ID"]
+    conf.save_path = os.path.join(base_dir, conf.save_path, os.environ["SLURM_JOB_ID"])
     pl.seed_everything(conf.program.seed)
 
     if not os.path.exists(conf.save_path):
