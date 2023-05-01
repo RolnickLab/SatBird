@@ -15,6 +15,7 @@ import src.trainer.multires_trainer as multires_trainer
 from src.dataset.utils import set_data_paths
 
 import pytorch_lightning as pl
+from pytorch_lightning.loggers import CometLogger
 
 hydra_config_path = Path(__file__).resolve().parent / "configs/hydra.yaml"
 
@@ -142,6 +143,16 @@ def main(opts):
         datamodule = state_trainer.EbirdDataModule(conf)
 
     trainer_args = cast(Dict[str, Any], OmegaConf.to_object(conf.trainer))
+
+    comet_logger = CometLogger(
+        api_key=os.environ.get("COMET_API_KEY"),
+        workspace=os.environ.get("COMET_WORKSPACE"),
+        # save_dir=".",
+        project_name=conf.comet.project_name,
+        experiment_name=conf.comet.experiment_name,
+        experiment_key=conf.comet.experiment_key
+    )
+    trainer_args["logger"] = comet_logger
 
     # "/network/scratch/a/amna.elmustafa/ecosystem-embeddings/ckpts2527294/last.ckpt"
     # above with landuse : /network/scratch/a/amna.elmustafa/ecosystem-embeddings/ckpts2527309

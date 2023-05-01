@@ -146,6 +146,7 @@ def main(opts):
             workspace=os.environ.get("COMET_WORKSPACE"),
             # save_dir=".",  # Optional
             project_name=conf.comet.project_name,  # Optional
+            experiment_name=conf.comet.experiment_name,
         )
         comet_logger.experiment.add_tags(list(conf.comet.tags))
         print(conf.comet.tags)
