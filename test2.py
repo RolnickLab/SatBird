@@ -144,15 +144,17 @@ def main(opts):
 
     trainer_args = cast(Dict[str, Any], OmegaConf.to_object(conf.trainer))
 
-    comet_logger = CometLogger(
-        api_key=os.environ.get("COMET_API_KEY"),
-        workspace=os.environ.get("COMET_WORKSPACE"),
-        # save_dir=".",
-        project_name=conf.comet.project_name,
-        experiment_name=conf.comet.experiment_name,
-        experiment_key=conf.comet.experiment_key
-    )
-    trainer_args["logger"] = comet_logger
+    if conf.comet.experiment_key:
+        comet_logger = CometLogger(
+            api_key=os.environ.get("COMET_API_KEY"),
+            workspace=os.environ.get("COMET_WORKSPACE"),
+            # save_dir=".",
+            project_name=conf.comet.project_name,
+            experiment_name=conf.comet.experiment_name,
+            experiment_key=conf.comet.experiment_key
+        )
+
+        trainer_args["logger"] = comet_logger
 
     # "/network/scratch/a/amna.elmustafa/ecosystem-embeddings/ckpts2527294/last.ckpt"
     # above with landuse : /network/scratch/a/amna.elmustafa/ecosystem-embeddings/ckpts2527309

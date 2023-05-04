@@ -8,7 +8,7 @@ from addict import Dict
 from omegaconf import OmegaConf, DictConfig
 from typing import Any, Dict, cast
 
-from src.trainer.trainer import EbirdTask, EbirdDataModule
+import src.trainer.trainer as general_trainer
 import src.trainer.geo_trainer as geo_trainer
 import src.trainer.state_trainer as state_trainer
 from src.dataset.utils import set_data_paths
@@ -124,10 +124,10 @@ def main(opts):
     if "speciesAtoB" in conf.keys() and conf.speciesAtoB:
         print("species A to B")
         task = EbirdSpeciesTask(conf)
-        datamodule = EbirdDataModule(conf)
+        datamodule = general_trainer.EbirdDataModule(conf)
     elif not conf.loc.use:
-        task = EbirdTask(conf)
-        datamodule = EbirdDataModule(conf)
+        task = general_trainer.EbirdTask(conf)
+        datamodule = general_trainer.EbirdDataModule(conf)
     elif conf.loc.loc_type == "latlon":
         print("Using geo information")
         task = geo_trainer.EbirdTask(conf)
