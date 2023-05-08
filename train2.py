@@ -15,7 +15,7 @@ from src.dataset.utils import set_data_paths
 
 import pytorch_lightning as pl
 from pytorch_lightning.loggers import CometLogger, WandbLogger
-from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint, LearningRateMonitor
+from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint, LearningRateMonitor, BackboneFinetuning
 
 
 def resolve(path):
@@ -114,6 +114,7 @@ def main(opts):
     conf = load_opts(config_path, default=default_config, commandline_opts=hydra_opts)
     conf.save_path = os.path.join(base_dir, conf.save_path, os.environ["SLURM_JOB_ID"])
     pl.seed_everything(conf.program.seed)
+    conf.base_dir = base_dir
 
     if not os.path.exists(conf.save_path):
         os.makedirs(conf.save_path)
@@ -161,6 +162,7 @@ def main(opts):
         dirpath=conf.save_path,
         save_top_k=1,
         save_last=True,
+        save_weights_only=True
     )
     early_stopping_callback = EarlyStopping(
         monitor="val_topk",
@@ -172,6 +174,7 @@ def main(opts):
 
     trainer_args["callbacks"] = [checkpoint_callback]
     trainer_args["overfit_batches"] = conf.overfit_batches  # 0 if not overfitting
+    trainer_args['max_epochs'] = conf.max_epochs
 
     if not conf.loc.use:
 

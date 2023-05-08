@@ -258,7 +258,7 @@ class EbirdVisionDataset(VisionDataset):
                 item_["state_id"] = self.df["state_id"][index]
                 item_["loc"] = torch.zeros([51])
                 item_["loc"][item_["state_id"]] = 1
-        print(item_.keys())
+        # print(item_.keys())
         return item_
 
 
@@ -302,7 +302,7 @@ class EbirdSpeciesEnvDataset(VisionDataset):
 
     def __getitem__(self, index: int) -> Dict[str, Any]:
 
-        print(get_path(self.df, index, 'landuse').suffix == ".npy")
+        # print(get_path(self.df, index, 'landuse').suffix == ".npy")
         band_npy = [(b, get_path(self.df, index, b)) for b in self.bands if
                     get_path(self.df, index, b).suffix == ".npy"]
         env_npy = [(b, get_path(self.df, index, b)) for b in self.env if get_path(self.df, index, b).suffix == ".npy"]

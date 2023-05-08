@@ -8,6 +8,7 @@ import pytorch_lightning as pl
 import torch
 import torch.nn as nn
 from torch import Tensor
+
 from torch.nn.modules import Module
 from torch.optim.lr_scheduler import ReduceLROnPlateau, StepLR, CosineAnnealingWarmRestarts
 from pl_bolts.optimizers.lr_scheduler import LinearWarmupCosineAnnealingLR
@@ -27,6 +28,13 @@ mse = nn.MSELoss()
 m = nn.Sigmoid()
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
+
+def get_target_size(opts, subset=None):
+    if subset is None:
+        subset = get_subset(opts.data.target.subset)
+    target_size = len(subset) if subset is not None else opts.data.total_species
+    return target_size
 
 
 def get_nb_bands(bands):
@@ -78,10 +86,11 @@ class EbirdTask(pl.LightningModule):
     def config_task(self, opts, **kwargs: Any) -> None:
         self.opts = opts
         self.means = None
+        self.is_transfer_learning = True if self.opts.experiment.module.resume else False
+
         # get target vector size (number of species we consider)
         self.subset = get_subset(self.opts.data.target.subset)
-        subset = self.subset
-        self.target_size = len(subset) if subset is not None else self.opts.data.total_species
+        self.target_size = get_target_size(opts, self.subset)
         print("Predicting ", self.target_size, "species")
         self.target_type = self.opts.data.target.type
 
@@ -99,6 +108,64 @@ class EbirdTask(pl.LightningModule):
             # mse
             # CustomCrossEntropy(self.opts.losses.ce.lambd_pres,self.opts.losses.ce.lambd_absCustomCrossEntropy(self.opts.losses.ce.lambd_pres,self.opts.losses.ce.lambd_abs)
             print("Training with Custom CE Loss")
+
+        if self.is_transfer_learning:
+            self.model = self.get_sat_model_AtoB()
+        else:
+            self.model = self.get_sat_model()
+
+    def get_sat_model_AtoB(self):
+        """
+        transfers weights between species A to species B
+        """
+        self.model = models.resnet18(pretrained=self.opts.experiment.module.pretrained)
+        if len(self.opts.data.bands) != 3 or len(self.opts.data.env) > 0:
+            self.bands = self.opts.data.bands + self.opts.data.env
+            self.model.conv1 = nn.Conv2d(
+                get_nb_bands(self.bands),
+                64,
+                kernel_size=(7, 7),
+                stride=(2, 2),
+                padding=(3, 3),
+                bias=False,
+            )
+            # assume first three channels are rgb
+
+        # loading seco mode
+        pretrained_model_path = os.path.join(self.opts.base_dir, self.opts.experiment.module.resume)
+        print('loading a pretrained model..', pretrained_model_path)
+        loaded_dict = torch.load(pretrained_model_path)['state_dict']
+        self.model.fc = nn.Sequential()
+
+        # load state dict keys
+        for name, param in loaded_dict.items():
+            if name not in self.state_dict():
+                continue
+            print("loaded..", name)
+            self.state_dict()[name].copy_(param)
+        self.model.fc = nn.Linear(512, self.target_size)
+
+        with open(self.opts.data.files.correction_thresh, 'rb') as f:
+            self.correction_t_data = pickle.load(f)
+
+        if self.opts.data.correction_factor.use:
+            with open(self.opts.data.files.correction, 'rb') as f:
+                self.correction_data = pickle.load(f)
+                if self.subset:
+                    self.correction = self.correction_data[:, self.subset]
+
+        metrics = get_metrics(self.opts)
+        for (name, value, _) in metrics:
+            setattr(self, "val_" + name, value)
+        for (name, value, _) in metrics:
+            setattr(self, "train_" + name, value)
+        for (name, value, _) in metrics:
+            setattr(self, "test_" + name, value)
+        self.metrics = metrics
+
+        return self.model
+
+    def get_sat_model(self):
         if self.opts.experiment.module.model == "train_linear":
             self.feature_extractor = models.resnet18(pretrained=self.opts.experiment.module.pretrained)
             if len(self.opts.data.bands) != 3 or len(self.opts.data.env) > 0:
@@ -237,7 +304,7 @@ class EbirdTask(pl.LightningModule):
 
         if self.opts.experiment.module.init_bias == "means":
             print("initializing biases with mean predictor")
-            self.means = np.load(self.opts.experiment.module.means_path)[0, subset]
+            self.means = np.load(self.opts.experiment.module.means_path)[0, self.subset]
             means = torch.Tensor(self.means)
 
             means = torch.logit(means, eps=1e-10)
@@ -248,9 +315,6 @@ class EbirdTask(pl.LightningModule):
                     self.model.fc.bias.data = means
         else:
             print("no initialization of biases")
-
-        # self.model #.to(device)
-        self.m = nn.Sigmoid()
 
         metrics = get_metrics(self.opts)
         for (name, value, _) in metrics:
@@ -269,14 +333,15 @@ class EbirdTask(pl.LightningModule):
         if self.opts.data.correction_factor.use:
             with open(self.opts.data.files.correction, 'rb') as f:
                 self.correction_data = pickle.load(f)
-                if subset:
-                    self.correction = self.correction_data[:, subset]
+                if self.subset:
+                    self.correction = self.correction_data[:, self.subset]
 
-    #         assert self.correction.shape[1]==len(subset)
+        # assert self.correction.shape[1]==len(subset)
 
-    # watch model gradients
-    # wandb.watch(self.model, log='all', log_freq=5)
+        # watch model gradients
+        # wandb.watch(self.model, log='all', log_freq=5)
 
+        return self.model
     def forward(self, x: Tensor) -> Any:
         return self.model(x)
 
