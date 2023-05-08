@@ -113,7 +113,7 @@ def main(opts):
     base_dir = args['base_dir']
     if not base_dir:
         base_dir = get_original_cwd()
-    print(base_dir)
+
     config_path = os.path.join(base_dir, args['config'])
     default_config = os.path.join(base_dir, "configs/defaults.yaml")
 
@@ -162,7 +162,6 @@ def main(opts):
     # above with landuse : /network/scratch/a/amna.elmustafa/ecosystem-embeddings/ckpts2527309
     # sat landuse env 512  /network/scratch/a/amna.elmustafa/ecosystem-embeddings/ckpts2527306
     # Sat landuse  env 224 /network/scratch/a/amna.elmustafa/ecosystem-embeddings/ckpts2527294
-    print("Checkpoint: ", os.path.join(base_dir, conf.load_ckpt_path))
     if conf.load_ckpt_path:
         print("Loading existing checkpoint")
         try:

@@ -79,7 +79,6 @@ class EbirdTask(pl.LightningModule):
         self.save_hyperparameters(opts)
         self.config_task(opts, **kwargs)
         self.opts = opts
-        print(self.opts.save_preds_path)
         # define self.learning_rate to enable learning rate finder
         self.learning_rate = self.opts.experiment.module.lr
 
@@ -116,6 +115,7 @@ class EbirdTask(pl.LightningModule):
 
     def get_sat_model_AtoB(self):
         """
+        #TODO: merge with get_sat_model()
         transfers weights between species A to species B
         """
         self.model = models.resnet18(pretrained=self.opts.experiment.module.pretrained)
