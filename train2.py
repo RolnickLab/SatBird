@@ -160,9 +160,11 @@ def main(opts):
     checkpoint_callback = ModelCheckpoint(
         monitor="val_topk_epoch",
         dirpath=conf.save_path,
-        save_top_k=1,
+        save_top_k=2,
+        mode="max",
         save_last=True,
-        save_weights_only=True
+        save_weights_only=True,
+        auto_insert_metric_name=True
     )
     early_stopping_callback = EarlyStopping(
         monitor="val_topk",

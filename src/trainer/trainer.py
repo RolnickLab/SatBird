@@ -141,7 +141,6 @@ class EbirdTask(pl.LightningModule):
         for name, param in loaded_dict.items():
             if name not in self.state_dict():
                 continue
-            print("loaded..", name)
             self.state_dict()[name].copy_(param)
         self.model.fc = nn.Linear(512, self.target_size)
 
