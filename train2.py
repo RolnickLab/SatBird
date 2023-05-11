@@ -160,7 +160,7 @@ def main(opts):
     checkpoint_callback = ModelCheckpoint(
         monitor="val_topk_epoch",
         dirpath=conf.save_path,
-        save_top_k=2,
+        save_top_k=1,
         mode="max",
         save_last=True,
         save_weights_only=True,
