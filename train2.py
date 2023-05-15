@@ -8,14 +8,14 @@ from addict import Dict
 from omegaconf import OmegaConf, DictConfig
 from typing import Any, Dict, cast
 
-from src.trainer.trainer import EbirdTask, EbirdDataModule
+import src.trainer.trainer as general_trainer
 import src.trainer.geo_trainer as geo_trainer
 import src.trainer.state_trainer as state_trainer
 from src.dataset.utils import set_data_paths
 
 import pytorch_lightning as pl
 from pytorch_lightning.loggers import CometLogger, WandbLogger
-from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint, LearningRateMonitor
+from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint, LearningRateMonitor, BackboneFinetuning
 
 
 def resolve(path):
@@ -114,6 +114,7 @@ def main(opts):
     conf = load_opts(config_path, default=default_config, commandline_opts=hydra_opts)
     conf.save_path = os.path.join(base_dir, conf.save_path, os.environ["SLURM_JOB_ID"])
     pl.seed_everything(conf.program.seed)
+    conf.base_dir = base_dir
 
     if not os.path.exists(conf.save_path):
         os.makedirs(conf.save_path)
@@ -124,10 +125,10 @@ def main(opts):
     if "speciesAtoB" in conf.keys() and conf.speciesAtoB:
         print("species A to B")
         task = EbirdSpeciesTask(conf)
-        datamodule = EbirdDataModule(conf)
+        datamodule = general_trainer.EbirdDataModule(conf)
     elif not conf.loc.use:
-        task = EbirdTask(conf)
-        datamodule = EbirdDataModule(conf)
+        task = general_trainer.EbirdTask(conf)
+        datamodule = general_trainer.EbirdDataModule(conf)
     elif conf.loc.loc_type == "latlon":
         print("Using geo information")
         task = geo_trainer.EbirdTask(conf)
@@ -160,7 +161,10 @@ def main(opts):
         monitor="val_topk_epoch",
         dirpath=conf.save_path,
         save_top_k=1,
+        mode="max",
         save_last=True,
+        save_weights_only=True,
+        auto_insert_metric_name=True
     )
     early_stopping_callback = EarlyStopping(
         monitor="val_topk",
@@ -172,6 +176,7 @@ def main(opts):
 
     trainer_args["callbacks"] = [checkpoint_callback]
     trainer_args["overfit_batches"] = conf.overfit_batches  # 0 if not overfitting
+    trainer_args['max_epochs'] = conf.max_epochs
 
     if not conf.loc.use:
 

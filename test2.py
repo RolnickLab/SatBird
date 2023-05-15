@@ -8,12 +8,13 @@ from addict import Dict
 from omegaconf import OmegaConf, DictConfig
 from typing import Any, Dict, cast
 
-from src.trainer.trainer import EbirdTask, EbirdDataModule
+import src.trainer.trainer as general_trainer
 import src.trainer.geo_trainer as geo_trainer
 import src.trainer.state_trainer as state_trainer
 import src.trainer.multires_trainer as multires_trainer
 from src.dataset.utils import set_data_paths
 
+import torch
 import pytorch_lightning as pl
 from pytorch_lightning.loggers import CometLogger
 
@@ -117,6 +118,8 @@ def main(opts):
     default_config = os.path.join(base_dir, "configs/defaults.yaml")
 
     conf = load_opts(config_path, default=default_config, commandline_opts=hydra_opts)
+    conf.base_dir = base_dir
+    print(conf.base_dir)
     conf.save_path = os.path.join(base_dir, conf.save_path, os.environ["SLURM_JOB_ID"])
     pl.seed_everything(conf.program.seed)
 
@@ -130,9 +133,8 @@ def main(opts):
         task = EbirdSpeciesTask(conf)
         datamodule = EbirdDataModule(conf)
     elif not conf.loc.use:
-        task = EbirdTask(conf)
-        datamodule = EbirdDataModule(conf)
-
+        task = general_trainer.EbirdTask(conf)
+        datamodule = general_trainer.EbirdDataModule(conf)
     elif conf.loc.loc_type == "latlon":
         print("Using geo information")
         task = geo_trainer.EbirdTask(conf)
@@ -144,26 +146,31 @@ def main(opts):
 
     trainer_args = cast(Dict[str, Any], OmegaConf.to_object(conf.trainer))
 
-    comet_logger = CometLogger(
-        api_key=os.environ.get("COMET_API_KEY"),
-        workspace=os.environ.get("COMET_WORKSPACE"),
-        # save_dir=".",
-        project_name=conf.comet.project_name,
-        experiment_name=conf.comet.experiment_name,
-        experiment_key=conf.comet.experiment_key
-    )
-    trainer_args["logger"] = comet_logger
+    if conf.comet.experiment_key:
+        comet_logger = CometLogger(
+            api_key=os.environ.get("COMET_API_KEY"),
+            workspace=os.environ.get("COMET_WORKSPACE"),
+            # save_dir=".",
+            project_name=conf.comet.project_name,
+            experiment_name=conf.comet.experiment_name,
+            experiment_key=conf.comet.experiment_key
+        )
+
+        trainer_args["logger"] = comet_logger
 
     # "/network/scratch/a/amna.elmustafa/ecosystem-embeddings/ckpts2527294/last.ckpt"
     # above with landuse : /network/scratch/a/amna.elmustafa/ecosystem-embeddings/ckpts2527309
     # sat landuse env 512  /network/scratch/a/amna.elmustafa/ecosystem-embeddings/ckpts2527306
     # Sat landuse  env 224 /network/scratch/a/amna.elmustafa/ecosystem-embeddings/ckpts2527294
-    print("Checkpoint: ", os.path.join(base_dir, conf.load_ckpt_path))
-    try:
+    if conf.load_ckpt_path:
         print("Loading existing checkpoint")
-        task = task.load_from_checkpoint(os.path.join(base_dir, conf.load_ckpt_path),
+        try:
+            task = task.load_from_checkpoint(os.path.join(base_dir, conf.load_ckpt_path),
                                          save_preds_path=conf.save_preds_path)
-    except:
+        # to prevent older models from failing, because there are new keys in conf
+        except:
+            task.load_state_dict(torch.load(os.path.join(base_dir, conf.load_ckpt_path))['state_dict'])
+    else:
         print("No checkpoint provided...Evaluating a random model")
 
     trainer = pl.Trainer(**trainer_args)
