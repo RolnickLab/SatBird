@@ -277,7 +277,7 @@ class EbirdTask(pl.LightningModule):
                 #                     model_dict['model.'+key]=model_dict.pop(key)
                 msg = model.load_state_dict(model_dict, strict=False)
                 print(msg)
-                self.model = model
+            self.model = model
 
             if self.opts.experiment.module.fc == "linear":
                 self.model.fc = nn.Linear(2048, self.target_size)
