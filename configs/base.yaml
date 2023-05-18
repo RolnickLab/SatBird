@@ -1,12 +1,16 @@
 #where to save checkpoints
-save_path: "checkpoint_base_resnet18_allspecies"
+save_path: ""
 
 #load existing checkpoint for inference
-load_ckpt_path: "checkpoint_base_resnet18_allspecies/3117679/last.ckpt"
+load_ckpt_path: ""
 save_preds_path: ""
 log_comet: true
 
 overfit_batches: 0.0
+# maximum number of epochs to train for
+max_epochs: 200
+# base directory
+base_dir: ""
 #use geographical information
 loc:
   use: False
@@ -16,32 +20,33 @@ loc:
   
 comet:
   project_name: "clean_baselines" #"ecosystem-duck"
-  tags: ["resnet18",  "rgb_nir","bioped", "pretrained"]
+  tags: ["resnet18",  "rgb_nir","bioped", "transfer_learning"]
+  experiment_name: "" # specify for training, or use to report test results, TODO: also use to resume training
+  experiment_key: "" # use to report test results,
 
 experiment:
   #TASK and name should always be ebird_classifier --> maybe remove it 
   task: "ebird_classifier"
   name: "ebird_classifier"
   seed: 42
-
   module:
     #choose model : "resnet18" "resnet50" "inceptionv3" "linear" (just a linear model)
     model: "resnet18"
     #"linear" or "linear_net" for a 2 layer MLP
     fc: "linear"
-    #use pretraine weights ( trochvision ) 
+    #use pretrained weights ( torchvision )
     pretrained: True
+    # resume training from another model (transfer learning), set empty if training from scratch
     resume: "" #"/home/mila/t/tengmeli/ecosystem-embedding/outputs/2022-03-29/08-40-05/final_layer_comparison/b84c264fb4c8477f95cad55bbf85d709/checkpoints/epoch=1273-step=408953.ckpt"
-    
     #initializes biases of the output layer sothat sigmoid(bias) = mean over the training set for each species
     init_bias: ""
-    means_path: "/network/scratch/t/tengmeli/scratch/ecosystem-embedding/training/means_all_species.npy"
+    means_path: #"/network/scratch/t/tengmeli/scratch/ecosystem-embedding/training/means_all_species.npy"
     lr: 0.0003
 
 optimizer: "Adam"  #"Adam"
 
 #auto lr will only work if there is only one optimizer 
-auto_lr_find: True
+auto_lr_find: False
 scheduler: 
   name: "ReduceLROnPlateau" #"" for no schuler, "ReduceLROnPlateau" #"ReduceLROnPlateau" or "StepLR" "WarmUp"
   reduce_lr_plateau: 
@@ -111,14 +116,12 @@ data:
      #hard thresholding
      thresh: false
 
-
-    
   target:
     type: "probs"  #binary for classification targets  or "probs" for regression (default should be "probs")
-    
+
     # choose subset of birds : "ducks" for trying on species [37] or [2] for cooper's hawk (non passerine) "songbirds" (307 species) or None (full set 684 species) "not_songbirds"
-    subset: 
- 
+    subset:
+
   #normalization: None
   transforms:
     - name: matchres
