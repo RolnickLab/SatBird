@@ -296,7 +296,8 @@ class EbirdTask(pl.LightningModule):
 
         elif self.opts.experiment.module.model == "linear":
             nb_bands = get_nb_bands(self.opts.data.bands + self.opts.data.env)
-            self.model = nn.Linear(nb_bands * 64 * 64, self.target_size)
+            #TODO: remove the hardcoded image size
+            self.model = nn.Linear(nb_bands * 224 * 224, self.target_size)
 
         else:
             raise ValueError(f"Model type '{self.opts.experiment.module.model}' is not valid")
