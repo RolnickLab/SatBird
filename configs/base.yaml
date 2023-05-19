@@ -11,6 +11,8 @@ overfit_batches: 0.0
 max_epochs: 200
 # base directory
 base_dir: ""
+# number of different runs for the same experiment
+n_runs: 3
 #use geographical information
 loc:
   use: False

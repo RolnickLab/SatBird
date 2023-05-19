@@ -105,6 +105,7 @@ def main(opts):
     args = hydra_opts.pop("args", None)
 
     base_dir = args['base_dir']
+    run_id = args["run_id"]
     if not base_dir:
         base_dir = get_original_cwd()
 
@@ -112,9 +113,14 @@ def main(opts):
     default_config = os.path.join(base_dir, "configs/defaults.yaml")
 
     conf = load_opts(config_path, default=default_config, commandline_opts=hydra_opts)
-    conf.save_path = os.path.join(base_dir, conf.save_path, os.environ["SLURM_JOB_ID"])
-    pl.seed_everything(conf.program.seed)
+    global_seed = run_id * conf.program.seed
+
+    # updating experiment folders with seed information
+    conf.save_path = os.path.join(base_dir, conf.save_path, str(global_seed))
+    conf.comet.experiment_name = conf.comet.experiment_name + '_seed_' + str(global_seed)
     conf.base_dir = base_dir
+
+    pl.seed_everything(global_seed)
 
     if not os.path.exists(conf.save_path):
         os.makedirs(conf.save_path)
@@ -210,7 +216,9 @@ def main(opts):
     ## Run experiment
     trainer.fit(model=task, datamodule=datamodule)
     trainer.test(model=task, datamodule=datamodule)
-
+    if conf.log_comet:
+        print(checkpoint_callback.best_model_path)
+        trainer.logger.experiment.log_asset(checkpoint_callback.best_model_path, file_name="best_checkpoint.ckpt")
 
 if __name__ == "__main__":
     main()
