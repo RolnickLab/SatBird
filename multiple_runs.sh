@@ -20,7 +20,7 @@ module load miniconda/3
 conda activate eco
 
 # export keys for logging, etc,
-export COMET_API_KEY=
+export COMET_API_KEY=$USER_COMET_COMET_API_KEY
 export HYDRA_FULL_ERROR=1
 
 # run training script

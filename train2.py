@@ -4,7 +4,6 @@ from pathlib import Path
 from os.path import expandvars
 import hydra
 from hydra.utils import get_original_cwd
-from addict import Dict
 from omegaconf import OmegaConf, DictConfig
 from typing import Any, Dict, cast
 
@@ -213,12 +212,14 @@ def main(opts):
         if conf.log_comet:
             trainer.logger.experiment.add_tags(list(conf.comet.tags))
 
-    ## Run experiment
+    # Run experiment
     trainer.fit(model=task, datamodule=datamodule)
     trainer.test(model=task, datamodule=datamodule)
+
+    # logging the best checkpoint to comet ML
     if conf.log_comet:
         print(checkpoint_callback.best_model_path)
-        trainer.logger.experiment.log_asset(checkpoint_callback.best_model_path, file_name="best_checkpoint.ckpt")
+        trainer.logger.experiment.log_asset(checkpoint_callback.best_model_path, file_name='best_checkpoint.ckpt')
 
 if __name__ == "__main__":
     main()

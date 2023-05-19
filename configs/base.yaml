@@ -1,7 +1,7 @@
 #where to save checkpoints
 save_path: ""
 
-#load existing checkpoint for inference
+# load existing checkpoint for inference. If passing experiment folder instead (for multiple seeds), it will evaluate all of them.
 load_ckpt_path: ""
 save_preds_path: ""
 log_comet: true
@@ -11,8 +11,6 @@ overfit_batches: 0.0
 max_epochs: 200
 # base directory
 base_dir: ""
-# number of different runs for the same experiment
-n_runs: 3
 #use geographical information
 loc:
   use: False
