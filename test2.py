@@ -119,12 +119,17 @@ def load_existing_checkpoint(task, base_dir, checkpint_path, save_preds_path):
 def save_test_results_to_csv(results, root_dir, file_name='test_results.csv'):
     output_file = os.path.join(root_dir, file_name)
 
-    with open(output_file, 'w', newline='') as csvfile:
+    with open(output_file, 'a+', newline='') as csvfile:
         writer = csv.DictWriter(csvfile, fieldnames=results.keys())
-        writer.writeheader()  # Write the header row based on the dictionary keys
+        csvfile.seek(0)
+        if not csvfile.read():
+            writer.writeheader()  # Write the header row based on the dictionary keys
+
+        csvfile.seek(0, os.SEEK_END)
         writer.writerow(results)  # Write the values row by row
 
     print(f"CSV file '{output_file}' has been saved.")
+
 
 @hydra.main(config_path="configs", config_name="hydra")
 def main(opts):
@@ -221,12 +226,11 @@ def main(opts):
                                                 save_preds_path=conf.save_preds_path)
 
                 test_results = test_task(task)
-                save_test_results_to_csv(results=test_results[0], root_dir=os.path.join(conf.base_dir, os.path.dirname(checkpoint_path_per_run_id)))
+                save_test_results_to_csv(results=test_results[0], root_dir=os.path.join(conf.base_dir, conf.load_ckpt_path))
 
     else:
         print("No checkpoint provided...Evaluating a random model")
         _ = test_task(task)
-
 
 
 if __name__ == "__main__":
