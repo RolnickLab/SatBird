@@ -12,7 +12,7 @@ import shutil
 import traceback
 from pathlib import Path
 from typing import Any, List, Optional, Union
-
+from PIL import Image
 import numpy as np
 import yaml
 from addict import Dict
