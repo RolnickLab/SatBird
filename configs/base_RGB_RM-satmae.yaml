@@ -1,0 +1,178 @@
+#where to save checkpoints
+save_path: "checkpoint_base_satmae_allspecies_RGB_RM"
+
+#load existing checkpoint for inference
+load_ckpt_path: ""
+save_preds_path: ""
+log_comet: true
+
+overfit_batches: 0.0
+#use geographical information
+loc:
+  use: False
+  #if True :concatenate location features with satellite image features, else location features are mappe to same imension as satellite features and the features are multiplie
+  loc_type: "latlon"   #latlon or state
+  concat: True
+
+comet:
+  project_name: "clean_baselines" #"ecosystem-duck"
+  tags: ["satmae",  "rgb", "pretrained","img"]
+  experiment_name: "baseline_satmae_RGB_RM_img" # specify for training, or use to report test results, TODO: also use to resume training
+  experiment_key: "" # use to report test results,
+
+experiment:
+  #TASK and name should always be ebird_classifier --> maybe remove it
+  task: "ebird_classifier"
+  name: "ebird_classifier"
+  seed: 42
+
+  module:
+    #choose model : "resnet18" "resnet50" "inceptionv3" "linear" (just a linear model)
+    model: "satmae"
+    #"linear" or "linear_net" for a 2 layer MLP
+    fc: "linear"
+    #use pretraine weights ( trochvision )
+    pretrained: True
+    resume: "" #"/home/mila/t/tengmeli/ecosystem-embedding/outputs/2022-03-29/08-40-05/final_layer_comparison/b84c264fb4c8477f95cad55bbf85d709/checkpoints/epoch=1273-step=408953.ckpt"
+
+    #initializes biases of the output layer sothat sigmoid(bias) = mean over the training set for each species
+    init_bias: ""
+    means_path: #"/network/scratch/t/tengmeli/scratch/ecosystem-embedding/training/means_all_species.npy"
+    lr: 0.0003
+
+optimizer: "Adam"  #"Adam"
+
+#auto lr will only work if there is only one optimizer
+auto_lr_find: False
+scheduler:
+  name: "WarmUp" #"" for no schuler, "ReduceLROnPlateau" #"ReduceLROnPlateau" or "StepLR" "WarmUp"
+  reduce_lr_plateau:
+    factor: 0.5
+    lr_schedule_patience: 20
+  step_lr:
+    step_size: 100
+    gamma: 0.5
+  warmup:
+    warmup_epochs: 5
+    max_epochs: 400
+
+  cyclical:
+    warmup_epochs: 10
+
+variables: &default_vars
+    ped_means: &ped_means [2230.56361696, 1374.68551614,   20.45478794,   19.04921312,
+         31.1196319 ,   61.24246466,   36.68711656,   44.25620165]
+    ped_std: &ped_std [2355.3843699 ,  107.88685009,    8.71958154,    6.69679905,
+         23.66400261,    8.79233844,    9.91992735,   13.1028541 ]
+    bioclim_means: &bioclim_means [ 11.99430391,  12.16226584,  36.94248176, 805.72045945,
+        29.4489089 ,  -4.56172133,  34.01063026,  15.81641269,
+         7.80845219,  21.77499491,   1.93990004, 902.9704986 ,
+       114.61111788,  42.0276728 ,  37.11493781, 315.34206997,
+       145.09703767, 231.19724491, 220.06619529]
+    bioclim_std: &bioclim_std [  4.62661648,   2.31306195,   8.73155144, 220.15217856,
+         3.66556263,   6.94077974,   6.73345032,   7.90953848,
+        10.58786476, 3.71622992,   6.67059767, 372.85954139,
+        49.59671974,  28.9984291 ,  25.76078507, 138.92188873,
+        93.54401194, 130.66050149, 143.05699293]
+
+data:
+  loaders:
+    num_workers: 4
+    batch_size: 32
+  #What kind of satellite input ? "refl" for "raw" reflectance values or
+  #"img" for 0-255 values (only supported for "rgb" and "nir" bands)
+  datatype: "img"   #"refl"
+  multiscale : [64]
+
+  bands: ["rgb"]  #any subset of ["r", "g", "b", "nir"] if working with "refl" data or ["rgb", "nir"] if using "img"
+
+  res: 10 #resolution of the images
+
+  #o you want to use environmental data (pedological and bioclimatic (low res) data)
+  env: [] #["ped", "bioclim"] #ped" or "bioclim" or both or empty list
+
+  #resolution of pedological and bioclimatic data in meters
+  ped:
+      #pedological rasters
+      res: 250
+  bioclim:
+      #bioclim
+      res: 1000
+
+  files:
+    base: "/network/scratch/t/tengmeli/scratch/ecosystem-embedding/training/"
+    train: "train_clustered_vf.csv"
+    val: "valid_clustered_vf.csv"
+    test: "test_clustered_vf.csv"
+    correction: "/network/projects/_groups/ecosystem-embeddings/data/correction/correction_factor_final.pkl" #soft thresholding file
+
+    correction_thresh: '/network/projects/_groups/ecosystem-embeddings/data/correction/final_range_map3.pkl'
+    #correction_thresh: #'/network/scratch/a/amna.elmustafa/tmp/ecosystem-embedding/data_processing/Htest4.npy'  #hard thresholding file ,options:[Htest, Htest2,Htest3,Htest4] corrosponding to threshold as [mean species values , mask of species that have prob less than mean ,mask of species that have prob less than mean/10 ,mask of species that have prob less than mean*10 ]
+  correction_factor:
+     use: #soft thresholding choises [None, 'before' (before sigmoid) ,'after'(after sigmoid)]
+     #hard thresholding
+     thresh: True
+
+
+
+  target:
+    type: "probs"  #binary for classification targets  or "probs" for regression (default should be "probs")
+
+    # choose subset of birds : "ducks" for trying on species [37] or [2] for cooper's hawk (non passerine) "songbirds" (307 species) or None (full set 684 species) "not_songbirds"
+    subset:
+
+  #normalization: None
+  transforms:
+    - name: matchres
+      ignore: False
+      target_size: [64, 64]
+
+    - name: crop
+      ignore: false
+      p: 1
+      ignore_band:  ["bioclim", "ped"] #["bioclim", "ped"]
+      center: true # disable randomness, crop around the image's center
+      height: 64
+      width: 64
+    - name: resize
+      ignore: false
+      size: [224,224]
+    - name: hflip
+      ignore: "val"
+      p: 0.5
+    - name: vflip
+      ignore: "val"
+      p: 0.5
+    - name: normalize
+      ignore: true
+      maxchan: true
+      subset: ["sat"]
+      custom: 
+      #[[894.6719, 932.5726,693.2768, 2817.9849], [883.9763,747.6857,749.3098, 1342.6334]]
+
+      #ImageNet values
+      #[[0.485, 0.456, 0.406],[0.229, 0.224, 0.225]]
+
+      #Mean-std computed on training set for reflectance values (r,g,b, nir)
+      #[894.6719, 932.5726,693.2768, 2817.9849], [883.9763,747.6857,749.3098, 1342.6334]
+      #Mean-std for "rgb" computed on training set
+      #[87.0467011965099, 91.21045367500467, 67.50251448722302],[67.55043009747773, 51.443316800384295, 49.65159018638426]
+
+    - name: normalize
+      ignore: true
+      maxchan: false
+      subset: ["bioclim"]
+      custom: [*bioclim_means, *bioclim_std]
+    - name: normalize
+      ignore: true
+      maxchan: false
+      subset: ["ped"]
+      custom: [*ped_means, *ped_std]
+    - name: randomnoise
+      ignore: True #false
+      std: 0.01
+      max_noise: 0.05
+
+  total_species: 684
+trainer:
+  auto_scale_batch_size: False
