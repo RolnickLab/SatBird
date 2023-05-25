@@ -26,10 +26,10 @@ catalog = pystac_client.Client.open(
     # modifier=planetary_computer.sign_inplace, --> this is depricated ??
 )
 
-# Define the bands we are interested in --> r,g,b,nir
-BANDS = ["B02", "B03", "B04", "B08"]
+# Define the bands we are interested in --> r,g,b,nir and true color image
+BANDS = ["B02", "B03", "B04", "B08", "visual"]
 
-time_of_interest = "2022-10-01/2023-03-30"
+time_of_interest = "2022-06-01/2022-07-31" #this is for summer, if winter use "2022-12-01/2023-01-31"
 
 
 def convert_polygon(polygon_str):
@@ -107,9 +107,9 @@ def process_row(row, save_dir):
 def main():
     # Specify the directory to save the rasters
     WINTER_SAVE_DIRECTORY = (
-        "/network/projects/ecosystem-embeddings/ebird_new/raster/winter_rasters/"
+        "/network/projects/ecosystem-embeddings/ebird_new/rasters_new/winter_rasters/"
     )
-    SUMMER_SAVE_DIRECTORY = "/network/projects/_groups/ecosystem-embeddings/ebird_new/rasters/summer_rasters"
+    SUMMER_SAVE_DIRECTORY = "/network/projects/_groups/ecosystem-embeddings/ebird_new/rasters_new/summer_rasters"
 
     # Create the save directory if it doesn't exist
     os.makedirs(WINTER_SAVE_DIRECTORY, exist_ok=True)
@@ -117,11 +117,14 @@ def main():
 
     save_dir = SUMMER_SAVE_DIRECTORY
 
-    winter_polygons = "/home/mila/a/akeraben/scratch/akera/code/ecosystem-embedding/data_processing/ebird_data_preparation/polygons_winter.csv"
-    summer_polygons = "/home/mila/a/akeraben/scratch/akera/code/ecosystem-embedding/data_processing/ebird_data_preparation/polygons_summer.csv"
+    winter_polygons = "/network/projects/ecosystem-embeddings/ebird_new/polygons_winter_40.csv"
+    #"/home/mila/a/akeraben/scratch/akera/code/ecosystem-embedding/data_processing/ebird_data_preparation/polygons_winter.csv"
+    summer_polygons = "/network/projects/ecosystem-embeddings/ebird_new/polygons_summer_40.csv" 
+    #"/home/mila/a/akeraben/scratch/akera/code/ecosystem-embedding/data_processing/ebird_data_preparation/polygons_summer.csv"
 
     # swap data input from here: Winter Polygons if winter, summer if summer
-    data = pd.read_csv(winter_polygons)
+    
+    data = pd.read_csv(summer_polygons)
 
     data_df = gpd.GeoDataFrame(data)
 
