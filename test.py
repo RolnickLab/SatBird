@@ -1,3 +1,7 @@
+"""
+main testing script
+To run: python test.py args.config=CONFIG_FILE_PATH
+"""
 import os
 from os.path import expandvars
 from pathlib import Path
@@ -12,95 +16,10 @@ from omegaconf import OmegaConf, DictConfig
 from pytorch_lightning.loggers import CometLogger
 
 import src.trainer.geo_trainer as geo_trainer
-import src.trainer.multires_trainer as multires_trainer
-import src.trainer.state_trainer as state_trainer
 import src.trainer.trainer as general_trainer
-from src.dataset.utils import set_data_paths
+from src.utils.config_utils import load_opts
 
 hydra_config_path = Path(__file__).resolve().parent / "configs/hydra.yaml"
-
-
-def resolve(path):
-    """
-    fully resolve a path:
-    resolve env vars ($HOME etc.) -> expand user (~) -> make absolute
-    Returns:
-        pathlib.Path: resolved absolute path
-    """
-    return Path(expandvars(str(path))).expanduser().resolve()
-
-
-def set_up_omegaconf() -> DictConfig:
-    """Helps with loading config files"""
-
-    conf = OmegaConf.load("./configs/defaults.yaml")
-    command_line_conf = OmegaConf.from_cli()
-
-    if "config_file" in command_line_conf:
-
-        config_fn = command_line_conf.config_file
-
-        if os.path.isfile(config_fn):
-            user_conf = OmegaConf.load(config_fn)
-            conf = OmegaConf.merge(conf, user_conf)
-        else:
-            raise FileNotFoundError(f"config_file={config_fn} is not a valid file")
-
-    conf = OmegaConf.merge(
-        conf, command_line_conf
-    )
-    conf = set_data_paths(conf)
-    conf = cast(DictConfig, conf)  # convince mypy that everything is alright
-
-    # if commandline_opts is not None and isinstance(commandline_opts, dict):
-    #    opts = Dict(merge(commandline_opts, opts))
-    return conf
-
-
-def load_opts(path, default, commandline_opts):
-    """
-        Args:
-        path (pathlib.Path): where to find the overriding configuration
-            default (pathlib.Path, optional): Where to find the default opts.
-            Defaults to None. In which case it is assumed to be a default config
-            which needs processing such as setting default values for lambdas and gen
-            fields
-     """
-
-    if path is None and default is None:
-        path = (
-                resolve(Path(__file__)).parent.parent
-                / "config"
-                / "defaults.yaml"
-        )
-        print(path)
-    else:
-        print("using config ", path)
-
-    if default is None:
-        default_opts = {}
-    else:
-        print(default)
-        if isinstance(default, (str, Path)):
-            default_opts = OmegaConf.load(default)
-        else:
-            default_opts = dict(default)
-
-    if path is None:
-        overriding_opts = {}
-    else:
-        print("using config ", path)
-        overriding_opts = OmegaConf.load(path)
-
-    opts = OmegaConf.merge(default_opts, overriding_opts)
-
-    if commandline_opts is not None and isinstance(commandline_opts, dict):
-        opts = OmegaConf.merge(opts, commandline_opts)
-        print("Commandline opts", commandline_opts)
-
-    conf = set_data_paths(opts)
-    conf = cast(DictConfig, opts)
-    return conf
 
 
 def load_existing_checkpoint(task, base_dir, checkpint_path, save_preds_path):
@@ -146,30 +65,19 @@ def main(opts):
 
     conf = load_opts(config_path, default=default_config, commandline_opts=hydra_opts)
     conf.base_dir = base_dir
-    print(conf.base_dir)
-    conf.save_path = os.path.join(base_dir, conf.save_path, os.environ["SLURM_JOB_ID"])
+
+    run_id = args["run_id"]
+    global_seed = (run_id * (conf.program.seed + (run_id - 1)))%(2**31 - 1)
+
+    conf.save_path = os.path.join(base_dir, conf.save_path, os.environ["SLURM_JOB_ID"], '_seed_', str(global_seed))
     pl.seed_everything(conf.program.seed)
 
-    print('multires len:', len(conf.data.multiscale))
-    if not conf.loc.use and len(conf.data.multiscale) > 1:
-        print('using multiscale net')
-        task = multires_trainer.EbirdTask(conf)
-        datamodule = EbirdDataModule(conf)
-    elif "speciesAtoB" in conf.keys() and conf.speciesAtoB:
-        print("species A to B")
-        task = EbirdSpeciesTask(conf)
-        datamodule = EbirdDataModule(conf)
-    elif not conf.loc.use:
-        task = general_trainer.EbirdTask(conf)
-        datamodule = general_trainer.EbirdDataModule(conf)
-    elif conf.loc.loc_type == "latlon":
-        print("Using geo information")
+    if conf.loc.loc_type == "latlon":
         task = geo_trainer.EbirdTask(conf)
         datamodule = geo_trainer.EbirdDataModule(conf)
-    elif conf.loc.loc_type == "state":
-        print("Using geo information")
-        task = state_trainer.EbirdTask(conf)
-        datamodule = state_trainer.EbirdDataModule(conf)
+    else:
+        task = general_trainer.EbirdTask(conf)
+        datamodule = general_trainer.EbirdDataModule(conf)
 
     trainer_args = cast(Dict[str, Any], OmegaConf.to_object(conf.trainer))
 
@@ -183,11 +91,6 @@ def main(opts):
         )
 
         trainer_args["logger"] = comet_logger
-
-    # "/network/scratch/a/amna.elmustafa/ecosystem-embeddings/ckpts2527294/last.ckpt"
-    # above with landuse : /network/scratch/a/amna.elmustafa/ecosystem-embeddings/ckpts2527309
-    # sat landuse env 512  /network/scratch/a/amna.elmustafa/ecosystem-embeddings/ckpts2527306
-    # Sat landuse  env 224 /network/scratch/a/amna.elmustafa/ecosystem-embeddings/ckpts2527294
 
     def test_task(task):
         trainer = pl.Trainer(**trainer_args)
