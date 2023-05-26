@@ -89,11 +89,12 @@ def init_first_layer_weights(in_channels: int, rgb_weights,
     print('init__layer_weight shape ', final_weights.shape)
     return final_weights
 
-def custom_replace(tensor,on_neg_1,on_zero,on_one):
+
+def custom_replace(tensor, on_neg_1, on_zero, on_one):
     res = tensor.clone()
-    res[tensor==-1] = on_neg_1
-    res[tensor==0] = on_zero
-    res[tensor==1] = on_one
+    res[tensor == -1] = on_neg_1
+    res[tensor == 0] = on_zero
+    res[tensor == 1] = on_one
     return res
 
 
@@ -164,9 +165,6 @@ def get_scheduler(optimizer, opts):
         return (None)
     else:
         raise ValueError(f"Scheduler'{opts.scheduler.name}' is not valid")
-
-
-
 
 
 def get_scheduler(optimizer, opts):

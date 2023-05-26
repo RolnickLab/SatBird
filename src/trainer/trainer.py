@@ -240,7 +240,6 @@ class EbirdTask(pl.LightningModule):
             else:
                 self.model.fc = nn.Linear(2048, self.target_size)
 
-
         elif self.opts.experiment.module.model == "inceptionv3":
             self.model = models.inception_v3(pretrained=self.opts.experiment.module.pretrained)
             self.model.AuxLogits.fc = nn.Linear(768, self.target_size)

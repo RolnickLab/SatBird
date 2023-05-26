@@ -87,21 +87,21 @@ class ResLayer(nn.Module):
 
 
 class MLPDecoder(nn.Module):
-    def __init__(self, input_size, target_size, flatten = True):
+    def __init__(self, input_size, target_size, flatten=True):
         super().__init__()
         self.mlp_dim = input_size
         if flatten:
-            modules = [nn.AdaptiveAvgPool2d((1,1)), 
-                       nn.Flatten(), 
-                       nn.Linear(self.mlp_dim, self.mlp_dim), 
-                       nn.ReLU(), 
+            modules = [nn.AdaptiveAvgPool2d((1, 1)),
+                       nn.Flatten(),
+                       nn.Linear(self.mlp_dim, self.mlp_dim),
+                       nn.ReLU(),
                        nn.Linear(self.mlp_dim, target_size)]
-        else: 
-            modules = [nn.Linear(self.mlp_dim, self.mlp_dim), 
-                       nn.ReLU(), 
+        else:
+            modules = [nn.Linear(self.mlp_dim, self.mlp_dim),
+                       nn.ReLU(),
                        nn.Linear(self.mlp_dim, target_size)]
         self.model = nn.Sequential(*modules)
-        
+
     def forward(self, x):
         return self.model(x)
 
@@ -110,6 +110,7 @@ class Identity(nn.Module):
     """
     Identity layer
     """
+
     def __init__(self):
         super(Identity, self).__init__()
 

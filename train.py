@@ -31,7 +31,7 @@ def main(opts):
     default_config = os.path.join(base_dir, "configs/defaults.yaml")
 
     conf = load_opts(config_path, default=default_config, commandline_opts=hydra_opts)
-    global_seed = (run_id * (conf.program.seed + (run_id - 1)))%(2**31 - 1)
+    global_seed = (run_id * (conf.program.seed + (run_id - 1))) % (2 ** 31 - 1)
 
     # naming experiment folders with seed information
     conf.save_path = os.path.join(base_dir, conf.save_path, str(global_seed))

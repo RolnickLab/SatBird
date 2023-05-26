@@ -67,7 +67,7 @@ def main(opts):
     conf.base_dir = base_dir
 
     run_id = args["run_id"]
-    global_seed = (run_id * (conf.program.seed + (run_id - 1)))%(2**31 - 1)
+    global_seed = (run_id * (conf.program.seed + (run_id - 1))) % (2 ** 31 - 1)
 
     conf.save_path = os.path.join(base_dir, conf.save_path, os.environ["SLURM_JOB_ID"], '_seed_', str(global_seed))
     pl.seed_everything(conf.program.seed)
@@ -96,8 +96,8 @@ def main(opts):
         trainer = pl.Trainer(**trainer_args)
         trainer.validate(model=task, datamodule=datamodule)
         test_results = trainer.test(model=task,
-                     dataloaders=datamodule.test_dataloader(),
-                     verbose=True)
+                                    dataloaders=datamodule.test_dataloader(),
+                                    verbose=True)
 
         print("Final test results: ", test_results)
         return test_results
@@ -111,7 +111,7 @@ def main(opts):
 
             test_results = test_task(task)
             save_test_results_to_csv(results=test_results[0],
-                                 root_dir=os.path.join(conf.base_dir, os.path.dirname(conf.load_ckpt_path)))
+                                     root_dir=os.path.join(conf.base_dir, os.path.dirname(conf.load_ckpt_path)))
 
         else:
             # get the number of experiments based on folders given
@@ -119,17 +119,19 @@ def main(opts):
             # loop over all seeds
             for run_id in range(1, n_runs + 1):
                 # get path of a single experiment
-                run_id_path = os.path.join(conf.load_ckpt_path, str(run_id*conf.program.seed))
+                run_id_path = os.path.join(conf.load_ckpt_path, str(run_id * conf.program.seed))
                 # get path of the best checkpoint (not last)
                 files = os.listdir(os.path.join(conf.base_dir, run_id_path))
                 best_checkpoint_file_name = [file for file in files if 'last' not in file and file.endswith('.ckpt')][0]
                 checkpoint_path_per_run_id = os.path.join(run_id_path, best_checkpoint_file_name)
                 # load the best checkpoint for the given run
-                task = load_existing_checkpoint(task=task, base_dir=conf.base_dir, checkpint_path=checkpoint_path_per_run_id,
+                task = load_existing_checkpoint(task=task, base_dir=conf.base_dir,
+                                                checkpint_path=checkpoint_path_per_run_id,
                                                 save_preds_path=conf.save_preds_path)
 
                 test_results = test_task(task)
-                save_test_results_to_csv(results=test_results[0], root_dir=os.path.join(conf.base_dir, conf.load_ckpt_path))
+                save_test_results_to_csv(results=test_results[0],
+                                         root_dir=os.path.join(conf.base_dir, conf.load_ckpt_path))
 
     else:
         print("No checkpoint provided...Evaluating a random model")

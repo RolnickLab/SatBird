@@ -305,9 +305,6 @@ class EbirdTask(pl.LightningModule):
         correction = torch.tensor(correction, device=y.device)
         assert correction.shape == (b, no_species), 'shape of correction factor is not as expected'
 
-        # check weights are moving
-        # for p in self.model.fc.parameters():
-        #    print(p.data)
         if self.opts.experiment.module.model == "inceptionv3":
             out_sat, aux_outputs, out_loc = self.forward(x, loc_tensor)
             y_hat = self.m(out_sat)
