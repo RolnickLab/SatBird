@@ -7,14 +7,15 @@ import hydra
 from hydra.utils import get_original_cwd
 from omegaconf import OmegaConf, DictConfig
 from typing import Any, Dict, cast
+import comet_ml
 
-from src.utils.config_utils import load_opts
-
-import src.trainer.trainer as general_trainer
-import src.trainer.geo_trainer as geo_trainer
 import pytorch_lightning as pl
 from pytorch_lightning.loggers import CometLogger, WandbLogger
 from pytorch_lightning.callbacks import ModelCheckpoint
+
+from src.utils.config_utils import load_opts
+import src.trainer.trainer as general_trainer
+import src.trainer.geo_trainer as geo_trainer
 
 
 @hydra.main(config_path="configs", config_name="hydra")
@@ -46,13 +47,19 @@ def main(opts):
         OmegaConf.save(config=conf, f=fp)
     fp.close()
 
-    if conf.loc.loc_type == "latlon":
-        print("Using geo information")
+    # using general trainer without location information
+    if not conf.loc.use:
+        print("Using general trainer..")
+        task = general_trainer.EbirdTask(conf)
+        datamodule = general_trainer.EbirdDataModule(conf)
+    # using geo-trainer (location encoder)
+    elif conf.loc.use and conf.loc.loc_type == "latlon":
+        print("Using geo-trainer with lat/lon info..")
         task = geo_trainer.EbirdTask(conf)
         datamodule = geo_trainer.EbirdDataModule(conf)
     else:
-        task = general_trainer.EbirdTask(conf)
-        datamodule = general_trainer.EbirdDataModule(conf)
+        print("cannot specify trainers based on config..")
+        exit(0)
 
     trainer_args = cast(Dict[str, Any], OmegaConf.to_object(conf.trainer))
 

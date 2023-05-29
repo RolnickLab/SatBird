@@ -3,21 +3,23 @@ main testing script
 To run: python test.py args.config=CONFIG_FILE_PATH
 """
 import os
-from os.path import expandvars
 from pathlib import Path
 from typing import Any, Dict, cast
 import csv
 
 import hydra
-import pytorch_lightning as pl
-import torch
 from hydra.utils import get_original_cwd
+
+import comet_ml
+import torch
+import pytorch_lightning as pl
+
 from omegaconf import OmegaConf, DictConfig
 from pytorch_lightning.loggers import CometLogger
 
-import src.trainer.geo_trainer as geo_trainer
-import src.trainer.trainer as general_trainer
 from src.utils.config_utils import load_opts
+import src.trainer.trainer as general_trainer
+import src.trainer.geo_trainer as geo_trainer
 
 hydra_config_path = Path(__file__).resolve().parent / "configs/hydra.yaml"
 
@@ -72,12 +74,19 @@ def main(opts):
     conf.save_path = os.path.join(base_dir, conf.save_path, os.environ["SLURM_JOB_ID"], '_seed_', str(global_seed))
     pl.seed_everything(conf.program.seed)
 
-    if conf.loc.loc_type == "latlon":
+    # using general trainer without location information
+    if not conf.loc.use:
+        print("Using general trainer..")
+        task = general_trainer.EbirdTask(conf)
+        datamodule = general_trainer.EbirdDataModule(conf)
+    # using geo-trainer (location encoder)
+    elif conf.loc.use and conf.loc.loc_type == "latlon":
+        print("Using geo-trainer with lat/lon info..")
         task = geo_trainer.EbirdTask(conf)
         datamodule = geo_trainer.EbirdDataModule(conf)
     else:
-        task = general_trainer.EbirdTask(conf)
-        datamodule = general_trainer.EbirdDataModule(conf)
+        print("cannot specify trainers based on config..")
+        exit(0)
 
     trainer_args = cast(Dict[str, Any], OmegaConf.to_object(conf.trainer))
 
