@@ -156,12 +156,14 @@ class EbirdVisionDataset(VisionDataset):
 
         if self.type == "img":
             img = tiff.imread(item_path)
-            sats = ToTensor()(img)
         elif self.type == 'refl':
             img = tiff.imread(item_path)
             new_band_order = [2, 1, 0, 3] # r, g, b, nir
-            sats = img[:, :, new_band_order].astype(np.float)
+            img = img[:, :, new_band_order].astype(np.float)
+            img[:,:,-1] = (img[:,:,-1] / img[:,:,-1].max()) * 255
 
+        img = img / 255
+        sats = ToTensor()(img)
         item_["sat"] = sats
 
         for (b, band) in env_npy:
