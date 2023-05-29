@@ -133,46 +133,49 @@ if __name__ == "__main__":
     random.seed(0)
     # Reading Hotspot data
 
-    locs = pd.read_csv('/network/projects/_groups/ecosystem-embeddings/hotspot_split_june/hotspots_june_filtered.csv')
+    locs = pd.read_csv("/network/projects/ecosystem-embeddings/ebird_new/summer_hotspots_with_bioclim_withnan_merged_vf.csv")
+    print(len(locs))
+    #pd.read_csv('/network/projects/_groups/ecosystem-embeddings/hotspot_split_june/hotspots_june_filtered.csv')
     locs = locs.loc[:, ~locs.columns.str.contains('^Unnamed')]
-    locs = locs[locs['hotspot_id'].isin(data['hotspot'].values)].reset_index(
-        drop=True)  # filter only by present hotspots
+    #locs = locs[locs['hotspot_id'].isin(data['hotspot'].values)].reset_index(
+    #    drop=True)  # filter only by present hotspots
 
     # Reading Training data from the existing splits csvs (images & target)
-    train = pd.read_csv("/network/scratch/t/tengmeli/scratch/ecosystem-embedding/training/train_june_vf.csv")
-    val = pd.read_csv("/network/scratch/t/tengmeli/scratch/ecosystem-embedding/training/val_june_vf.csv")
-    test = pd.read_csv("/network/scratch/t/tengmeli/scratch/ecosystem-embedding/training/test_june_vf.csv")
-    frames = [train, val, test]
-    data = pd.concat(frames, sort=False)
-    data = data.loc[:, ~data.columns.str.contains('^Unnamed')]
-    data = data.reset_index(drop=True)
+    #train = pd.read_csv("/network/scratch/t/tengmeli/scratch/ecosystem-embedding/training/train_june_vf.csv")
+    #val = pd.read_csv("/network/scratch/t/tengmeli/scratch/ecosystem-embedding/training/val_june_vf.csv")
+    #test = pd.read_csv("/network/scratch/t/tengmeli/scratch/ecosystem-embedding/training/test_june_vf.csv")
+    #frames = [train, val, test]
+    #data = pd.concat(frames, sort=False)
+    #data = data.loc[:, ~data.columns.str.contains('^Unnamed')]
+    #data = data.reset_index(drop=True)
 
     # splitting ---
     X = np.unique(locs[['lat', 'lon']].values, axis=0)
-
+    assert (len(X)==len(locs))
     clusters_dict, _ = cluster_based_on_dist(X, dist=5)
     train = 0.70
-    test = 0.1
-    splits_names = ['train', 'test', 'valid']
+    valid = 0.15
+    splits_names = ['valid', 'test','train']
 
     train_size = int(train * len(X))
-    test_size = int(test * len(X))
-    val_size = len(locs) - (train_size + test_size)
+    val_size = int(valid * len(X))
+    test_size = len(locs) - (train_size + val_size)
 
-    sizes = [train_size, test_size, val_size]
+    print((train_size , val_size, test_size))
+    sizes = [val_size, test_size,  train_size]
 
     splits = make_splits(splits_names, sizes, clusters_dict)
-
+    print([(name, len(splits[name])) for name in splits_names])
     # Write to text files
     for name in splits_names:
         lats_lons = locs.loc[splits[name], 'hotspot_id']
         write_array_text(lats_lons,
-                         f"/network/scratch/t/tengmeli/scratch/ecosystem-embedding/training/{name}_clustered_june.txt")
+                         f"/network/scratch/t/tengmeli/scratch/ecosystem-embedding/training/new_{name}_clustered_summer_2.txt")
 
     # Write to csv files:
 
-    for name in splits_names:
-        df = data.iloc[splits[name]].reset_index(drop=True)
-        df.to_csv(f'/network/scratch/t/tengmeli/scratch/ecosystem-embedding/training/{name}_clustered.csv')
+    #for name in splits_names:
+    #    df = data.iloc[splits[name]].reset_index(drop=True)
+    #    df.to_csv(f'/network/scratch/t/tengmeli/scratch/ecosystem-embedding/training/new_{name}_clustered_summer.csv')
 
     # print(df.head())
