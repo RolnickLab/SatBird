@@ -149,3 +149,27 @@ if name == "__main__":
     add_split(path= out_path,
              out_path = "/network/projects/ecosystem-embeddings/ebird_new/summer_hotspots_with_bioclim_splits_vf.csv")
     get_merge_dict()
+    #final output is "/network/projects/ecosystem-embeddings/ebird_new/summer_hotspots_with_bioclim_splits_vf_clean.csv"
+    
+    
+    #for winter we notice the winter locations are included in the summer locations
+    #we keep the same split as for summer and additionnally when cleaning the duplicate lat lon keep those we kept for summer. 
+    merge_duplicate_lat_lon(path= "/network/projects/ecosystem-embeddings/ebird_new/summer_hotspots_with_bioclim_withnan.csv",
+        out_path= "/network/projects/ecosystem-embeddings/ebird_new/winter_hotspots_with_bioclim_withnan_merged_vf.csv",
+        duplicate_list_path= "/network/projects/ecosystem-embeddings/ebird_new/to_merge_winter.txt")
+    
+    new_df = pd.read_csv("/network/projects/ecosystem-embeddings/ebird_new/winter_hotspots_with_bioclim_withnan_merged_vf.csv")
+    summer = pd.read_csv("/network/projects/ecosystem-embeddings/ebird_new/summer_hotspots_with_bioclim_splits_vf.csv")
+    aa = new_df.merge(summer[["hotspot_id", "split"]], how = "left")
+    to_keep = aa[aa["split"].isin(["train","valid","test"])]
+    extras = aa[~aa["split"].isin(["train","valid","test"])]
+
+    merged = extras.merge(summer[["hotspot_id", "lat","lon"]], how = "inner", left_on=["lat","lon"], right_on= ["lat", "lon"])
+    merged["hotspot_id"] = merged["hotspot_id_y"]
+    merged = merged.drop(columns= ["hotspot_id_y","hotspot_id_x", "Unnamed: 0"])
+
+    final = pd.concat([to_keep, merged]).drop(columns = ["split", "Unnamed: 0"])
+
+    final = final.merge(summer[["hotspot_id", "split"]], how = "left")
+    print(final.split.value_counts())
+    final.to_csv("/network/projects/ecosystem-embeddings/ebird_new/winter_hotspots_with_bioclim_splits_vf.csv")
