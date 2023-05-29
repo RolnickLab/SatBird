@@ -10,6 +10,7 @@ from retrying import retry
 from tqdm import tqdm
 import pystac_client
 import planetary_computer
+import argparse
 
 planetary_computer.settings.set_subscription_key("api-key")
 # This should be a secret!! ask me for mine
@@ -27,7 +28,7 @@ catalog = pystac_client.Client.open(
 )
 
 # Define the bands we are interested in --> r,g,b,nir and true color image
-BANDS = ["B02", "B03", "B04", "B08", "visual"]
+BANDS = ["B02", "B03", "B04", "B08"]
 
 time_of_interest = "2022-06-01/2022-07-31" #this is for summer, if winter use "2022-12-01/2023-01-31"
 
@@ -106,26 +107,40 @@ def process_row(row, save_dir):
 
 def main():
     # Specify the directory to save the rasters
-    WINTER_SAVE_DIRECTORY = (
-        "/network/projects/ecosystem-embeddings/ebird_new/rasters_new/winter_rasters/"
-    )
+    WINTER_SAVE_DIRECTORY = "/network/projects/ecosystem-embeddings/ebird_new/rasters_new/winter_rasters/"
     SUMMER_SAVE_DIRECTORY = "/network/projects/_groups/ecosystem-embeddings/ebird_new/rasters_new/summer_rasters"
+
+    winter_polygons = "/network/projects/ecosystem-embeddings/ebird_new/polygons_winter.csv"
+    summer_polygons = "/network/projects/ecosystem-embeddings/ebird_new/polygons_summer.csv"
+
+    arg_parser = argparse.ArgumentParser(
+        prog='DownloadData',
+        description='download rasters from planetary compute')
+
+    arg_parser.add_argument('-i', '--index', default=1, type=int)
+    arg_parser.add_argument('-r', '--range', default=20000, type=int)
+    arg_parser.add_argument('-s', '--season', default="summer", type=str)
+    args = arg_parser.parse_args()
+
+    index = int(args.index) - 1
+    range = int(args.range)
+    season_of_interest = args.season
 
     # Create the save directory if it doesn't exist
     os.makedirs(WINTER_SAVE_DIRECTORY, exist_ok=True)
     os.makedirs(SUMMER_SAVE_DIRECTORY, exist_ok=True)
 
-    save_dir = SUMMER_SAVE_DIRECTORY
-
-    winter_polygons = "/network/projects/ecosystem-embeddings/ebird_new/polygons_winter_40.csv"
-    #"/home/mila/a/akeraben/scratch/akera/code/ecosystem-embedding/data_processing/ebird_data_preparation/polygons_winter.csv"
-    summer_polygons = "/network/projects/ecosystem-embeddings/ebird_new/polygons_summer_40.csv" 
-    #"/home/mila/a/akeraben/scratch/akera/code/ecosystem-embedding/data_processing/ebird_data_preparation/polygons_summer.csv"
+    if season_of_interest == "summer":
+        save_dir = SUMMER_SAVE_DIRECTORY
+        polygons_file = summer_polygons
+    else:
+        save_dir = WINTER_SAVE_DIRECTORY
+        polygons_file = winter_polygons
 
     # swap data input from here: Winter Polygons if winter, summer if summer
-    
-    data = pd.read_csv(summer_polygons)
+    data = pd.read_csv(polygons_file)
 
+    data = data.iloc[index*range: (index+1)*range]
     data_df = gpd.GeoDataFrame(data)
 
     # data_df = data_df[:50]
