@@ -135,9 +135,6 @@ data:
       center: true # disable randomness, crop around the image's center
       height: 64
       width: 64
-    - name: resize
-      ignore: false
-      size: [224,224]
     - name: hflip
       ignore: "val"
       p: 0.5

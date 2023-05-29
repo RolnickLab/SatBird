@@ -25,7 +25,7 @@ comet_kwargs = {
 }
 
 IMG_EXTENSIONS = set(
-    [".jpg", ".JPG", ".jpeg", ".JPEG", ".png", ".PNG", ".ppm", ".PPM", ".bmp", ".BMP"]
+    [".jpg", ".JPG", ".jpeg", ".JPEG", ".png", ".PNG", ".ppm", ".PPM", ".bmp", ".BMP", ".tif"]
 )
 
 def json_load(file_path):
@@ -42,16 +42,16 @@ def is_image_file(filename):
         return filename.suffix in IMG_EXTENSIONS
     return Path(filename).suffix in IMG_EXTENSIONS
 
+
 def load_file(file_path):
     if is_image_file(file_path):
-        return(Image.open(file_path))
+        return (Image.open(file_path))
     elif file_path.suffix == ".yaml":
-        return(yaml_load(file_path))
+        return (yaml_load(file_path))
     elif file_path.suffix == ".json":
-        return(json_load(file_path))
+        return (json_load(file_path))
     elif file_path.suffix == ".npy":
-        return(np.load(file_path))
-    
+        return (np.load(file_path))
 
 
 def copy_run_files(opts: Dict) -> None:

@@ -9,9 +9,11 @@ from src.dataset.utils import load_file
 
 import torch
 from torchvision import transforms as trsfs
+from torchvision.transforms import ToTensor
 from torch.nn import Module
 from torch import Tensor
 import numpy as np
+import tifffile as tiff
 
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -99,6 +101,7 @@ class EbirdVisionDataset(VisionDataset):
 
     def __init__(self,
                  df_paths,
+                 data_base_dir,
                  bands,
                  env,
                  transforms: Optional[Callable[[Dict[str, Any]], Dict[str, Any]]] = None,
@@ -111,6 +114,7 @@ class EbirdVisionDataset(VisionDataset):
                  loc_type=None) -> None:
         """
         df_paths: dataframe with paths to data for each hotspot
+        data_base_dir: base directory for data
         bands: list of bands to include, anysubset of  ["r", "g", "b", "nir"] or  "rgb" (for image dataset) 
         env: list eof env data to take into account [ped, bioclim]
         transforms:
@@ -122,6 +126,7 @@ class EbirdVisionDataset(VisionDataset):
 
         super().__init__()
         self.df = df_paths
+        self.data_base_dir = data_base_dir
         self.total_images = len(df_paths)
         self.transform = transforms
         self.bands = bands
@@ -139,75 +144,37 @@ class EbirdVisionDataset(VisionDataset):
         return self.total_images
 
     def __getitem__(self, index: int) -> Dict[str, Any]:
-
-        band_npy = [(b, get_path(self.df, index, b)) for b in self.bands if
-                    get_path(self.df, index, b).suffix == ".npy"]
-        env_npy = [(b, get_path(self.df, index, b)) for b in self.env if get_path(self.df, index, b).suffix in ".npy"]
-
         item_ = {}
+        item_["hotspot_id"] = self.df.iloc[index]['hotspot_id']
+
+        env_npy = os.path.join(self.data_base_dir, "environmental_data", item_["hotspot_id"] + '.npy')
+
+        if self.type == 'img':
+            item_path = os.path.join(self.data_base_dir, "images_visual", item_["hotspot_id"] + '_visual.tif')
+        else:
+            item_path = os.path.join(self.data_base_dir, "images", item_["hotspot_id"] + '.tif')
 
         if self.type == "img":
-            npy_data = get_img_bands(band_npy)
+            img = tiff.imread(item_path)
+            sats = ToTensor()(img)
+        elif self.type == 'refl':
+            img = tiff.imread(item_path)
+            new_band_order = [2, 1, 0, 3] # r, g, b, nir
+            sats = img[:, :, new_band_order].astype(np.float)
 
-        elif band_npy:
-            bands = [load_file(band) for (_, band) in band_npy]
-            npy_data = np.stack(bands, axis=1).astype(np.int32)
+        item_["sat"] = sats
 
         for (b, band) in env_npy:
             item_[b] = torch.from_numpy(load_file(band))
 
-        if band_npy:
-            sats = torch.from_numpy(npy_data)
-            _, C, _, _ = sats.shape
-            item_["sat"] = sats
-
-        if "landuse" in self.bands:
-            print("USING LANDUSE")
-            landuse = torch.from_numpy(np.array(Image.open(get_path(self.df, index, "landuse"))) / 10)
-            landuse = torch.unsqueeze(landuse, 0)
-            item_['landuse'] = landuse
-        # TODO: why?
-        if True:
-
-            # if len(self.res<=1):
-            # print("Applying transforms")
-            # crops, transforms= self.transform[0],self.transform[1]
-            # perform different crops and transformation on  both sat and landuse & env data
-
-            # for c in crops:
-            #    transforms.insert(0,c)
-            t = trsfs.Compose(self.transform)
-
-            item_ = t(item_)
-
-            if 'landuse' in self.bands:
-                if band_npy:
-                    item_['sat'] = torch.cat((item_['sat'], item_['landuse']), dim=-3)
-                else:
-                    item_['sat'] = item_["landuse"]
-
-        else:
-            raise ValueError("Unknown transforms_length {}".format(len(self.transform)))
-
-        # shape valdiation
-        if 'landuse' in self.bands:
-            if band_npy:
-                assert item_['sat'].shape == (
-                len(self.res), C + 1, 224, 224), 'shape of item_sat with land use is wrong'
-            else:
-                assert item_['sat'].shape == (len(self.res), 1, 224, 224), 'shape of item_sat is wrong'
+        t = trsfs.Compose(self.transform)
+        item_ = t(item_)
 
         for e in self.env:
-            # print("sat_shape", item_["sat"].shape)
-            # print(item_[e].shape)
             item_["sat"] = torch.cat([item_["sat"], item_[e]], dim=-3)
 
-             
-        #print(item_["landuse"].size())
-        #print(item_["sat"].size())
-        if "species" in self.df.columns: 
-            #add target
-            species = load_file(get_path(self.df, index, "species"))
+        if "species" in self.df.columns:
+            species = load_file(os.path.join(self.data_base_dir, "targets", item_["hotspot_id"] + '.json'))
             item_["speciesA"] = np.array(species["probs"])[self.speciesA]
             if self.target == "probs":
                 if not self.subset is None:
@@ -238,29 +205,14 @@ class EbirdVisionDataset(VisionDataset):
 
         item_["state_id"] = self.df["state_id"][index]
 
-        if "meta" in self.df.columns:
-            meta = load_file(get_path(self.df, index, "meta"))
-            # add metadata information (hotspot info)
-            meta.pop('earliest_date', None)
-            item_.update(meta)
-        else:
-            item_["hotspot_id"] = os.path.basename(get_path(self.df, index, "b")).strip(".npy")
-
         if self.use_loc:
             if self.loc_type == "latlon":
-
                 lon, lat = torch.Tensor([item_["lon"]]), torch.Tensor([item_["lat"]])
                 loc = torch.cat((lon, lat)).unsqueeze(0)
                 loc = encode_loc(convert_loc_to_tensor(loc))
                 item_["loc"] = loc
 
-            elif self.loc_type == "state":
-                item_["state_id"] = self.df["state_id"][index]
-                item_["loc"] = torch.zeros([51])
-                item_["loc"][item_["state_id"]] = 1
-        # print(item_.keys())
         return item_
-
 
 class EbirdSpeciesEnvDataset(VisionDataset):
     def __init__(self,

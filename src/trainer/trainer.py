@@ -647,9 +647,10 @@ class EbirdDataModule(pl.LightningDataModule):
         self.seed = self.opts.program.seed
         self.batch_size = self.opts.data.loaders.batch_size
         self.num_workers = self.opts.data.loaders.num_workers
-        self.df_train = pd.read_csv(self.opts.data.files.train)
-        self.df_val = pd.read_csv(self.opts.data.files.val)
-        self.df_test = pd.read_csv(self.opts.data.files.test)
+        self.data_base_dir = self.opts.data.files.base
+        self.df_train = pd.read_csv(os.path.join(self.data_base_dir, self.opts.data.files.train))
+        self.df_val = pd.read_csv(os.path.join(self.data_base_dir, self.opts.data.files.val))
+        self.df_test = pd.read_csv(os.path.join(self.data_base_dir, self.opts.data.files.test))
         self.bands = self.opts.data.bands
         self.env = self.opts.data.env
         self.datatype = self.opts.data.datatype
@@ -667,6 +668,7 @@ class EbirdDataModule(pl.LightningDataModule):
         """create the train/test/val splits and prepare the transforms for the multires"""
         self.all_train_dataset = EbirdVisionDataset(
             df_paths=self.df_train,
+            data_base_dir=self.data_base_dir,
             bands=self.bands,
             env=self.env,
             transforms=get_transforms(self.opts, "train"),
@@ -679,7 +681,8 @@ class EbirdDataModule(pl.LightningDataModule):
         )
 
         self.all_test_dataset = EbirdVisionDataset(
-            self.df_test,
+            df_paths=self.df_test,
+            data_base_dir=self.data_base_dir,
             bands=self.bands,
             env=self.env,
             transforms=get_transforms(self.opts, "val"),
@@ -692,7 +695,8 @@ class EbirdDataModule(pl.LightningDataModule):
         )
 
         self.all_val_dataset = EbirdVisionDataset(
-            self.df_val,
+            df_paths=self.df_val,
+            data_base_dir=self.data_base_dir,
             bands=self.bands,
             env=self.env,
             transforms=get_transforms(self.opts, "val"),
