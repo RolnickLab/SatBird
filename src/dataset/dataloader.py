@@ -155,15 +155,15 @@ class EbirdVisionDataset(VisionDataset):
             item_path = os.path.join(self.data_base_dir, "images", item_["hotspot_id"] + '.tif')
 
         if self.type == "img":
-            img = tiff.imread(item_path)
+            img = load_file(item_path)
         elif self.type == 'refl':
-            img = tiff.imread(item_path)
-            new_band_order = [2, 1, 0, 3] # r, g, b, nir
-            img = img[:, :, new_band_order].astype(np.float)
-            img[:,:,-1] = (img[:,:,-1] / img[:,:,-1].max()) * 255
+            img = load_file(item_path)
+#             new_band_order = [2, 1, 0, 3] # r, g, b, nir
+#             img = img[:, :, new_band_order].astype(np.float)
+#             img[:,:,-1] = (img[:,:,-1] / img[:,:,-1].max()) * 255
 
         img = img / 255
-        sats = ToTensor()(img)
+        sats = img
         item_["sat"] = sats
 
         for (b, band) in env_npy:

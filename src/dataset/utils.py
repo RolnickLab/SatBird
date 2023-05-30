@@ -2,7 +2,7 @@ import os
 import sys
 from typing import Tuple
 from datetime import datetime, timedelta
-
+from osgeo import gdal
 """All non-tensor utils
 """
 import json
@@ -42,7 +42,22 @@ def is_image_file(filename):
         return filename.suffix in IMG_EXTENSIONS
     return Path(filename).suffix in IMG_EXTENSIONS
 
-
+def load_geotiff_visual(file):
+    ds = gdal.Open(file)
+    band1 = ds.GetRasterBand(1).ReadAsArray() # Blue channel
+    band2 = ds.GetRasterBand(2).ReadAsArray() # Green channel
+    band3 = ds.GetRasterBand(3).ReadAsArray() # Red channel
+    img = np.dstack((band3, band2, band1))  #RGB order
+    return img
+def load_geotiff(file):
+    ds = gdal.Open(file)
+    band1 = ds.GetRasterBand(1).ReadAsArray() # Blue channel
+    band2 = ds.GetRasterBand(2).ReadAsArray() # Green channel
+    band3 = ds.GetRasterBand(3).ReadAsArray() # Red channel
+    band4 = (ds.GetRasterBand(4).ReadAsArray()/ds.GetRasterBand(4).ReadAsArray().max())*255 # nir 
+    band4=band4.astype(np.uint8)
+    img = np.dstack((band3, band2, band1,band4))
+    return img
 def load_file(file_path):
     if is_image_file(file_path):
         return (Image.open(file_path))
@@ -52,6 +67,12 @@ def load_file(file_path):
         return (json_load(file_path))
     elif file_path.suffix == ".npy":
         return (np.load(file_path))
+    elif file_path.suffix == ".tif":
+        if 'visual' in str(file_path)
+             return (load_geotiff_visual(file_path))
+        else:
+            return (load_geotiff(file_path))
+    
 
 
 def copy_run_files(opts: Dict) -> None:
