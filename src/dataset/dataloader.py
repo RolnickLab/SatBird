@@ -13,7 +13,6 @@ from torchvision.transforms import ToTensor
 from torch.nn import Module
 from torch import Tensor
 import numpy as np
-import tifffile as tiff
 
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -148,11 +147,13 @@ class EbirdVisionDataset(VisionDataset):
         item_["hotspot_id"] = self.df.iloc[index]['hotspot_id']
 
         env_npy = os.path.join(self.data_base_dir, "environmental_data", item_["hotspot_id"] + '.npy')
-
         if self.type == 'img':
-            item_path = os.path.join(self.data_base_dir, "images_visual", item_["hotspot_id"] + '_visual.tif')
+            #item_path = os.path.join(self.data_base_dir, "images_visual", item_["hotspot_id"] + '_visual.tif')
+                        item_path = os.path.join("/network/projects/_groups/ecosystem-embeddings/ebird_new/rasters_new/summer_rasters_visual", "images_visual", item_["hotspot_id"] + '_visual.tif')
+
         else:
-            item_path = os.path.join(self.data_base_dir, "images", item_["hotspot_id"] + '.tif')
+#             item_path = os.path.join(self.data_base_dir, "images", item_["hotspot_id"] + '.tif')
+             item_path = os.path.join("/network/projects/_groups/ecosystem-embeddings/ebird_new/rasters_new/summer_rasters", item_["hotspot_id"] + '.tif')
 
         if self.type == "img":
             img = load_file(item_path)
@@ -165,9 +166,12 @@ class EbirdVisionDataset(VisionDataset):
         img = img / 255
         sats = img
         item_["sat"] = sats
-
-        for (b, band) in env_npy:
-            item_[b] = torch.from_numpy(load_file(band))
+        print(sats.shape)
+        if len(self.env) > 0:
+            
+                env_data=load_file(env_npy)
+                item_["bioclim"] = torch.from_numpy(load_file(band))[:19,:,:]
+                item_["ped"] = torch.from_numpy(load_file(band))[19:,:,:]
 
         t = trsfs.Compose(self.transform)
         item_ = t(item_)
@@ -176,7 +180,9 @@ class EbirdVisionDataset(VisionDataset):
             item_["sat"] = torch.cat([item_["sat"], item_[e]], dim=-3)
 
         if "species" in self.df.columns:
-            species = load_file(os.path.join(self.data_base_dir, "targets", item_["hotspot_id"] + '.json'))
+            species = load_file(os.path.join(self.data_base_dir, "summer_targets", item_["hotspot_id"] + '.json'))
+            if  not species:
+                 species = load_file(os.path.join(self.data_base_dir, "summer_targets_merged", item_["hotspot_id"] + '.json'))
             item_["speciesA"] = np.array(species["probs"])[self.speciesA]
             if self.target == "probs":
                 if not self.subset is None:
@@ -205,7 +211,7 @@ class EbirdVisionDataset(VisionDataset):
 
             item_["num_complete_checklists"] = species["num_complete_checklists"]
 
-        item_["state_id"] = self.df["state_id"][index]
+#         item_["state_id"] = self.df["state_id"][index]
 
         if self.use_loc:
             if self.loc_type == "latlon":

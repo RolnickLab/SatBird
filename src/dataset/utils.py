@@ -25,7 +25,7 @@ comet_kwargs = {
 }
 
 IMG_EXTENSIONS = set(
-    [".jpg", ".JPG", ".jpeg", ".JPEG", ".png", ".PNG", ".ppm", ".PPM", ".bmp", ".BMP", ".tif"]
+    [".jpg", ".JPG", ".jpeg", ".JPEG", ".png", ".PNG", ".ppm", ".PPM", ".bmp", ".BMP"]
 )
 
 def json_load(file_path):
@@ -48,6 +48,8 @@ def load_geotiff_visual(file):
     band2 = ds.GetRasterBand(2).ReadAsArray() # Green channel
     band3 = ds.GetRasterBand(3).ReadAsArray() # Red channel
     img = np.dstack((band3, band2, band1))  #RGB order
+    img=np.reshape(img,(img.shape[2],img.shape[0],img.shape[1])) #C X H X W
+
     return img
 def load_geotiff(file):
     ds = gdal.Open(file)
@@ -57,19 +59,42 @@ def load_geotiff(file):
     band4 = (ds.GetRasterBand(4).ReadAsArray()/ds.GetRasterBand(4).ReadAsArray().max())*255 # nir 
     band4=band4.astype(np.uint8)
     img = np.dstack((band3, band2, band1,band4))
+    img=np.reshape(img,(img.shape[2],img.shape[0],img.shape[1])) #C X H X W
+
     return img
+def load_envtiff(file):
+    ds = gdal.Open(file)
+    count =ds.RasterCount
+    bands=[]
+    for i in range(count):
+        bands[i]=ds.GetRasterBand(i).ReadAsArray()
+    img=np.dstack(bands)
+    img=np.reshape(img,(img.shape[2],img.shape[0],img.shape[1])) #C X H X W
+    return img
+# def load_pedtiff(file):
+#     ds = gdal.Open(file)
+#     count =ds.RasterCount
+#     bands=[]
+#     for i in range(19,count):
+#         bands[i]=ds.GetRasterBand(i).ReadAsArray()
+#     bios=np.dstack(bands)
+#     img=np.reshape(img,(img.shape[2],img.shape[0],img.shape[1])) #C X H X W
+#     return img
+
 def load_file(file_path):
     if is_image_file(file_path):
         return (Image.open(file_path))
-    elif file_path.suffix == ".yaml":
+    elif file_path.split('.')[-1] == "yaml":
         return (yaml_load(file_path))
-    elif file_path.suffix == ".json":
+    elif file_path.split('.')[-1] == "json":
         return (json_load(file_path))
-    elif file_path.suffix == ".npy":
+    elif file_path.split('.')[-1] == "npy":
         return (np.load(file_path))
-    elif file_path.suffix == ".tif":
-        if 'visual' in str(file_path)
+    elif file_path.split('.')[-1] == "tif":
+        if 'visual' in str(file_path):
              return (load_geotiff_visual(file_path))
+        elif "environmental_data" in str(file_path):
+            return (load_envtiff(file_path))
         else:
             return (load_geotiff(file_path))
     
