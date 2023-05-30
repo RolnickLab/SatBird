@@ -10,9 +10,10 @@ Environmental baselines are in `data_processing/env_baseline.py`
 To see an example config file check `configs/env_baseline.yaml`
 
 
-To train the model (check job.sh) : `python train2.py ++auto_lr_find="False" args.base_dir="" args.config=configs/base.yaml`
+To train the model (check run_files/job.sh) : `python train.pyargs.base_dir="" args.config=configs/base.yaml`
+For multiple parallel runs on the cluster, `sbatch run_files/multiple_runs.sh`"
 
-To test the model: `python test2.py args.config=configs/custom_meli.yaml `
+To test the model: `python test.py args.config=configs/base.yaml `
 
 `config_file`must be the same as the one you used to train your model. 
 

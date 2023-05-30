@@ -1,101 +1,21 @@
-import comet_ml
+"""
+main training script
+To run: python train.py args.config=$CONFIG_FILE_PATH
+"""
 import os
-from pathlib import Path
-from os.path import expandvars
 import hydra
 from hydra.utils import get_original_cwd
 from omegaconf import OmegaConf, DictConfig
 from typing import Any, Dict, cast
-
-import src.trainer.trainer as general_trainer
-import src.trainer.geo_trainer as geo_trainer
-import src.trainer.state_trainer as state_trainer
-from src.dataset.utils import set_data_paths
+import comet_ml
 
 import pytorch_lightning as pl
 from pytorch_lightning.loggers import CometLogger, WandbLogger
-from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint, LearningRateMonitor, BackboneFinetuning
+from pytorch_lightning.callbacks import ModelCheckpoint
 
-
-def resolve(path):
-    """
-    fully resolve a path:
-    resolve env vars ($HOME etc.) -> expand user (~) -> make absolute
-    Returns:
-        pathlib.Path: resolved absolute path
-    """
-    return Path(expandvars(str(path))).expanduser().resolve()
-
-
-def set_up_omegaconf() -> DictConfig:
-    """Helps with loading config files"""
-
-    conf = OmegaConf.load("./configs/defaults.yaml")
-    command_line_conf = OmegaConf.from_cli()
-
-    if "config_file" in command_line_conf:
-
-        config_fn = command_line_conf.config_file
-
-        if os.path.isfile(config_fn):
-            user_conf = OmegaConf.load(config_fn)
-            conf = OmegaConf.merge(conf, user_conf)
-        else:
-            raise FileNotFoundError(f"config_file={config_fn} is not a valid file")
-
-    conf = OmegaConf.merge(
-        conf, command_line_conf
-    )
-    conf = set_data_paths(conf)
-    conf = cast(DictConfig, conf)  # convince mypy that everything is alright
-
-    return conf
-
-
-def load_opts(path, default, commandline_opts):
-    """
-        Args:
-        path (pathlib.Path): where to find the overriding configuration
-            default (pathlib.Path, optional): Where to find the default opts.
-            Defaults to None. In which case it is assumed to be a default config
-            which needs processing such as setting default values for lambdas and gen
-            fields
-     """
-
-    if path is None and default is None:
-        path = (
-                resolve(Path(__file__)).parent.parent
-                / "configs"
-                / "defaults.yaml"
-        )
-        print(path)
-    else:
-        print("using config ", path)
-
-    if default is None:
-        default_opts = {}
-    else:
-        print(default)
-        if isinstance(default, (str, Path)):
-            default_opts = OmegaConf.load(default)
-        else:
-            default_opts = dict(default)
-
-    if path is None:
-        overriding_opts = {}
-    else:
-        print("using config ", path)
-        overriding_opts = OmegaConf.load(path)
-
-    opts = OmegaConf.merge(default_opts, overriding_opts)
-
-    if commandline_opts is not None and isinstance(commandline_opts, dict):
-        opts = OmegaConf.merge(opts, commandline_opts)
-        print("Commandline opts", commandline_opts)
-
-    conf = set_data_paths(opts)
-    conf = cast(DictConfig, opts)
-    return conf
+from src.utils.config_utils import load_opts
+import src.trainer.trainer as general_trainer
+import src.trainer.geo_trainer as geo_trainer
 
 
 @hydra.main(config_path="configs", config_name="hydra")
@@ -112,9 +32,9 @@ def main(opts):
     default_config = os.path.join(base_dir, "configs/defaults.yaml")
 
     conf = load_opts(config_path, default=default_config, commandline_opts=hydra_opts)
-    global_seed = (run_id * (conf.program.seed + (run_id - 1)))%(2**31 - 1)
+    global_seed = (run_id * (conf.program.seed + (run_id - 1))) % (2 ** 31 - 1)
 
-    # updating experiment folders with seed information
+    # naming experiment folders with seed information
     conf.save_path = os.path.join(base_dir, conf.save_path, str(global_seed))
     conf.comet.experiment_name = conf.comet.experiment_name + '_seed_' + str(global_seed)
     conf.base_dir = base_dir
@@ -127,26 +47,23 @@ def main(opts):
         OmegaConf.save(config=conf, f=fp)
     fp.close()
 
-    if "speciesAtoB" in conf.keys() and conf.speciesAtoB:
-        print("species A to B")
-        task = EbirdSpeciesTask(conf)
-        datamodule = general_trainer.EbirdDataModule(conf)
-    elif not conf.loc.use:
+    # using general trainer without location information
+    if not conf.loc.use:
+        print("Using general trainer..")
         task = general_trainer.EbirdTask(conf)
         datamodule = general_trainer.EbirdDataModule(conf)
-    elif conf.loc.loc_type == "latlon":
-        print("Using geo information")
+    # using geo-trainer (location encoder)
+    elif conf.loc.use and conf.loc.loc_type == "latlon":
+        print("Using geo-trainer with lat/lon info..")
         task = geo_trainer.EbirdTask(conf)
         datamodule = geo_trainer.EbirdDataModule(conf)
-    elif conf.loc.loc_type == "state":
-        print("Using geo information")
-        task = state_trainer.EbirdTask(conf)
-        datamodule = state_trainer.EbirdDataModule(conf)
+    else:
+        print("cannot specify trainers based on config..")
+        exit(0)
 
     trainer_args = cast(Dict[str, Any], OmegaConf.to_object(conf.trainer))
 
     if conf.log_comet:
-
         comet_logger = CometLogger(
             api_key=os.environ.get("COMET_API_KEY"),
             workspace=os.environ.get("COMET_WORKSPACE"),
@@ -171,13 +88,6 @@ def main(opts):
         save_weights_only=True,
         auto_insert_metric_name=True
     )
-    early_stopping_callback = EarlyStopping(
-        monitor="val_topk",
-        min_delta=0.00,
-        patience=4,
-        mode="min"
-    )
-    lr_monitor = LearningRateMonitor(logging_interval='epoch')
 
     trainer_args["callbacks"] = [checkpoint_callback]
     trainer_args["overfit_batches"] = conf.overfit_batches  # 0 if not overfitting
@@ -191,14 +101,6 @@ def main(opts):
         if conf.auto_lr_find:
             lr_finder = trainer.tuner.lr_find(task, datamodule=datamodule)
 
-            # Results can be found in
-            """   #lr_finder.results
-
-            # Plot with
-            fig = lr_finder.plot(suggest=True)
-            fig.show()
-            fig.savefig("learningrate.jpg")
-            """
             # Pick point based on plot, or get suggestion
             new_lr = lr_finder.suggestion()
 
@@ -220,6 +122,7 @@ def main(opts):
     if conf.log_comet:
         print(checkpoint_callback.best_model_path)
         trainer.logger.experiment.log_asset(checkpoint_callback.best_model_path, file_name='best_checkpoint.ckpt')
+
 
 if __name__ == "__main__":
     main()
