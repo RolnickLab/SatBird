@@ -144,16 +144,17 @@ class EbirdVisionDataset(VisionDataset):
 
     def __getitem__(self, index: int) -> Dict[str, Any]:
         item_ = {}
-        item_["hotspot_id"] = self.df.iloc[index]['hotspot_id']
+       
+        hotspot_id= self.df.iloc[index]['hotspot_id']
 
-        env_npy = os.path.join(self.data_base_dir, "environmental_data", item_["hotspot_id"] + '.npy')
+        env_npy = os.path.join(self.data_base_dir, "environmental_data", hotspot_id + '.npy')
         if self.type == 'img':
-            #item_path = os.path.join(self.data_base_dir, "images_visual", item_["hotspot_id"] + '_visual.tif')
-                        item_path = os.path.join("/network/projects/_groups/ecosystem-embeddings/ebird_new/rasters_new/summer_rasters_visual", "images_visual", item_["hotspot_id"] + '_visual.tif')
+            #item_path = os.path.join(self.data_base_dir, "images_visual", hotspot_id + '_visual.tif')
+                        item_path = os.path.join("/network/projects/_groups/ecosystem-embeddings/ebird_new/rasters_new/summer_rasters_visual", "images_visual", hotspot_id + '_visual.tif')
 
         else:
-#             item_path = os.path.join(self.data_base_dir, "images", item_["hotspot_id"] + '.tif')
-             item_path = os.path.join("/network/projects/_groups/ecosystem-embeddings/ebird_new/rasters_new/summer_rasters", item_["hotspot_id"] + '.tif')
+#             item_path = os.path.join(self.data_base_dir, "images", hotspot_id + '.tif')
+             item_path = os.path.join("/network/projects/_groups/ecosystem-embeddings/ebird_new/rasters_new/summer_rasters", hotspot_id + '.tif')
 
         if self.type == "img":
             img = load_file(item_path)
@@ -179,19 +180,19 @@ class EbirdVisionDataset(VisionDataset):
         for e in self.env:
             item_["sat"] = torch.cat([item_["sat"], item_[e]], dim=-3)
 
-        if "species" in self.df.columns:
-            species = load_file(os.path.join(self.data_base_dir, "summer_targets", item_["hotspot_id"] + '.json'))
-            if  not species:
-                 species = load_file(os.path.join(self.data_base_dir, "summer_targets_merged", item_["hotspot_id"] + '.json'))
-            item_["speciesA"] = np.array(species["probs"])[self.speciesA]
-            if self.target == "probs":
+        
+        species = load_file(os.path.join(self.data_base_dir, "summer_targets", hotspot_id + '.json'))
+        if  not species:
+                 species = load_file(os.path.join(self.data_base_dir, "summer_targets_merged", hotspot_id + '.json'))
+        item_["speciesA"] = np.array(species["probs"])[self.speciesA]
+        if self.target == "probs":
                 if not self.subset is None:
                     item_["target"] = np.array(species["probs"])[self.subset]
                 else:
                     item_["target"] = species["probs"]
                 item_["target"] = torch.Tensor(item_["target"])
 
-            elif self.target == "binary":
+        elif self.target == "binary":
                 if self.subset is not None:
                     targ = np.array(species["probs"])[self.subset]
                 else:
@@ -200,16 +201,16 @@ class EbirdVisionDataset(VisionDataset):
                 targ[targ > 0] = 1
                 item_["target"] = torch.Tensor(targ)
 
-            elif self.target == "log":
+        elif self.target == "log":
                 if not self.subset is None:
                     item_["target"] = np.array(species["probs"])[self.subset]
                 else:
                     item_["target"] = species["probs"]
 
-            else:
+        else:
                 raise NameError("type of target not supported, should be probs or binary")
 
-            item_["num_complete_checklists"] = species["num_complete_checklists"]
+        item_["num_complete_checklists"] = species["num_complete_checklists"]    
 
 #         item_["state_id"] = self.df["state_id"][index]
 
@@ -219,6 +220,7 @@ class EbirdVisionDataset(VisionDataset):
                 loc = torch.cat((lon, lat)).unsqueeze(0)
                 loc = encode_loc(convert_loc_to_tensor(loc))
                 item_["loc"] = loc
+        item_["hotspot_id"]= hotspot_id
 
         return item_
 

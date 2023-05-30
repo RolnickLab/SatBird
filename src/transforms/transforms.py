@@ -122,7 +122,7 @@ class Normalize:
         if self.custom:
             means, std = self.custom
             for task in self.subset:
-                sample[task] = normalize(sample[task].type(torch.FloatTensor), means, std)
+                sample[task] = normalize(torch.tensor(sample[task],dtype=torch.float32), means, std)
             # d = {
             #    task: normalize(tensor.type(torch.FloatTensor), means, std)
             #     for task, tensor in sample.items() if task in subset
@@ -145,7 +145,7 @@ class MatchRes:
 
         if "bioclim" in list(sample.keys()):
             # align bioclim with ped
-            Hb, Wb = sample["bioclim"].size()[-2:]
+            Hb, Wb = sample["bioclim"].shape[-2:]
 
             h = floor(Hb * self.sat_res / self.bioclim_res)
             w = floor(Wb * self.sat_res / self.bioclim_res)
@@ -156,7 +156,7 @@ class MatchRes:
             # print(sample["bioclim"].shape)
         if "ped" in list(sample.keys()):
             # align bioclim with ped
-            Hb, Wb = sample["ped"].size()[-2:]
+            Hb, Wb = sample["ped"].shape[-2:]
             ##print("ped")
             # print(Hb,Wb)
             h = floor(Hb * self.sat_res / self.ped_res)
@@ -170,10 +170,10 @@ class MatchRes:
         for elem in list(sample.keys()):
             if elem in env:
 
-                if ((sample[elem].size()[-1] == 0) or (sample[elem].size()[-2] == 0)):
+                if ((sample[elem].shape[-1] == 0) or (sample[elem].shape[-2] == 0)):
                     if elem == "bioclim":
                         print("Using custom bioclim")
-                        print(sample[elem].size())
+                        print(sample[elem].shape)
                         # print(sample["hotspot_id"])
                         sample[elem] = torch.Tensor([11.99430391, 12.16226584, 36.94248176, 805.72045945,
                                                      29.4489089, -4.56172133, 34.01063026, 15.81641269,
@@ -224,11 +224,14 @@ class RandomCrop:  # type: ignore[misc,name-defined]
         """
 
         H, W = (
-            sample["sat"].size()[-2:] if "sat" in sample else list(sample.values())[0].size()[-2:]
+            sample["sat"].shape[-2:] if "sat" in sample else list(sample.values())[0].shape[-2:]
         )
+        print(sample.keys())
         for key in sample.keys():
-            if (len(sample[key].size()) == 3):
-                sample[key] = sample[key].unsqueeze(0)
+            print('sample',sample[key])
+
+            if (len(sample[key].shape) == 3):
+                sample[key] = np.expand_dims(sample[key], axis=0)
 
         if torch.rand(1) > self.p:
             return (sample)
@@ -287,7 +290,7 @@ class RandomGaussianNoise:  # type: ignore[misc,name-defined]
 
         for s in sample:
             if s in satellite:
-                noise = torch.normal(0, self.std, sample[s].size())
+                noise = torch.normal(0, self.std, sample[s].shape)
                 noise = torch.clamp(sample[s], min=0, max=self.max)
                 sample[s] += noise
         return sample

@@ -301,13 +301,14 @@ class EbirdTask(pl.LightningModule):
 
         b, no_species = y.shape
         hotspot_id = batch['hotspot_id']
-        state_id = batch['state_id']
+#         
         #         if   self.opts.data.correction_factor.thresh:
         correction_t = (self.correction_t_data.reset_index().set_index('hotspot_id').loc[list(hotspot_id)]).drop(
             columns=["index"]).iloc[:, self.subset].values
         correction_t = torch.tensor(correction_t, device=y.device)
 
         if self.opts.data.correction_factor.use:
+            state_id = batch['state_id']
             self.correction_data = torch.tensor(self.correction, device=y.device)
             correction = self.correction[state_id]
 
@@ -449,7 +450,7 @@ class EbirdTask(pl.LightningModule):
 
         y = batch['target']
         b, no_species = y.shape
-        state_id = batch['state_id']
+#         
         hotspot_id = batch['hotspot_id']
         #         if   self.opts.data.correction_factor.thresh:
         correction_t = (self.correction_t_data.reset_index().set_index('hotspot_id').loc[list(hotspot_id)]).drop(
@@ -457,6 +458,7 @@ class EbirdTask(pl.LightningModule):
         correction_t = torch.tensor(correction_t, device=y.device)
         #
         if self.opts.data.correction_factor.use:
+            state_id = batch['state_id']
             self.correction = torch.tensor(self.correction, device=y.device)
             correction = self.correction[state_id]
 
@@ -537,13 +539,14 @@ class EbirdTask(pl.LightningModule):
         # self.model.to(device)
         y = batch['target']
         b, no_species = y.shape
-        state_id = batch['state_id']
+
         hotspot_id = batch['hotspot_id']
         #         if   self.opts.data.correction_factor.thresh:
         correction_t = (self.correction_t_data.reset_index().set_index('hotspot_id').loc[list(hotspot_id)]).drop(
             columns=["index"]).iloc[:, self.subset].values
         correction_t = torch.tensor(correction_t, device=y.device)
         if self.opts.data.correction_factor.use:
+            state_id = batch['state_id']
             self.correction = torch.tensor(self.correction, device=y.device)
             correction = self.correction[state_id]
 
