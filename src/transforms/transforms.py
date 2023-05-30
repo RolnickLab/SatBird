@@ -7,8 +7,6 @@ from torch.nn import Module  # type: ignore[attr-defined]
 from torchvision.transforms.functional import normalize
 import torch.nn.functional as F
 
-# https://github.com/pytorch/pytorch/issues/60979
-# https://github.com/pytorch/pytorch/pull/61045
 Module.__module__ = "torch.nn"
 
 sat = ["sat"]
@@ -38,8 +36,7 @@ class RandomHorizontalFlip:  # type: ignore[misc,name-defined]
         if torch.rand(1) < self.p:
             for s in sample:
                 if s in all_data:
-                    print(sample[s].shape)
-                    np.flip(sample[s], -1)
+                    sample[s] = sample[s].flip(-1)
 
                 elif s == "boxes":
                     height, width = sample[s].shape[-2:]
@@ -69,7 +66,7 @@ class RandomVerticalFlip:  # type: ignore[misc,name-defined]
         if torch.rand(1) < self.p:
             for s in sample:
                 if s in all_data:
-                    np.flip(sample[s], -2)
+                    sample[s] = sample[s].flip(-2)
 
                 elif s == "boxes":
                     height, width = sample[s].shape[-2:]
@@ -122,7 +119,7 @@ class Normalize:
         if self.custom:
             means, std = self.custom
             for task in self.subset:
-                sample[task] = normalize(torch.tensor(sample[task],dtype=torch.float32), means, std)
+                sample[task] = normalize(torch.tensor(sample[task], dtype=torch.float32), means, std)
             # d = {
             #    task: normalize(tensor.type(torch.FloatTensor), means, std)
             #     for task, tensor in sample.items() if task in subset
@@ -212,21 +209,13 @@ class RandomCrop:  # type: ignore[misc,name-defined]
             the cropped input
         """
 
-    def __call__(self, sample: Dict[str, Tensor]) -> Dict[str, Tensor]:
-        """
-        Args:
-            sample: the input
-        Returns:
-            the cropped input
-        """
-
         H, W = (
             sample["sat"].shape[-2:] if "sat" in sample else list(sample.values())[0].shape[-2:]
         )
         for key in sample.keys():
 
             if (len(sample[key].shape) == 3):
-                sample[key] = np.expand_dims(sample[key], axis=0)
+                sample[key] = torch.unsqueeze(sample[key], 0)
 
         if torch.rand(1) > self.p:
             return (sample)
@@ -246,7 +235,7 @@ class RandomCrop:  # type: ignore[misc,name-defined]
                 else:
                     item_.update({task: tensor})
 
-            return (item_)
+            return item_
 
 
 class Resize:
@@ -284,7 +273,7 @@ class RandomGaussianNoise:  # type: ignore[misc,name-defined]
         """
 
         for s in sample:
-            if s in satellite:
+            if s in sat:
                 noise = torch.normal(0, self.std, sample[s].shape)
                 noise = torch.clamp(sample[s], min=0, max=self.max)
                 sample[s] += noise

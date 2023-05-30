@@ -98,7 +98,7 @@ data:
   res: 10 #resolution of the images
 
   #o you want to use environmental data (pedological and bioclimatic (low res) data) #ped" or "bioclim" or both or empty list
-  env: ["ped", "bioclim"]
+  env: []#["ped", "bioclim"]
   
   #resolution of pedological and bioclimatic data in meters
   ped: 
@@ -114,7 +114,7 @@ data:
     val: "tiny_val.csv"
     test: "tiny_test.csv"
     correction: "" #soft thresholding file - use "after"
-    
+
     correction_thresh: '' # range maps - threshold = False
 
   correction_factor:

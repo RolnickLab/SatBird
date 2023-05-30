@@ -158,30 +158,20 @@ class EbirdVisionDataset(VisionDataset):
         sats = torch.from_numpy(img)
         item_["sat"] = sats
 
-        print(sats.size())
         if len(self.env) > 0:
             env_npy = os.path.join(self.data_base_dir, "environmental_data", hotspot_id + '.npy')
             env_data = load_file(env_npy)
             item_["bioclim"] = torch.from_numpy(env_data[:19, :, :])
             item_["ped"] = torch.from_numpy(env_data[19:, :, :])
-            print(item_["bioclim"].shape)
-            print(item_["ped"].shape)
 
         t = trsfs.Compose(self.transform)
         item_ = t(item_)
 
-        print(item_["sat"].shape)
-        if len(self.env) > 0:
-            print(item_["ped"].shape)
-            print(item_["bioclim"].shape)
-
         for e in self.env:
             item_["sat"] = torch.cat([item_["sat"], item_[e]], dim=-3)
 
-        print("Final input shape: " , item_["sat"].shape)
         species = load_file(os.path.join(self.data_base_dir, "targets", hotspot_id + '.json'))
 
-        # item_["speciesA"] = np.array(species["probs"])[self.speciesA]
         if self.target == "probs":
             if not self.subset is None:
                 item_["target"] = np.array(species["probs"])[self.subset]
