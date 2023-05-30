@@ -9,6 +9,7 @@ Environmental baselines are in `data_processing/env_baseline.py`
 
 To see an example config file check `configs/env_baseline.yaml`
 
+To launch multiple experiments (with 3 seeds) on the cluster, run `sbatch run_files/multiple_runs.sh`
 
 To train the model (check run_files/job.sh) : `python train.pyargs.base_dir="" args.config=configs/base.yaml`
 For multiple parallel runs on the cluster, `sbatch run_files/multiple_runs.sh`"

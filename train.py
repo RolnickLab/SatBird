@@ -92,6 +92,7 @@ def main(opts):
     trainer_args["callbacks"] = [checkpoint_callback]
     trainer_args["overfit_batches"] = conf.overfit_batches  # 0 if not overfitting
     trainer_args['max_epochs'] = conf.max_epochs
+    # trainer_args['check_val_every_n_epoch'] = 2
 
     if not conf.loc.use:
 
@@ -116,7 +117,7 @@ def main(opts):
 
     # Run experiment
     trainer.fit(model=task, datamodule=datamodule)
-    trainer.test(model=task, datamodule=datamodule)
+    # trainer.test(model=task, datamodule=datamodule)
 
     # logging the best checkpoint to comet ML
     if conf.log_comet:
