@@ -9,11 +9,9 @@ from src.dataset.utils import load_file
 
 import torch
 from torchvision import transforms as trsfs
-from torchvision.transforms import ToTensor
 from torch.nn import Module
 from torch import Tensor
 import numpy as np
-
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
@@ -144,75 +142,74 @@ class EbirdVisionDataset(VisionDataset):
 
     def __getitem__(self, index: int) -> Dict[str, Any]:
         item_ = {}
-       
-        hotspot_id= self.df.iloc[index]['hotspot_id']
 
-        env_npy = os.path.join(self.data_base_dir, "environmental_data", hotspot_id + '.npy')
+        hotspot_id = self.df.iloc[index]['hotspot_id']
+
         if self.type == 'img':
-            #item_path = os.path.join(self.data_base_dir, "images_visual", hotspot_id + '_visual.tif')
-                        item_path = os.path.join("/network/projects/_groups/ecosystem-embeddings/ebird_new/rasters_new/summer_rasters_visual", "images_visual", hotspot_id + '_visual.tif')
-
+            img_path = os.path.join(self.data_base_dir, "images_visual", hotspot_id + '_visual.tif')
         else:
-#             item_path = os.path.join(self.data_base_dir, "images", hotspot_id + '.tif')
-             item_path = os.path.join("/network/projects/_groups/ecosystem-embeddings/ebird_new/rasters_new/summer_rasters", hotspot_id + '.tif')
+            img_path = os.path.join(self.data_base_dir, "images", hotspot_id + '.tif')
 
         if self.type == "img":
-            img = load_file(item_path)
+            img = load_file(img_path)
         elif self.type == 'refl':
-            img = load_file(item_path)
-#             new_band_order = [2, 1, 0, 3] # r, g, b, nir
-#             img = img[:, :, new_band_order].astype(np.float)
-#             img[:,:,-1] = (img[:,:,-1] / img[:,:,-1].max()) * 255
+            img = load_file(img_path)
 
-        img = img / 255
-        sats = img
+        sats = torch.from_numpy(img)
         item_["sat"] = sats
-        print(sats.shape)
+
+        print(sats.size())
         if len(self.env) > 0:
-            
-                env_data=load_file(env_npy)
-                item_["bioclim"] = torch.from_numpy(load_file(band))[:19,:,:]
-                item_["ped"] = torch.from_numpy(load_file(band))[19:,:,:]
+            env_npy = os.path.join(self.data_base_dir, "environmental_data", hotspot_id + '.npy')
+            env_data = load_file(env_npy)
+            item_["bioclim"] = torch.from_numpy(env_data[:19, :, :])
+            item_["ped"] = torch.from_numpy(env_data[19:, :, :])
+            print(item_["bioclim"].shape)
+            print(item_["ped"].shape)
 
         t = trsfs.Compose(self.transform)
         item_ = t(item_)
 
+        print(item_["sat"].shape)
+        if len(self.env) > 0:
+            print(item_["ped"].shape)
+            print(item_["bioclim"].shape)
+
         for e in self.env:
             item_["sat"] = torch.cat([item_["sat"], item_[e]], dim=-3)
 
-        
-        species = load_file(os.path.join(self.data_base_dir, "summer_targets", hotspot_id + '.json'))
-        if  not species:
-                 species = load_file(os.path.join(self.data_base_dir, "summer_targets_merged", hotspot_id + '.json'))
-        item_["speciesA"] = np.array(species["probs"])[self.speciesA]
+        print("Final input shape: " , item_["sat"].shape)
+        species = load_file(os.path.join(self.data_base_dir, "targets", hotspot_id + '.json'))
+
+        # item_["speciesA"] = np.array(species["probs"])[self.speciesA]
         if self.target == "probs":
-                if not self.subset is None:
-                    item_["target"] = np.array(species["probs"])[self.subset]
-                else:
-                    item_["target"] = species["probs"]
-                item_["target"] = torch.Tensor(item_["target"])
+            if not self.subset is None:
+                item_["target"] = np.array(species["probs"])[self.subset]
+            else:
+                item_["target"] = species["probs"]
+            item_["target"] = torch.Tensor(item_["target"])
 
         elif self.target == "binary":
-                if self.subset is not None:
-                    targ = np.array(species["probs"])[self.subset]
-                else:
-                    targ = species["probs"]
-                item_["original_target"] = torch.Tensor(targ)
-                targ[targ > 0] = 1
-                item_["target"] = torch.Tensor(targ)
+            if self.subset is not None:
+                targ = np.array(species["probs"])[self.subset]
+            else:
+                targ = species["probs"]
+            item_["original_target"] = torch.Tensor(targ)
+            targ[targ > 0] = 1
+            item_["target"] = torch.Tensor(targ)
 
         elif self.target == "log":
-                if not self.subset is None:
-                    item_["target"] = np.array(species["probs"])[self.subset]
-                else:
-                    item_["target"] = species["probs"]
+            if not self.subset is None:
+                item_["target"] = np.array(species["probs"])[self.subset]
+            else:
+                item_["target"] = species["probs"]
 
         else:
-                raise NameError("type of target not supported, should be probs or binary")
+            raise NameError("type of target not supported, should be probs or binary")
 
-        item_["num_complete_checklists"] = species["num_complete_checklists"]    
+        item_["num_complete_checklists"] = species["num_complete_checklists"]
 
-#         item_["state_id"] = self.df["state_id"][index]
+        # item_["state_id"] = self.df["state_id"][index]
 
         if self.use_loc:
             if self.loc_type == "latlon":
@@ -220,9 +217,11 @@ class EbirdVisionDataset(VisionDataset):
                 loc = torch.cat((lon, lat)).unsqueeze(0)
                 loc = encode_loc(convert_loc_to_tensor(loc))
                 item_["loc"] = loc
-        item_["hotspot_id"]= hotspot_id
+
+        item_["hotspot_id"] = hotspot_id
 
         return item_
+
 
 class EbirdSpeciesEnvDataset(VisionDataset):
     def __init__(self,
