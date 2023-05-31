@@ -68,7 +68,8 @@ def load_geotiff(file):
     img = tiff.imread(file)
     new_band_order = [2, 1, 0, 3] # r, g, b, nir
     img = img[:, :, new_band_order].astype(np.float)
-    img[:,:,-1] = (img[:,:,-1] / img[:,:,-1].max()) * 255
+    img[:, :, -1] = (img[:, :, -1] / img[:, :, -1].max()) * 255
+    img[:, :, -1] = img[:, :, -1].astype(np.uint8)
     img = np.reshape(img, (img.shape[2], img.shape[0], img.shape[1]))
     img = img / 255
 

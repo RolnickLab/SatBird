@@ -10,7 +10,7 @@
 #SBATCH --partition=long
 
 ### this specifies the number of runs (we are doing 3 runs for now)
-#SBATCH --array=1-1:1
+#SBATCH --array=1-3:1
 
 #SBATCH --mail-user=$USER@mila.quebec
 #SBATCH --mail-type=FAIL

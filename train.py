@@ -117,7 +117,7 @@ def main(opts):
 
     # Run experiment
     trainer.fit(model=task, datamodule=datamodule)
-    # trainer.test(model=task, datamodule=datamodule)
+    trainer.test(model=task, datamodule=datamodule)
 
     # logging the best checkpoint to comet ML
     if conf.log_comet:

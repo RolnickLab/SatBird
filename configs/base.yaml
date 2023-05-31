@@ -8,7 +8,7 @@ log_comet: true
 
 overfit_batches: 0.0
 # maximum number of epochs to train for
-max_epochs: 1
+max_epochs: 50
 # base directory
 base_dir: ""
 #use geographical information
@@ -20,7 +20,7 @@ loc:
   
 comet:
   project_name: "clean_baselines" #"ecosystem-duck"
-  tags: ["resnet18",  "rgb_nir","tiny_summer_data"]
+  tags: ["resnet18",  "rgb_nir","all_data_summer", "no_correction"]
   experiment_name: "baseline_resnet18_RGBNIR" # specify for training, or use to report test results, TODO: also use to resume training
   experiment_key: "" # use to report test results,
 
@@ -40,7 +40,7 @@ experiment:
     resume: ""
     #initializes biases of the output layer sothat sigmoid(bias) = mean over the training set for each species
     init_bias: ""
-    means_path: #"/network/scratch/t/tengmeli/scratch/ecosystem-embedding/training/means_all_species.npy"
+    means_path: ""
     lr: 0.0003
 
 optimizer: "Adam"  #"Adam"
@@ -78,8 +78,8 @@ variables: &default_vars
             47.76831975,  27.98050281,  24.19695586, 135.01831158,
             90.12503615, 117.41413006, 146.55134417]
 
-    rgbnir_means: &rgbnir_means [894.6719, 932.5726,693.2768, 2817.9849]
-    rgbnir_std: &rgbnir_std [883.9763,747.6857,749.3098, 1342.6334]
+    rgbnir_means: &rgbnir_means [1580.46310787, 1828.38179935, 1781.2853091 , 3912.1952206]
+    rgbnir_std: &rgbnir_std [612.5347533547798, 643.0713578941586, 786.6640817697212, 1296.637232875431]
 
     visual_means: &visual_means [87.0467011965099, 91.21045367500467, 67.50251448722302]
     visual_stds: &visual_stds [67.55043009747773, 51.443316800384295, 49.65159018638426]
