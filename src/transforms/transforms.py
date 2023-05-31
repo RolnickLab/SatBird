@@ -7,15 +7,12 @@ from torch.nn import Module  # type: ignore[attr-defined]
 from torchvision.transforms.functional import normalize
 import torch.nn.functional as F
 
-# https://github.com/pytorch/pytorch/issues/60979
-# https://github.com/pytorch/pytorch/pull/61045
 Module.__module__ = "torch.nn"
 
-satellite = ["sat", "r", "g", "b", "nir"]
 sat = ["sat"]
 env = ["bioclim", "ped"]
 landuse = ["landuse"]
-all_data = satellite + env + landuse
+all_data = sat + env + landuse
 
 
 class RandomHorizontalFlip:  # type: ignore[misc,name-defined]
@@ -94,7 +91,7 @@ def normalize_custom(t, mini=0, maxi=1):
 
 
 class Normalize:
-    def __init__(self, maxchan=True, custom=None, subset=satellite):
+    def __init__(self, maxchan=True, custom=None, subset=sat):
         """
         custom : ([means], [std])
         means =[r: 894.6719, g: 932.5726, b:693.2768, nir: 2817.9849]
@@ -122,7 +119,7 @@ class Normalize:
         if self.custom:
             means, std = self.custom
             for task in self.subset:
-                sample[task] = normalize(sample[task].type(torch.FloatTensor), means, std)
+                sample[task] = normalize(torch.tensor(sample[task], dtype=torch.float32), means, std)
             # d = {
             #    task: normalize(tensor.type(torch.FloatTensor), means, std)
             #     for task, tensor in sample.items() if task in subset
@@ -145,7 +142,7 @@ class MatchRes:
 
         if "bioclim" in list(sample.keys()):
             # align bioclim with ped
-            Hb, Wb = sample["bioclim"].size()[-2:]
+            Hb, Wb = sample["bioclim"].shape[-2:]
 
             h = floor(Hb * self.sat_res / self.bioclim_res)
             w = floor(Wb * self.sat_res / self.bioclim_res)
@@ -153,11 +150,9 @@ class MatchRes:
             left = max(0, Wb // 2 - w // 2)
             h, w = max(ceil(h), 1), max(ceil(w), 1)
             sample["bioclim"] = sample["bioclim"][:, int(top): int(top + h), int(left): int(left + w)]
-            # print(sample["bioclim"].shape)
         if "ped" in list(sample.keys()):
             # align bioclim with ped
-            Hb, Wb = sample["ped"].size()[-2:]
-            ##print("ped")
+            Hb, Wb = sample["ped"].shape[-2:]
             # print(Hb,Wb)
             h = floor(Hb * self.sat_res / self.ped_res)
             w = floor(Wb * self.sat_res / self.ped_res)
@@ -165,15 +160,14 @@ class MatchRes:
             left = max(0, Wb // 2 - w // 2)
             h, w = max(ceil(h), 1), max(ceil(w), 1)
             sample["ped"] = sample["ped"][:, int(top): int(top + h), int(left): int(left + w)]
-            # print(sample["ped"].shape)
 
         for elem in list(sample.keys()):
             if elem in env:
 
-                if ((sample[elem].size()[-1] == 0) or (sample[elem].size()[-2] == 0)):
+                if ((sample[elem].shape[-1] == 0) or (sample[elem].shape[-2] == 0)):
                     if elem == "bioclim":
                         print("Using custom bioclim")
-                        print(sample[elem].size())
+                        print(sample[elem].shape)
                         # print(sample["hotspot_id"])
                         sample[elem] = torch.Tensor([11.99430391, 12.16226584, 36.94248176, 805.72045945,
                                                      29.4489089, -4.56172133, 34.01063026, 15.81641269,
@@ -215,20 +209,13 @@ class RandomCrop:  # type: ignore[misc,name-defined]
             the cropped input
         """
 
-    def __call__(self, sample: Dict[str, Tensor]) -> Dict[str, Tensor]:
-        """
-        Args:
-            sample: the input
-        Returns:
-            the cropped input
-        """
-
         H, W = (
-            sample["sat"].size()[-2:] if "sat" in sample else list(sample.values())[0].size()[-2:]
+            sample["sat"].shape[-2:] if "sat" in sample else list(sample.values())[0].shape[-2:]
         )
         for key in sample.keys():
-            if (len(sample[key].size()) == 3):
-                sample[key] = sample[key].unsqueeze(0)
+
+            if (len(sample[key].shape) == 3):
+                sample[key] = torch.unsqueeze(sample[key], 0)
 
         if torch.rand(1) > self.p:
             return (sample)
@@ -248,7 +235,7 @@ class RandomCrop:  # type: ignore[misc,name-defined]
                 else:
                     item_.update({task: tensor})
 
-            return (item_)
+            return item_
 
 
 class Resize:
@@ -286,8 +273,8 @@ class RandomGaussianNoise:  # type: ignore[misc,name-defined]
         """
 
         for s in sample:
-            if s in satellite:
-                noise = torch.normal(0, self.std, sample[s].size())
+            if s in sat:
+                noise = torch.normal(0, self.std, sample[s].shape)
                 noise = torch.clamp(sample[s], min=0, max=self.max)
                 sample[s] += noise
         return sample

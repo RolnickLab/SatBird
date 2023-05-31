@@ -2,7 +2,8 @@ import os
 import sys
 from typing import Tuple
 from datetime import datetime, timedelta
-
+# from osgeo import gdal
+import tifffile as tiff
 """All non-tensor utils
 """
 import json
@@ -42,15 +43,53 @@ def is_image_file(filename):
         return filename.suffix in IMG_EXTENSIONS
     return Path(filename).suffix in IMG_EXTENSIONS
 
+def load_geotiff_visual(file):
+    # ds = gdal.Open(file)
+    # band1 = ds.GetRasterBand(1).ReadAsArray() # Blue channel
+    # band2 = ds.GetRasterBand(2).ReadAsArray() # Green channel
+    # band3 = ds.GetRasterBand(3).ReadAsArray() # Red channel
+    # img = np.dstack((band1, band2, band3))  #RGB order
+    # img = np.reshape(img,(img.shape[2],img.shape[0],img.shape[1])) #C X H X W
+
+    img = tiff.imread(file)
+    img = img / 255
+    return img
+
+def load_geotiff(file):
+    # ds = gdal.Open(file)
+    # band1 = ds.GetRasterBand(1).ReadAsArray() # Blue channel
+    # band2 = ds.GetRasterBand(2).ReadAsArray() # Green channel
+    # band3 = ds.GetRasterBand(3).ReadAsArray() # Red channel
+    # band4 = (ds.GetRasterBand(4).ReadAsArray()/ds.GetRasterBand(4).ReadAsArray().max())*255 # nir
+    # band4=band4.astype(np.uint8)
+    # img = np.dstack((band3, band2, band1,band4))
+    # img=np.reshape(img,(img.shape[2],img.shape[0],img.shape[1])) #C X H X W
+
+    img = tiff.imread(file)
+    new_band_order = [2, 1, 0, 3] # r, g, b, nir
+    img = img[:, :, new_band_order].astype(np.float)
+    img[:, :, -1] = (img[:, :, -1] / img[:, :, -1].max()) * 255
+    img[:, :, -1] = img[:, :, -1].astype(np.uint8)
+    img = np.reshape(img, (img.shape[2], img.shape[0], img.shape[1]))
+    img = img / 255
+
+    return img
+
+
 def load_file(file_path):
     if is_image_file(file_path):
-        return(Image.open(file_path))
-    elif file_path.suffix == ".yaml":
-        return(yaml_load(file_path))
-    elif file_path.suffix == ".json":
-        return(json_load(file_path))
-    elif file_path.suffix == ".npy":
-        return(np.load(file_path))
+        return (Image.open(file_path))
+    elif file_path.split('.')[-1] == "yaml":
+        return (yaml_load(file_path))
+    elif file_path.split('.')[-1] == "json":
+        return (json_load(file_path))
+    elif file_path.split('.')[-1] == "npy":
+        return (np.load(file_path))
+    elif file_path.split('.')[-1] == "tif":
+        if 'visual' in str(file_path):
+             return (load_geotiff_visual(file_path))
+        else:
+            return (load_geotiff(file_path))
     
 
 
