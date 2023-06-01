@@ -11,7 +11,7 @@ def crop_center(img,cropx,cropy):
 def main():
     stats_df = pd.DataFrame(columns=["hotspot_id", "r","g","b","nir"])
     df = pd.read_csv("/network/projects/ecosystem-embeddings/ebird_dataset/USA_summer/summer_hotspots_train.csv")
-    """
+    
     for i, row in df.iterrows():
         hs = row["hotspot_id"]
         arr = tifffile.imread(f"/network/projects/ecosystem-embeddings/ebird_dataset/USA_summer/images/{hs}.tif")
@@ -20,8 +20,8 @@ def main():
         new_row = {'hotspot_id':hs, 'r':means[0], 'g':means[1], 'b':means[2], 'nir':means[3]}
         stats_df= stats_df.append(new_row, ignore_index=True)
     stats_df.to_csv('/network/projects/ecosystem-embeddings/ebird_dataset/USA_summer/means_summer_images.csv')
-    """
-    print("AAAAAAAAAA")
+    
+    
     stats_df = pd.read_csv('/network/projects/ecosystem-embeddings/ebird_dataset/USA_summer/means_summer_images.csv')
     mean_r = stats_df["r"].mean()
     mean_g = stats_df["g"].mean()
@@ -34,7 +34,7 @@ def main():
         hs = row["hotspot_id"]
         arr = tifffile.imread(f"/network/projects/ecosystem-embeddings/ebird_dataset/USA_summer/images/{hs}.tif")
         cropped = crop_center(arr, 64,64)
-        std = ((cropped-means)*2 /(64*64)).sum(axis = 0).sum(axis=0)
+        std = ((cropped-means)**2 /(64*64)).sum(axis = 0).sum(axis=0)
         new_row = {'hotspot_id':hs, 'r_std':std[0], 'g_std':std[1], 'b_std':std[2], 'nir_std':std[3]}
         stats_df_2= stats_df_2.append(new_row, ignore_index=True)
     stats_df_2.to_csv('/network/projects/ecosystem-embeddings/ebird_dataset/USA_summer/std_summer_images.csv')
