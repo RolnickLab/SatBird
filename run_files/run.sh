@@ -29,7 +29,7 @@ module load anaconda/3
 
 GPUS=1
 echo "Number of GPUs: "${GPUS}
-WRAP="python train2.py args.config=configs/base_RGB_RM-satmae-ENV.yaml"
+WRAP="python train.py args.config=configs/base_RGB_RM-satmae-ENV.yaml"
 #WRAP='python test2.py'
 JOBNAME="correction_ecosys"
 LOG_FOLDER="/home/mila/a/amna.elmustafa/ecosys_logs"

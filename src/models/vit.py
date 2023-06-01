@@ -23,12 +23,15 @@ import numpy as np
 
 import torch
 
+
 # --------------------------------------------------------
 # 2D sine-cosine position embedding
 # References:
 # Transformer: https://github.com/tensorflow/models/blob/master/official/nlp/transformer/model_utils.py
 # MoCo v3: https://github.com/facebookresearch/moco-v3
 # --------------------------------------------------------
+
+
 def get_2d_sincos_pos_embed(embed_dim, grid_size, cls_token=False):
     """
     grid_size: int of the grid height and width
@@ -54,7 +57,7 @@ def get_2d_sincos_pos_embed_from_grid(embed_dim, grid):
     emb_h = get_1d_sincos_pos_embed_from_grid(embed_dim // 2, grid[0])  # (H*W, D/2)
     emb_w = get_1d_sincos_pos_embed_from_grid(embed_dim // 2, grid[1])  # (H*W, D/2)
 
-    emb = np.concatenate([emb_h, emb_w], axis=1) # (H*W, D)
+    emb = np.concatenate([emb_h, emb_w], axis=1)  # (H*W, D)
     return emb
 
 
@@ -67,13 +70,13 @@ def get_1d_sincos_pos_embed_from_grid(embed_dim, pos):
     assert embed_dim % 2 == 0
     omega = np.arange(embed_dim // 2, dtype=np.float)
     omega /= embed_dim / 2.
-    omega = 1. / 10000**omega  # (D/2,)
+    omega = 1. / 10000 ** omega  # (D/2,)
 
     pos = pos.reshape(-1)  # (M,)
     out = np.einsum('m,d->md', pos, omega)  # (M, D/2), outer product
 
-    emb_sin = np.sin(out) # (M, D/2)
-    emb_cos = np.cos(out) # (M, D/2)
+    emb_sin = np.sin(out)  # (M, D/2)
+    emb_cos = np.cos(out)  # (M, D/2)
 
     emb = np.concatenate([emb_sin, emb_cos], axis=1)  # (M, D)
     return emb
@@ -111,56 +114,10 @@ def interpolate_pos_embed(model, checkpoint_model):
             checkpoint_model['pos_embed'] = new_pos_embed
 
 
-# class VisionTransformer(timm.models.vision_transformer.VisionTransformer):
-#     """ Vision Transformer with support for global average pooling
-#     """
-#     def __init__(self, global_pool=False, **kwargs):
-#         super(VisionTransformer, self).__init__(**kwargs)
-
-#         # Added by Samar, need default pos embedding
-#         pos_embed = get_2d_sincos_pos_embed(self.pos_embed.shape[-1], int(self.patch_embed.num_patches ** .5),
-#                                             cls_token=True)
-#         self.pos_embed.data.copy_(torch.from_numpy(pos_embed).float().unsqueeze(0))
-
-#         self.global_pool = global_pool
-#         if self.global_pool:
-#             norm_layer = kwargs['norm_layer']
-#             embed_dim = kwargs['embed_dim']
-#             self.fc_norm = norm_layer(embed_dim)
-
-#             del self.norm  # remove the original norm
-        
-#         self.fc=nn.Linear(self.embed_dim, 1000)
-
-#     def forward_features(self, x):
-#         B = x.shape[0]
-#         x = self.patch_embed(x)
-
-#         cls_tokens = self.cls_token.expand(B, -1, -1)  # stole cls_tokens impl from Phil Wang, thanks
-#         x = torch.cat((cls_tokens, x), dim=1)
-#         x = x + self.pos_embed
-#         x = self.pos_drop(x)
-
-#         for blk in self.blocks:
-#             x = blk(x)
-
-#         if self.global_pool:
-#             x = x[:, 1:, :].mean(dim=1)  # global pool without cls token
-#             outcome = self.fc_norm(x)
-#         else:
-#             x = self.norm(x)
-#             outcome = x[:, 0]
-        
-#         return outcome #shape : BxD
-#     def forward(self,x):
-        
-#         return self.fc(self.forward_features(x))
-        
-        
-     
 class VisionTransformer(timm.models.vision_transformer.VisionTransformer):
     """ Vision Transformer with support for global average pooling
     """
+
     def __init__(self, **kwargs):
         super(VisionTransformer, self).__init__(**kwargs)
 
@@ -178,10 +135,8 @@ class VisionTransformer(timm.models.vision_transformer.VisionTransformer):
                                             cls_token=True)
         self.pos_embed.data.copy_(torch.from_numpy(pos_embed).float().unsqueeze(0))
 
-        
         self.decoder_pred = nn.Linear(embed_dim, self.patch_size ** 2 * self.in_c, bias=True)  # decoder to patch
 
-       
     def patchify(self, imgs, p, c):
         """
         imgs: (N, C, H, W)
@@ -225,8 +180,6 @@ class VisionTransformer(timm.models.vision_transformer.VisionTransformer):
         x = x + self.pos_embed
         x = self.pos_drop(x)
 
-        
-
         for i, blk in enumerate(self.blocks):
             x = blk(x)  # (N, L+1, D)
 
@@ -244,8 +197,10 @@ class VisionTransformer(timm.models.vision_transformer.VisionTransformer):
         # x = self.final_conv(x)  # (N, C, H, W)
 
         return x
+
+
 class ViTFinetune(VisionTransformer):
-    def __init__(self,*args, **kwargs):
+    def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # self.num_timesteps = num_timesteps
         # self.use_temb = use_temb
@@ -256,9 +211,8 @@ class ViTFinetune(VisionTransformer):
         norm_layer = nn.LayerNorm
         embed_dim = kwargs['embed_dim']
         self.fc_norm = norm_layer(embed_dim)
-        self.fc=nn.Linear(embed_dim, kwargs['num_classes'])
+        self.fc = nn.Linear(embed_dim, kwargs['num_classes'])
         del self.decoder_pred
-    
 
     def forward(self, x):
         print('in vit finetune')
@@ -270,11 +224,8 @@ class ViTFinetune(VisionTransformer):
         x = x + self.pos_embed
         x = self.pos_drop(x)
 
-
-
         for i, blk in enumerate(self.blocks):
-     
-                x = blk(x)
+            x = blk(x)
 
         x = self.norm(x)
 
@@ -305,9 +256,6 @@ def vit_huge_patch14(**kwargs):
         embed_dim=1280, depth=32, num_heads=16, mlp_ratio=4, qkv_bias=True,
         norm_layer=partial(nn.LayerNorm, eps=1e-6), **kwargs)
     return model
-
-
-
 
 # --------------------------------------------------------
 # References:
@@ -456,7 +404,7 @@ def vit_huge_patch14(**kwargs):
 
 #         return outcome
 #     def forward(self,x):
-        
+
 #         return self.fc(self.forward_features(x))
 
 
