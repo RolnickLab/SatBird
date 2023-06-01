@@ -144,7 +144,7 @@ class EbirdTask(pl.LightningModule):
             full_state_dict = torch.load('/network/scratch/a/amna.elmustafa/hager/ecosystem-embedding/src/trainer/satlas-model-v1-lowres.pth')
             swin_prefix = 'backbone.backbone.'
             swin_state_dict = {k[len(swin_prefix):]: v for k, v in full_state_dict.items() if k.startswith(swin_prefix)}
-#             print(swin_state_dict.keys())
+
             self.feature_extractor.load_state_dict(swin_state_dict)
             self.feature_extractor.to('cuda:0')
             print("initialized network, freezing weights")

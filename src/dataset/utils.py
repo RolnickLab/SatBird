@@ -51,7 +51,9 @@ def load_geotiff_visual(file):
     # img = np.dstack((band1, band2, band3))  #RGB order
     # img = np.reshape(img,(img.shape[2],img.shape[0],img.shape[1])) #C X H X W
 
-    img = tiff.imread(file)
+    img = tiff.imread(file).astype(np.float32)
+   
+    img = np.reshape(img, (img.shape[2], img.shape[0], img.shape[1]))
     img = img / 255
     return img
 
@@ -87,6 +89,7 @@ def load_file(file_path):
         return (np.load(file_path))
     elif file_path.split('.')[-1] == "tif":
         if 'visual' in str(file_path):
+           
              return (load_geotiff_visual(file_path))
         else:
             return (load_geotiff(file_path))

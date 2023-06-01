@@ -188,7 +188,7 @@ def load_from_checkpoint(path, model):
     if 'moco' in path:
         # moco pretrained models need some weights renaming
         checkpoint = torch.load(path)
-        # model.fc = torch.nn.Sequential()
+       
         loaded_dict = checkpoint['state_dict']
 
         model_dict = model.state_dict()
@@ -208,31 +208,10 @@ def load_from_checkpoint(path, model):
 
         state_dict = model.state_dict()
         print('model keys', state_dict.keys())
-        # for k in ['mask_token', 'decoder_pos_embed']:
-        # #'head.weight', 'head.bias']:
-        #     # if k in checkpoint_model and checkpoint_model[k].shape != state_dict[k].shape:
-        #         print(f"Removing key {k} from pretrained checkpoint")
-        #         del checkpoint_model[k]
+      
         loaded_dict = checkpoint_model
         model_dict = model.state_dict()
-        # del loaded_dict["cls_token"]
-        # del loaded_dict["mask_token"]
-        # del loaded_dict["decoder_pos_embed"]
-        # del loaded_dict['channel_embed']
-        # del loaded_dict['channel_cls_embed']
-        # del loaded_dict['pos_embed']
-
-        # del loaded_dict['patch_embed.2.proj.bias']
-        # del loaded_dict['patch_embed.2.proj.weight']
-        # del loaded_dict['patch_embed.1.proj.bias']
-        # del loaded_dict['patch_embed.1.proj.weight']
-
-        #         for key_model, key_satmae in zip(model_dict.keys(), loaded_dict.keys()):
-        #             if 'fc'  in key_model or 'head' in key_model  or "cls_token" in key_model or 'pos_embed' in key_model :
-        #                 #ignore fc weight
-
-        #             #     continue
-        #             # model_dict[key_model] = loaded_dict[key_satmae]
+      
         for key_model in model_dict.keys():
             if 'fc' in key_model or 'head' in key_model:
                 #                 #ignore fc weight
