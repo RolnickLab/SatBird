@@ -73,7 +73,7 @@ def process_hotspot(
     if hotspot_df["STATE"].isin(["Hawaii", "Alaska"]).any():
         return {}, {}
 
-    hotspot_df = hotspot_df[hotspot_df["OBSERVATION DATE"].dt.month.isin([6,7])]
+    hotspot_df = hotspot_df[hotspot_df["OBSERVATION DATE"].dt.month.isin([12,1])]
     for df, destination in zip(
         [hotspot_df], [summer_targets_and_entries]
     ):
@@ -165,7 +165,7 @@ def main():
     #total_lines = 843_311_790
 
     # Directory where the output files should be created.
-    output_dir = Path("/network/projects/ecosystem-embeddings/ebird_new/")
+    output_dir = Path("/network/projects/ecosystem-embeddings/ebird_new_targets/")
 
     # Do NOT allow the output directory to exist, since we want a "clean" preprocessed dataset.
     #output_dir.mkdir(parents=True, exist_ok=True)  # FIXME: Set `exist_ok` to False before posting
