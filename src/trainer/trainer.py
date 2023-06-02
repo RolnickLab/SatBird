@@ -315,7 +315,7 @@ class EbirdTask(pl.LightningModule):
 
         # range maps
         if self.opts.data.correction_factor.thresh:
-            with open(self.opts.data.files.correction_thresh, 'rb') as f:
+            with open(os.path.join(self.opts.data.files.base, self.opts.data.files.correction_thresh), 'rb') as f:
                 self.correction_t_data = pickle.load(f)
 
         # soft threshold

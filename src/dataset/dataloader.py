@@ -170,7 +170,7 @@ class EbirdVisionDataset(VisionDataset):
         for e in self.env:
             item_["sat"] = torch.cat([item_["sat"], item_[e]], dim=-3).float()
 
-        species = load_file(os.path.join(self.data_base_dir, "targets", hotspot_id + '.json'))
+        species = load_file(os.path.join(self.data_base_dir, "corrected_targets", hotspot_id + '.json'))
 
         if self.target == "probs":
             if not self.subset is None:

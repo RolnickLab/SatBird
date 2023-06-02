@@ -1,5 +1,5 @@
 #where to save checkpoints
-save_path: "baseline_resnet18_RGBNIR"
+save_path: ""
 
 # load existing checkpoint for inference. If passing experiment folder instead (for multiple seeds), it will evaluate all of them.
 load_ckpt_path: ""
@@ -19,9 +19,9 @@ loc:
   concat: True
   
 comet:
-  project_name: "clean_baselines" #"ecosystem-duck"
-  tags: ["resnet18",  "rgb_nir","all_data_summer", "no_correction"]
-  experiment_name: "baseline_resnet18_RGBNIR" # specify for training, or use to report test results, TODO: also use to resume training
+  project_name: "neurips_baselines" #"ecosystem-duck"
+  tags: ["resnet18"]
+  experiment_name: "" # specify for training, or use to report test results, TODO: also use to resume training
   experiment_key: "" # use to report test results,
 
 experiment:
@@ -115,7 +115,7 @@ data:
     test: "summer_hotspots_test.csv"
     correction: "" #soft thresholding file - use "after"
 
-    correction_thresh: '' # range maps - threshold = False
+    correction_thresh: "final_range_maps.pkl" # range maps - threshold = False
 
   correction_factor:
      use: #soft thresholding choises [None, 'before' (before sigmoid) ,'after'(after sigmoid)] 
