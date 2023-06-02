@@ -36,9 +36,9 @@ def merge_target(outpath, json_dict="/network/projects/ecosystem-embeddings/ebir
         with open(os.path.join(outpath, f"{key}.json"), 'w') as fp:
             json.dump(info, fp)
 if __name__ == "__main__":
-     merge_target(outpath = "/network/projects/ecosystem-embeddings/ebird_new/summer_targets_merged/", 
+     #merge_target(outpath = "/network/projects/ecosystem-embeddings/ebird_new/summer_targets_merged/", 
+     #             json_dict="/network/projects/ecosystem-embeddings/ebird_new/to_merge_dict.json", 
+     #             root = "/network/projects/ecosystem-embeddings/ebird_new/summer_targets/")
+    merge_target(outpath = "/network/projects/ecosystem-embeddings/ebird_new_targets/winter_targets_merged/", 
                   json_dict="/network/projects/ecosystem-embeddings/ebird_new/to_merge_dict.json", 
-                  root = "/network/projects/ecosystem-embeddings/ebird_new/summer_targets/")
-    merge_target(outpath = "/network/projects/ecosystem-embeddings/ebird_new/winter_targets_merged/", 
-                  json_dict="/network/projects/ecosystem-embeddings/ebird_new/to_merge_dict.json", 
-                  root = "/network/projects/ecosystem-embeddings/ebird_new/winter_targets/")
+                  root = "/network/projects/ecosystem-embeddings/ebird_new_targets/winter_targets/")

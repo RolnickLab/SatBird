@@ -133,7 +133,7 @@ if __name__ == "__main__":
     random.seed(0)
     # Reading Hotspot data
 
-    locs = pd.read_csv("/network/projects/ecosystem-embeddings/ebird_new/summer_hotspots_with_bioclim_withnan_merged_vf.csv")
+    locs = pd.read_csv("/network/projects/ecosystem-embeddings/ebird_new/summer_hotspots_clean.csv")
     print(len(locs))
     #pd.read_csv('/network/projects/_groups/ecosystem-embeddings/hotspot_split_june/hotspots_june_filtered.csv')
     locs = locs.loc[:, ~locs.columns.str.contains('^Unnamed')]
@@ -155,7 +155,7 @@ if __name__ == "__main__":
     clusters_dict, _ = cluster_based_on_dist(X, dist=5)
     train = 0.70
     valid = 0.15
-    splits_names = ['valid', 'test','train']
+    splits_names = ['test','valid','train']
 
     train_size = int(train * len(X))
     val_size = int(valid * len(X))
@@ -170,7 +170,7 @@ if __name__ == "__main__":
     for name in splits_names:
         lats_lons = locs.loc[splits[name], 'hotspot_id']
         write_array_text(lats_lons,
-                         f"/network/scratch/t/tengmeli/scratch/ecosystem-embedding/training/new_{name}_clustered_summer_2.txt")
+                         f"/network/scratch/t/tengmeli/scratch/ecosystem-embedding/training/new_{name}_clustered_summer_4.txt")
 
     # Write to csv files:
 

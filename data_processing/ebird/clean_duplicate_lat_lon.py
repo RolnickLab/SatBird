@@ -2,6 +2,7 @@ import os
 import numpy as np
 import pandas as pd
 import json
+from pathlib import Path
 
 def merge_duplicate_lat_lon(path = "/network/projects/ecosystem-embeddings/ebird_new/summer_hotspots_with_bioclim_withnan.csv",
                            out_path = "/network/projects/ecosystem-embeddings/ebird_new/summer_hotspots_with_bioclim_withnan_merged_vf.csv",
@@ -173,3 +174,19 @@ if name == "__main__":
     final = final.merge(summer[["hotspot_id", "split"]], how = "left")
     print(final.split.value_counts())
     final.to_csv("/network/projects/ecosystem-embeddings/ebird_new/winter_hotspots_with_bioclim_splits_vf.csv")
+    
+    """
+    dict_means = {}
+
+    #get stats on training set of env. variables
+    cols = ['bio_1', 'bio_2', 'bio_3', 'bio_4', 'bio_5', 'bio_6', 'bio_7', 'bio_8',
+           'bio_9', 'bio_10', 'bio_11', 'bio_12', 'bio_13', 'bio_14', 'bio_15',
+           'bio_16', 'bio_17', 'bio_18', 'bio_19', 'bdticm', 'bldfie', 'cecsol',
+           'clyppt', 'orcdrc', 'phihox', 'sltppt', 'sndppt']
+    values = final[final["split"]=="train"][cols].mean().values
+    for i,elem in enumerate(cols):
+        dict_means[elem] = values[i]
+    print(dict_means)
+
+    dict_means
+    """
