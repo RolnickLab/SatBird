@@ -17,7 +17,7 @@ def save_range_maps_csv(save_path):
         if "loc" in list(data.keys()):
             key= list(data.keys())[-1]
             data = data[key]
-        data["hotspot_id"] = file
+        data["hotspot_id"] = file.strip(".pkl")
         data_list.append(data)
 
     range_map_csv = pd.DataFrame(data_list)
