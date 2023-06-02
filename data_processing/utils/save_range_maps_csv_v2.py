@@ -5,7 +5,7 @@ from tqdm import tqdm
 import json
 import argparse
 
-def save_range_maps_csv(save_path, range_maps_path= "/network/projects/ecosystem-embeddings/ebird_dataset/USA_summer/range_maps/"):
+def save_range_maps_csv(save_path, range_path= "/network/projects/ecosystem-embeddings/ebird_dataset/USA_summer/range_maps/"):
     """
     * save range maps in csv format with all species for which we have range maps there.
       
@@ -35,7 +35,8 @@ def save_range_maps_csv(save_path, range_maps_path= "/network/projects/ecosystem
     s = [spe for spe in species if spe not in range_map_csv.columns]
     range_map_csv[s]=True
     range_map_csv = range_map_csv.fillna(True)
-    range_map_csv = range_map_csv[species]
+    range_map_csv = range_map_csv[species + ["hotspot_id"]]
+    
     range_map_csv.to_csv(save_path)
     
 def correct_targets(rm_csv, 
@@ -49,12 +50,12 @@ def correct_targets(rm_csv,
     csv = csv.loc[:,~csv.columns.str.startswith('Unnamed')]
  
     for i,row in csv.iterrows():
-        if os.path.exists(output + f"{i}.json"):
+        if os.path.exists(os.path.join(outpath, f"{i}.json")):
             continue
-        with open(targets_path + f"{i}.json", "rb") as f:
+        with open(os.path.join(targets_path, f"{i}.json"), "rb") as f:
             data= json.load(f)
         data["probs"] = list(data["probs"] * row.values)
-        with open(output + f"{i}.json", "w") as fp:
+        with open(os.path.join(outpath, f"{i}.json"), "w") as fp:
             json.dump(data, fp)
 
 def main():
@@ -86,13 +87,13 @@ def main():
     
     
     args = parser.parse_args()
-    save_range_maps_csv(parser.save_path_csv, parser.rm_path)
+    save_range_maps_csv(args.save_path_csv, args.rm_path)
     
-    correct_targets(parser.save_path_csv, 
-                    outpath = parser.outpath_corrected_targets,
-                    targets_path = parser.targets_path)
+    correct_targets(args.save_path_csv, 
+                    outpath = args.outpath_corrected_targets,
+                    targets_path = args.targets_path)
     print("Done")
     
 if __name__=="__main__":
-    
+
     main()
