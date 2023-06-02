@@ -24,4 +24,4 @@ def save_range_maps_csv(save_path):
     range_map_csv.to_csv(save_path)
 
 if __name__=="__main__":
-    save_range_maps_csv("range_maps_species_part_1.csv")
+    save_range_maps_csv("/network/projects/ecosystem-embeddings/ebird_dataset/USA_summer/range_maps_species_part.csv")
