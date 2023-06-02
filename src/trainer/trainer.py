@@ -24,6 +24,7 @@ from src.models.vit import ViTFinetune
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
+
 class EbirdTask(pl.LightningModule):
     def __init__(self, opts, **kwargs: Any) -> None:
         """initializes a new Lightning Module to train"""
@@ -100,12 +101,6 @@ class EbirdTask(pl.LightningModule):
         if self.opts.data.correction_factor.thresh:
             with open(os.path.join(self.opts.data.files.base, self.opts.data.files.correction_thresh), 'rb') as f:
                 self.correction_t_data = pickle.load(f)
-
-        if self.opts.data.correction_factor.use:
-            with open(self.opts.data.files.correction, 'rb') as f:
-                self.correction_data = pickle.load(f)
-                if self.subset:
-                    self.correction = self.correction_data[:, self.subset]
 
         metrics = get_metrics(self.opts)
         for (name, value, _) in metrics:
@@ -318,13 +313,6 @@ class EbirdTask(pl.LightningModule):
             with open(os.path.join(self.opts.data.files.base, self.opts.data.files.correction_thresh), 'rb') as f:
                 self.correction_t_data = pickle.load(f)
 
-        # soft threshold
-        if self.opts.data.correction_factor.use:
-            with open(self.opts.data.files.correction, 'rb') as f:
-                self.correction_data = pickle.load(f)
-                if self.subset:
-                    self.correction = self.correction_data[:, self.subset]
-
         return self.model
 
     def forward(self, x: Tensor) -> Any:
@@ -345,21 +333,12 @@ class EbirdTask(pl.LightningModule):
                 columns=["index"]).iloc[:, self.subset].values
             correction_t = torch.tensor(correction_t, device=y.device)
 
-        if self.opts.data.correction_factor.use:
-            state_id = batch['state_id']
-            self.correction_data = torch.tensor(self.correction, device=y.device)
-            correction = self.correction[state_id]
-
         if self.opts.experiment.module.model == "linear":
             x = torch.flatten(x, start_dim=1)
         # check weights are moving
         print("Model is on cuda", next(self.model.parameters()).is_cuda)
         if self.opts.experiment.module.model == "inceptionv3":
             y_hat, aux_outputs = self.forward(x)
-            if self.opts.data.correction_factor.use == 'before':
-                print('before correction ', y_hat[:10])
-                y_hat *= correction
-                print('after correction ', y_hat[:10])
 
             if self.target_type == "log":
                 pred = y_hat.type_as(y)
@@ -367,11 +346,8 @@ class EbirdTask(pl.LightningModule):
             else:
                 pred = self.sigmoid_activation(y_hat).type_as(y)
                 aux_pred = self.sigmoid_activation(aux_outputs).type_as(y)
-                if self.opts.data.correction_factor.use == 'after':
-                    print('preds before, ', pred[:10])
-                    y = y * correction
 
-                elif self.opts.data.correction_factor.thresh:
+                if self.opts.data.correction_factor.thresh:
                     mask = correction_t
                     cloned_pred = pred.clone().type_as(pred)
                     print('predictons before: ', cloned_pred)
@@ -385,19 +361,10 @@ class EbirdTask(pl.LightningModule):
         elif self.opts.experiment.module.model == "train_linear":
             inter = self.feature_extractor(x)
             y_hat = self.forward(inter)
-            if self.opts.data.correction_factor.use == 'before':
-                y_hat *= correction
 
             pred = self.sigmoid_activation(y_hat).type_as(y)
 
-            if self.opts.data.correction_factor.use == 'after':
-                preds = pred * correction
-                y= y * correction
-
-                cloned_pred = preds.clone().type_as(preds)
-
-                pred = torch.clip(cloned_pred, min=0, max=0.99)
-            elif self.opts.data.correction_factor.thresh == 'after':
+            if self.opts.data.correction_factor.thresh == 'after':
                 mask = correction_t
 
                 cloned_pred = pred.clone().type_as(pred)
@@ -412,8 +379,6 @@ class EbirdTask(pl.LightningModule):
                 inter = self.feature_extractor(x)
                 print('features shape ',inter.shape)
                 y_hat = self.forward(inter)
-                if self.opts.data.correction_factor.use == 'before':
-                     y_hat *= correction
 
                 if self.target_type == "log" or self.target_type == "binary":
                     pred = y_hat.type_as(y)
@@ -422,17 +387,7 @@ class EbirdTask(pl.LightningModule):
 
                     pred = self.sigmoid_activation(y_hat).type_as(y)
 
-                if self.opts.data.correction_factor.use == 'after':
-                    preds = pred * correction
-                    # preds=pred
-                    # y= y * correction
-                    cloned_pred = preds.clone().type_as(preds)
-                    # pred=m(cloned_pred)
-                    pred = torch.clip(cloned_pred, min=0, max=0.98)
-
-
-                elif self.opts.data.correction_factor.thresh == 'after':
-
+                if self.opts.data.correction_factor.thresh == 'after':
                     mask = correction_t
 
                     cloned_pred = pred.clone().type_as(pred)
@@ -456,8 +411,6 @@ class EbirdTask(pl.LightningModule):
                     print('train_loss', loss)
         else:
             y_hat = self.forward(x)
-            if self.opts.data.correction_factor.use == 'before':
-                y_hat *= correction
 
             if self.target_type == "log" or self.target_type == "binary":
                 pred = y_hat.type_as(y)
@@ -465,12 +418,7 @@ class EbirdTask(pl.LightningModule):
 
                 pred = self.sigmoid_activation(y_hat).type_as(y)
 
-            if self.opts.data.correction_factor.use == 'after':
-                preds = pred * correction
-                cloned_pred = preds.clone().type_as(preds)
-                pred = torch.clip(cloned_pred, min=0, max=0.98)
-
-            elif self.opts.data.correction_factor.thresh == 'after':
+            if self.opts.data.correction_factor.thresh == 'after':
                 mask = correction_t
                 cloned_pred = pred.clone().type_as(pred)
                 print('predictons before: ', cloned_pred)
@@ -527,11 +475,6 @@ class EbirdTask(pl.LightningModule):
             correction_t = torch.tensor(correction_t, device=y.device)
             self.correction = correction_t
 
-        if self.opts.data.correction_factor.use:
-            state_id = batch['state_id']
-            correction = torch.tensor(self.correction, device=y.device)
-            correction = correction[state_id]
-
         print("Model is on cuda", next(self.model.parameters()).is_cuda)
         if self.opts.experiment.module.model == "linear":
             x = torch.flatten(x, start_dim=1)
@@ -544,26 +487,15 @@ class EbirdTask(pl.LightningModule):
                         inter = self.feature_extractor(x)
                         print('inter shape ',inter.shape)
                         y_hat = self.forward(inter)
-
         else:
             y_hat = self.forward(x)
-
-        if self.opts.data.correction_factor.use == 'before':
-            print('in validation y hat before correction ', y_hat[:10])
-            y_hat *= correction
-            print('after correction ', y_hat[:10])
 
         if self.target_type == "log" or self.target_type == "binary":
             pred = y_hat.type_as(y)
         else:
             pred = self.sigmoid_activation(y_hat).type_as(y)
 
-        if self.opts.data.correction_factor.use == 'after':
-            preds = pred * correction
-            cloned_pred = preds.clone().type_as(preds)
-            pred = torch.clip(cloned_pred, min=0, max=0.99)
-
-        elif self.opts.data.correction_factor.thresh == 'after':
+        if self.opts.data.correction_factor.thresh == 'after':
             mask = correction_t
 
             cloned_pred = pred.clone().type_as(pred)
@@ -616,11 +548,6 @@ class EbirdTask(pl.LightningModule):
                 columns=["index"]).iloc[:, self.subset].values
             correction_t = torch.tensor(correction_t, device=y.device)
 
-        if self.opts.data.correction_factor.use:
-            state_id = batch['state_id']
-            correction = torch.tensor(self.correction, device=y.device)
-            correction = correction[state_id]
-
         print("Model is on cuda", next(self.model.parameters()).is_cuda)
         if self.opts.experiment.module.model == "linear":
             x = torch.flatten(x, start_dim=1)
@@ -630,19 +557,14 @@ class EbirdTask(pl.LightningModule):
                         y_hat = self.forward(inter)
         else:
             y_hat = self.forward(x)
-        if self.opts.data.correction_factor.use == 'before':
-            y_hat *= correction
+
 
         if self.target_type == "log" or self.target_type == "binary":
             pred = y_hat.type_as(y)
         else:
             pred = self.sigmoid_activation(y_hat).type_as(y)
 
-            if self.opts.data.correction_factor.use == 'after':
-                preds = pred * correction
-                cloned_pred = preds.clone().type_as(preds)
-                pred = torch.clip(cloned_pred, min=0, max=0.99)
-            elif self.opts.data.correction_factor.thresh == 'after':
+            if self.opts.data.correction_factor.thresh == 'after':
                 print('Adding (after) correction factor')
                 mask = correction_t
                 cloned_pred = pred.clone().type_as(pred)

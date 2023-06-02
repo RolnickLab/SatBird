@@ -113,14 +113,10 @@ data:
     train: "summer_hotspots_train.csv"
     val: "summer_hotspots_valid.csv"
     test: "summer_hotspots_test.csv"
-    correction: "" #soft thresholding file - use "after"
-
     correction_thresh: "final_range_maps.pkl" # range maps - threshold = False
 
   correction_factor:
-     use: #soft thresholding choises [None, 'before' (before sigmoid) ,'after'(after sigmoid)] 
-     #hard thresholding
-     thresh: false
+     thresh: "after" # to train with RM
 
   target:
     type: "probs"  #binary for classification targets  or "probs" for regression (default should be "probs")
