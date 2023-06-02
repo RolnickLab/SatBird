@@ -97,10 +97,11 @@ class EbirdTask(pl.LightningModule):
             self.state_dict()[name].copy_(param)
         self.model.fc = nn.Linear(512, self.target_size)
 
-        if self.opts.data.correction_factor.use:
-            with open(self.opts.data.files.correction_thresh, 'rb') as f:
+        if self.opts.data.correction_factor.thresh:
+            with open(os.path.join(self.opts.data.files.base, self.opts.data.files.correction_thresh), 'rb') as f:
                 self.correction_t_data = pickle.load(f)
 
+        if self.opts.data.correction_factor.use:
             with open(self.opts.data.files.correction, 'rb') as f:
                 self.correction_data = pickle.load(f)
                 if self.subset:
@@ -284,8 +285,7 @@ class EbirdTask(pl.LightningModule):
 
         elif self.opts.experiment.module.model == "linear":
             nb_bands = get_nb_bands(self.opts.data.bands + self.opts.data.env)
-            # TODO: remove the hardcoded image size
-            self.model = nn.Linear(nb_bands * 224 * 224, self.target_size)
+            self.model = nn.Linear(nb_bands * 64 * 64, self.target_size)
 
         else:
             raise ValueError(f"Model type '{self.opts.experiment.module.model}' is not valid")
@@ -344,7 +344,6 @@ class EbirdTask(pl.LightningModule):
             correction_t = (self.correction_t_data.reset_index().set_index('hotspot_id').loc[list(hotspot_id)]).drop(
                 columns=["index"]).iloc[:, self.subset].values
             correction_t = torch.tensor(correction_t, device=y.device)
-            self.correction = correction_t
 
         if self.opts.data.correction_factor.use:
             state_id = batch['state_id']
@@ -444,10 +443,7 @@ class EbirdTask(pl.LightningModule):
 
                     pred = cloned_pred
                     print('predictions after: ', pred)
-                #TODO: uncomment when range maps are available
-                # else:
-                #
-                #     y = y * self.correction
+
                 pred_ = pred.clone().type_as(y)
 
                 if self.target_type == "binary":
@@ -484,9 +480,6 @@ class EbirdTask(pl.LightningModule):
 
                 pred = cloned_pred
                 print('predictions after: ', pred)
-            # TODO: uncomment when range maps are available
-            # else:
-            #     y = y * self.correction
 
             pred_ = pred.clone().type_as(y)
 
@@ -578,8 +571,6 @@ class EbirdTask(pl.LightningModule):
             cloned_pred *= mask.int()
             y *= mask.int()
             pred = cloned_pred
-        # else:
-        #     y = y * self.correction
 
         pred_ = pred.clone().type_as(y)
 
@@ -624,7 +615,6 @@ class EbirdTask(pl.LightningModule):
             correction_t = (self.correction_t_data.reset_index().set_index('hotspot_id').loc[list(hotspot_id)]).drop(
                 columns=["index"]).iloc[:, self.subset].values
             correction_t = torch.tensor(correction_t, device=y.device)
-            self.correction = correction_t
 
         if self.opts.data.correction_factor.use:
             state_id = batch['state_id']
@@ -661,9 +651,6 @@ class EbirdTask(pl.LightningModule):
 
                 y *= mask
                 pred = cloned_pred
-            # TODO: uncomment when range maps are available
-            # else:
-            #     y = y * self.correction
 
         loss = self.criterion(y, pred)
 
