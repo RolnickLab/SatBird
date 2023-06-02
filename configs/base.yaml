@@ -116,7 +116,7 @@ data:
     correction_thresh: "final_range_maps.pkl" # range maps - threshold = False
 
   correction_factor:
-     thresh: "after" # to train with RM
+     thresh:  # to train with RM
 
   target:
     type: "probs"  #binary for classification targets  or "probs" for regression (default should be "probs")
