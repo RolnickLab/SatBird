@@ -1,5 +1,5 @@
 #where to save checkpoints
-save_path: "baseline_resnet18_RGBNIR"
+save_path: "baseline_satmae_RGBNIR"
 
 # load existing checkpoint for inference. If passing experiment folder instead (for multiple seeds), it will evaluate all of them.
 load_ckpt_path: ""
@@ -20,8 +20,8 @@ loc:
   
 comet:
   project_name: "clean_baselines" #"ecosystem-duck"
-  tags: ["resnet18",  "rgb_nir","all_data_summer", "no_correction"]
-  experiment_name: "baseline_resnet18_RGBNIR" # specify for training, or use to report test results, TODO: also use to resume training
+  tags: ["satmae",  "rgb_nir","all_data_summer", "no_correction"]
+  experiment_name: "baseline_satmae_RGBNIR" # specify for training, or use to report test results, TODO: also use to resume training
   experiment_key: "" # use to report test results,
 
 experiment:
@@ -31,7 +31,7 @@ experiment:
   seed: 42
   module:
     #choose model : "resnet18" "resnet50" "inceptionv3" "linear" (just a linear model)
-    model: "resnet18"
+    model: "satmae"
     #"linear" or "linear_net" for a 2 layer MLP
     fc: "linear"
     #use pretrained weights ( torchvision )
@@ -78,11 +78,11 @@ variables: &default_vars
             47.76831975,  27.98050281,  24.19695586, 135.01831158,
             90.12503615, 117.41413006, 146.55134417]
 
-    rgbnir_means: &rgbnir_means [1781.2853091, 1828.38179935, 1580.46310787, 3912.1952206]
-    rgbnir_std: &rgbnir_std [786.6640817697212, 643.0713578941586, 612.5347533547798, 1296.637232875431]
+    rgbnir_means: &rgbnir_means [1580.46310787, 1828.38179935, 1781.2853091 , 3912.1952206]
+    rgbnir_std: &rgbnir_std [612.5347533547798, 643.0713578941586, 786.6640817697212, 1296.637232875431]
 
-    visual_means: &visual_means [78.20186183, 83.78967871, 58.99852628]
-    visual_stds: &visual_stds [64.32016159, 49.08529428, 46.45643505]
+    visual_means: &visual_means [87.0467011965099, 91.21045367500467, 67.50251448722302]
+    visual_stds: &visual_stds [67.55043009747773, 51.443316800384295, 49.65159018638426]
 
 data:
   loaders:
@@ -90,10 +90,10 @@ data:
     batch_size: 128
   #What kind of satellite input ? "refl" for "raw" reflectance values or 
   #"img" for 0-255 values (only supported for "rgb" and "nir" bands)
-  datatype: "refl"
+  datatype: "img"
   multiscale : [64]
   
-  bands: ["r","g","b", "nir"]  #any subset of ["r", "g", "b", "nir"] if working with "refl" data or ["rgb", "nir"] if using "img" 
+  bands: ["rgb"]   #["r","g","b", "nir"]  #any subset of ["r", "g", "b", "nir"] if working with "refl" data or ["rgb", "nir"] if using "img" 
   
   res: 10 #resolution of the images
 
@@ -134,7 +134,7 @@ data:
       ignore: false
       subset: ["bioclim", "ped"]
       target_size: [64, 64]
-
+   
     - name: crop
       ignore: false
       p: 1
@@ -142,6 +142,9 @@ data:
       center: true # disable randomness, crop around the image's center
       height: 64
       width: 64
+    - name: resize
+      ignore: false
+      size: [224,224]
     - name: hflip
       ignore: "val"
       p: 0.5
@@ -149,7 +152,7 @@ data:
       ignore: "val"
       p: 0.5
     - name: normalize
-      ignore: False
+      ignore: true
       maxchan: false
       subset: ["sat"]
       custom: [*rgbnir_means, *rgbnir_std]

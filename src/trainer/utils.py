@@ -181,3 +181,51 @@ def get_scheduler(optimizer, opts):
         return None
     else:
         raise ValueError(f"Scheduler'{opts.scheduler.name}' is not valid")
+
+
+def load_from_checkpoint(path, model):
+    print(f'initializing model from pretrained weights at {path}')
+    if 'moco' in path:
+        # moco pretrained models need some weights renaming
+        checkpoint = torch.load(path)
+       
+        loaded_dict = checkpoint['state_dict']
+
+        model_dict = model.state_dict()
+        del loaded_dict["module.queue"]
+        del loaded_dict["module.queue_ptr"]
+        # load state dict keys
+        for key_model, key_seco in zip(model_dict.keys(), loaded_dict.keys()):
+            if 'fc' in key_model:
+                # ignore fc weight
+                continue
+            model_dict[key_model] = loaded_dict[key_seco]
+        model.load_state_dict(model_dict)
+    elif 'fmow_pretrain' in path:
+        checkpoint = torch.load(path)
+        checkpoint_model = checkpoint['model']
+        print('fmow keys', checkpoint_model.keys())
+
+        state_dict = model.state_dict()
+        print('model keys', state_dict.keys())
+      
+        loaded_dict = checkpoint_model
+        model_dict = model.state_dict()
+      
+        for key_model in model_dict.keys():
+            if 'fc' in key_model or 'head' in key_model:
+                #                 #ignore fc weight
+                model_dict[key_model] = model_dict[key_model]
+            else:
+                model_dict[key_model] = loaded_dict[key_model]
+
+        model.load_state_dict(model_dict)
+
+
+
+    else:
+        ckpt = torch.load(path)
+
+        model.load_state_dict(torch.load(path))
+    # model.eval()
+    return model

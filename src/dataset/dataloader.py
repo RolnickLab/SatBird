@@ -155,7 +155,7 @@ class EbirdVisionDataset(VisionDataset):
         elif self.type == 'refl':
             img = load_file(img_path)
 
-        sats = torch.from_numpy(img)
+        sats = torch.from_numpy(img).float()
         item_["sat"] = sats
 
         if len(self.env) > 0:
@@ -168,7 +168,7 @@ class EbirdVisionDataset(VisionDataset):
         item_ = t(item_)
 
         for e in self.env:
-            item_["sat"] = torch.cat([item_["sat"], item_[e]], dim=-3)
+            item_["sat"] = torch.cat([item_["sat"], item_[e]], dim=-3).float()
 
         species = load_file(os.path.join(self.data_base_dir, "targets", hotspot_id + '.json'))
 

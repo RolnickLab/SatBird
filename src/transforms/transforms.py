@@ -247,7 +247,7 @@ class Resize:
 
     def __call__(self, sample: Dict[str, Tensor]) -> Dict[str, Tensor]:
         for s in sample:
-            if s in satellite:
+            if s in sat:
 
                 sample[s] = F.interpolate(sample[s].float(), size=(self.h, self.w), mode='bilinear')
             elif s in env or s in landuse:

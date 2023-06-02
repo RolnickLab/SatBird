@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 import pytorch_lightning as pl
 import torch
+import torchvision
 import torch.nn as nn
 from torch import Tensor
 from torch.nn import BCEWithLogitsLoss
@@ -17,11 +18,11 @@ from src.dataset.dataloader import EbirdVisionDataset
 from src.dataset.dataloader import get_subset
 from src.losses.losses import CustomCrossEntropyLoss
 from src.losses.metrics import get_metrics
-from src.trainer.utils import get_target_size, get_nb_bands, get_scheduler, init_first_layer_weights
+from src.trainer.utils import get_target_size, get_nb_bands, get_scheduler, init_first_layer_weights, load_from_checkpoint
 from src.transforms.transforms import get_transforms
+from src.models.vit import ViTFinetune
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-
 
 class EbirdTask(pl.LightningModule):
     def __init__(self, opts, **kwargs: Any) -> None:
@@ -136,7 +137,43 @@ class EbirdTask(pl.LightningModule):
                 param.requires_grad = False
             self.model = nn.Linear(512, self.target_size)
 
+        elif self.opts.experiment.module.model == "satlas":
+            #first lets assume freezing the pretrained model 
+            self.feature_extractor = torchvision.models.swin_transformer.swin_v2_b()
+            #TODO: remove hardcoded path
+            full_state_dict = torch.load('/network/scratch/a/amna.elmustafa/hager/ecosystem-embedding/src/trainer/satlas-model-v1-lowres.pth')
+            swin_prefix = 'backbone.backbone.'
+            swin_state_dict = {k[len(swin_prefix):]: v for k, v in full_state_dict.items() if k.startswith(swin_prefix)}
 
+            self.feature_extractor.load_state_dict(swin_state_dict)
+            self.feature_extractor.to('cuda:0')
+            print("initialized network, freezing weights")
+
+            for param in self.feature_extractor.parameters():
+                param.requires_grad = False
+            self.model = nn.Linear(1000, self.target_size)
+        elif self.opts.experiment.module.model =="satmae":
+            satmae=ViTFinetune(
+                img_size=224,
+                patch_size=16,
+                in_chans=3,
+                num_classes=self.target_size,
+                embed_dim=1024,
+                depth=24,
+                num_heads=16,
+                mlp_ratio=4,
+                drop_rate=0.1,
+            )
+            #TODO: remove the hardcoded path
+            satmae=load_from_checkpoint('/network/scratch/a/amna.elmustafa/hager/ecosystem-embedding/src/trainer/fmow_pretrain.pth',satmae )
+            satmae.to('cuda')
+            in_feat=satmae.fc.in_features
+            satmae.fc=nn.Sequential()
+            print("initialized network, freezing weights")
+            self.feature_extractor=satmae
+            for param in self.feature_extractor.parameters():
+                param.requires_grad = False
+            self.model = nn.Linear(in_feat, self.target_size)
         elif self.opts.experiment.module.model == "resnet18":
 
             self.model = models.resnet18(pretrained=self.opts.experiment.module.pretrained)
@@ -356,7 +393,7 @@ class EbirdTask(pl.LightningModule):
 
             if self.opts.data.correction_factor.use == 'after':
                 preds = pred * correction
-                # y= y * correction
+                y= y * correction
 
                 cloned_pred = preds.clone().type_as(preds)
 
@@ -372,6 +409,55 @@ class EbirdTask(pl.LightningModule):
             pred_ = pred.clone().type_as(y)
 
             loss = self.criterion(y, pred)
+        elif self.opts.experiment.module.model=="satlas" or self.opts.experiment.module.model=="satmae" :
+                inter = self.feature_extractor(x)
+                print('features shape ',inter.shape)
+                y_hat = self.forward(inter)
+                if self.opts.data.correction_factor.use == 'before':
+                     y_hat *= correction
+
+                if self.target_type == "log" or self.target_type == "binary":
+                    pred = y_hat.type_as(y)
+                    # pred_ = m(pred).clone().type_as(y)
+                else:
+
+                    pred = self.sigmoid_activation(y_hat).type_as(y)
+
+                if self.opts.data.correction_factor.use == 'after':
+                    preds = pred * correction
+                    # preds=pred
+                    # y= y * correction
+                    cloned_pred = preds.clone().type_as(preds)
+                    # pred=m(cloned_pred)
+                    pred = torch.clip(cloned_pred, min=0, max=0.98)
+
+
+                elif self.opts.data.correction_factor.thresh == 'after':
+
+                    mask = correction_t
+
+                    cloned_pred = pred.clone().type_as(pred)
+                    print('predictons before: ', cloned_pred)
+
+                    cloned_pred *= mask.int()
+                    y *= mask.int()
+
+                    pred = cloned_pred
+                    print('predictions after: ', pred)
+                #TODO: uncomment when range maps are available
+                # else:
+                #
+                #     y = y * self.correction
+                pred_ = pred.clone().type_as(y)
+
+                if self.target_type == "binary":
+                    loss = self.criterion(pred, y)
+                elif self.target_type == "log":
+                    loss = self.criterion(pred, torch.log(y + 1e-10))
+                else:
+                    # print('maximum ytrue in trainstep',y.max())
+                    loss = self.criterion(y, pred)
+                    print('train_loss', loss)
         else:
             y_hat = self.forward(x)
             if self.opts.data.correction_factor.use == 'before':
@@ -398,6 +484,7 @@ class EbirdTask(pl.LightningModule):
 
                 pred = cloned_pred
                 print('predictions after: ', pred)
+            # TODO: uncomment when range maps are available
             # else:
             #     y = y * self.correction
 
@@ -437,9 +524,8 @@ class EbirdTask(pl.LightningModule):
 
         """Validation step """
         x = batch['sat'].squeeze(1)  # .to(device)
-
         y = batch['target']
-        #
+
         hotspot_id = batch['hotspot_id']
 
         if self.opts.data.correction_factor.thresh:
@@ -460,6 +546,12 @@ class EbirdTask(pl.LightningModule):
         if self.opts.experiment.module.model == "train_linear":
             inter = self.feature_extractor(x)
             y_hat = self.forward(inter)
+
+        elif self.opts.experiment.module.model=="satlas" or self.opts.experiment.module.model=="satmae":
+                        inter = self.feature_extractor(x)
+                        print('inter shape ',inter.shape)
+                        y_hat = self.forward(inter)
+
         else:
             y_hat = self.forward(x)
 
@@ -542,7 +634,12 @@ class EbirdTask(pl.LightningModule):
         print("Model is on cuda", next(self.model.parameters()).is_cuda)
         if self.opts.experiment.module.model == "linear":
             x = torch.flatten(x, start_dim=1)
-        y_hat = self.forward(x)
+        elif self.opts.experiment.module.model=="satlas" or self.opts.experiment.module.model=="satmae":
+                        inter = self.feature_extractor(x)
+                        print('inter shape ',inter.shape)
+                        y_hat = self.forward(inter)
+        else:
+            y_hat = self.forward(x)
         if self.opts.data.correction_factor.use == 'before':
             y_hat *= correction
 
@@ -564,6 +661,7 @@ class EbirdTask(pl.LightningModule):
 
                 y *= mask
                 pred = cloned_pred
+            # TODO: uncomment when range maps are available
             # else:
             #     y = y * self.correction
 
