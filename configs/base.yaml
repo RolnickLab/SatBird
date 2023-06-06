@@ -38,6 +38,8 @@ experiment:
     pretrained: True
     # resume training from another model (transfer learning), set empty if training from scratch
     resume: ""
+    # freeze backbone when transfer learning or not
+    freeze: False
     #initializes biases of the output layer sothat sigmoid(bias) = mean over the training set for each species
     init_bias: ""
     means_path: ""
