@@ -171,6 +171,6 @@ data:
       std: 0.01
       max_noise: 0.05
       
-  total_species: 684
+  total_species: 1054
 trainer:
   auto_scale_batch_size: False

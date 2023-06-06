@@ -91,7 +91,7 @@ def get_subset(subset):
         print("using oystercatcher")  # Haematopus palliatus
         return [290]
     else:
-        return [i for i in range(1055)]
+        return [i for i in range(1054)]
 
 
 class EbirdVisionDataset(VisionDataset):
