@@ -139,6 +139,7 @@ class MatchRes:
     def __call__(self, sample: Dict[str, Tensor]) -> Dict[str, Tensor]:
 
         H, W = self.target_size
+        # import pdb;pdb.set_trace()
 
         if "bioclim" in list(sample.keys()):
             # align bioclim with ped
@@ -161,25 +162,29 @@ class MatchRes:
             h, w = max(ceil(h), 1), max(ceil(w), 1)
             sample["ped"] = sample["ped"][:, int(top): int(top + h), int(left): int(left + w)]
 
+    
         for elem in list(sample.keys()):
+            
             if elem in env:
-
                 if ((sample[elem].shape[-1] == 0) or (sample[elem].shape[-2] == 0)):
                     if elem == "bioclim":
                         print("Using custom bioclim")
-                        print(sample[elem].shape)
+                        # print(sample[elem].shape)
                         # print(sample["hotspot_id"])
-                        sample[elem] = torch.Tensor([11.99430391, 12.16226584, 36.94248176, 805.72045945,
-                                                     29.4489089, -4.56172133, 34.01063026, 15.81641269,
-                                                     7.80845219, 21.77499491, 1.93990004, 902.9704986,
-                                                     114.61111788, 42.0276728, 37.11493781, 315.34206997,
-                                                     145.09703767, 231.19724491, 220.06619529]).unsqueeze(-1).unsqueeze(
+                        sample[elem] = torch.Tensor([19.8474176483999, 12.154894718001223, 77.15069217731747, 
+                                                    99.81078205346218, 28.183267340556707, 12.459287786784401, 
+                                                    15.72397946204183, 20.392952613384747, 19.14067755664988, 
+                                                    20.98105157816683, 18.518370090732752, 936.0373673689066,
+                                                    179.3224665538982, 24.524834691680763, 64.37541161481003, 
+                                                    397.3427648777487, 97.2606489312625, 277.15392895586655, 
+                                                    144.95832692603415]).unsqueeze(-1).unsqueeze(
                             -1)
                     elif elem == "ped":
                         print("Using custom ped")
                         sample[elem] = torch.Tensor([2230.56361696, 1374.68551614, 20.45478794, 19.04921312,
                                                      31.1196319, 61.24246466, 36.68711656, 44.25620165]).unsqueeze(
                             -1).unsqueeze(-1)
+                
                 sample[elem] = F.interpolate(sample[elem].unsqueeze(0).float(), size=(H, W))
         return (sample)
 

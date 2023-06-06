@@ -16,12 +16,12 @@
 #SBATCH --mail-type=FAIL
 
 # load conda environment
-module load miniconda/3
-conda activate eco
+module load anaconda/3
+conda activate ebird-env
 
 # export keys for logging, etc,
 export COMET_API_KEY=$COMET_API_KEY
 export HYDRA_FULL_ERROR=1
 
 # run training script
-python train.py args.config=configs/base.yaml args.run_id=$SLURM_ARRAY_TASK_ID
+python train.py args.config=configs/kenya_transfer_learning.yaml args.run_id=$SLURM_ARRAY_TASK_ID

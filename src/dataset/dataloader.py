@@ -91,7 +91,7 @@ def get_subset(subset):
         print("using oystercatcher")  # Haematopus palliatus
         return [290]
     else:
-        return [i for i in range(684)]
+        return [i for i in range(1055)]
 
 
 class EbirdVisionDataset(VisionDataset):
@@ -162,12 +162,14 @@ class EbirdVisionDataset(VisionDataset):
             env_npy = os.path.join(self.data_base_dir, "environmental_data", hotspot_id + '.npy')
             env_data = load_file(env_npy)
             item_["bioclim"] = torch.from_numpy(env_data[:19, :, :])
-            item_["ped"] = torch.from_numpy(env_data[19:, :, :])
+            # item_["ped"] = torch.from_numpy(env_data[19:, :, :])
 
         t = trsfs.Compose(self.transform)
         item_ = t(item_)
 
+       
         for e in self.env:
+            
             item_["sat"] = torch.cat([item_["sat"], item_[e]], dim=-3).float()
 
         species = load_file(os.path.join(self.data_base_dir, "corrected_targets", hotspot_id + '.json'))

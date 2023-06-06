@@ -95,7 +95,11 @@ class EbirdTask(pl.LightningModule):
         for name, param in loaded_dict.items():
             if name not in self.state_dict():
                 continue
-            self.state_dict()[name].copy_(param)
+            # self.state_dict()[name].copy_(param)
+            if name == "model.conv1.weight":
+                self.state_dict()[name].copy_(param[:,0:23,:,:])
+            else:
+                self.state_dict()[name].copy_(param)
         self.model.fc = nn.Linear(512, self.target_size)
 
         if self.opts.data.correction_factor.thresh:
