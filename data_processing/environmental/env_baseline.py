@@ -18,13 +18,17 @@ env_vars = ['bio_1', 'bio_2', 'bio_3', 'bio_4', 'bio_5',
             'bdticm', 'bldfie', 'cecsol', 'clyppt', 'orcdrc', 'phihox', 'sltppt',
             'sndppt']
 
+#for kenya
+#env_vars = ['bio_1', 'bio_2', 'bio_3', 'bio_4', 'bio_5',
+#            'bio_6', 'bio_7', 'bio_8', 'bio_9', 'bio_10', 'bio_11', 'bio_12',
+ #           'bio_13', 'bio_14', 'bio_15', 'bio_16', 'bio_17', 'bio_18', 'bio_19']
 
 def set_up_omegaconf() -> DictConfig:
     """Helps with loading config files"""
 
     conf = OmegaConf.load("/home/mila/t/tengmeli/ecosystem-embedding/configs/env_means.yaml")
     command_line_conf = OmegaConf.from_cli()
-
+    
     if "config_file" in command_line_conf:
 
         config_fn = command_line_conf.config_file
@@ -75,10 +79,10 @@ def process(opts):
     if opts.subset != "":
         indices = np.load(opts.subset)
     else:
-        indices = [i for i in range(684)]
+        indices = [i for i in range(opts.species)]
     num_species = len(indices)
 
-    hs = pd.read_csv(opts.hs_data)
+    #hs = pd.read_csv(opts.hs_data)
     train = pd.read_csv(opts.train)
     val = pd.read_csv(opts.val)
     test = pd.read_csv(opts.test)
@@ -89,7 +93,8 @@ def process(opts):
 
     for c in env_vars:
         train[c].fillna(train[c].mean(), inplace=True)
-        val[c].fillna(val[c].mean(), inplace=True)
+        val[c].fillna(train[c].mean(), inplace=True)
+        test[c].fillna(train[c].mean(), inplace = True)
     y_val = np.zeros((len(val), num_species))
     y_train = np.zeros((len(train), num_species))
     y_test = np.zeros((len(test), num_species))
@@ -110,6 +115,7 @@ def process(opts):
     X_train = train[env_vars].to_numpy()
     X_val = val[env_vars].to_numpy()
     X_test = test[env_vars].to_numpy()
+    print(X_train.shape)
     if opts.save_hs != "":
         np.save(os.path.join(opts.save_hs, "X_train.npy"), X_train)
         np.save(os.path.join(opts.save_hs, "X_valid.npy"), X_val)
@@ -118,19 +124,19 @@ def process(opts):
         np.save(os.path.join(opts.save_hs, "y_val.npy"), y_val)
         np.save(os.path.join(opts.save_hs, "y_test.npy"), y_test)
 
-    return (X_train, X_val, y_train, y_val)
+    return (X_train, X_val, X_test, y_train, y_val, y_test)
 
 
 def train(opts):
     if opts.subset != "":
         indices = np.load(opts.subset)
     else:
-        indices = [i for i in range(684)]
+        indices = [i for i in range(opts.species)]
 
     num_species = len(indices)
     print(num_species)
     if opts.process_hs:
-        X_train, X_val, y_train, y_val = process(opts)
+        X_train, X_val, X_test, y_train, y_val, y_test = process(opts)
 
     else:
         y_train = np.load(opts.y_train)
