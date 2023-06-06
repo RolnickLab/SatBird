@@ -100,7 +100,7 @@ class EbirdTask(pl.LightningModule):
                 self.state_dict()[name].copy_(param[:, 0:23, :, :])
             else:
                 self.state_dict()[name].copy_(param)
-            if self.FREEZE_BACKBONE:
+            if self.freeze_backbone:
                 self.state_dict()[name].requires_grad = False
         self.model.fc = nn.Linear(512, self.target_size)
 
