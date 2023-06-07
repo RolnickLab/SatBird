@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=ebird_baseline
-#SBATCH --output=job_output1.txt
-#SBATCH --error=job_error1.txt
+#SBATCH --output=job_output2.txt
+#SBATCH --error=job_error2.txt
 #SBATCH --ntasks=1
 #SBATCH --time=3:00:00
 #SBATCH --mem-per-cpu=50Gb
@@ -24,4 +24,4 @@ export COMET_API_KEY="WUET2WpClgOsQfj79XFjAU4ce"
 export HYDRA_FULL_ERROR=1
 
 # run training script
-python train.py args.config=configs/base_kenya.yaml args.run_id=$SLURM_ARRAY_TASK_ID
+python train.py args.config=configs/kenya_transfer_learning.yaml args.run_id=$SLURM_ARRAY_TASK_ID

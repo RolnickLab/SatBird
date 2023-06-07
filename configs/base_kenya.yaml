@@ -1,8 +1,8 @@
 #where to save checkpoints
-save_path: ""
+save_path: "checkpoints/kenya_resnet_from_scratch"
 
 # load existing checkpoint for inference. If passing experiment folder instead (for multiple seeds), it will evaluate all of them.
-load_ckpt_path: ""
+load_ckpt_path: "checkpoints/kenya_resnet_from_scratch"
 save_preds_path: ""
 log_comet: true
 
@@ -39,9 +39,12 @@ experiment:
     # resume training from another model (transfer learning), set empty if training from scratch
     resume: ""
     #initializes biases of the output layer sothat sigmoid(bias) = mean over the training set for each species
+     # freeze backbone when transfer learning or not
+    freeze: False
     init_bias: ""
     means_path: ""
     lr: 0.0003
+    use_weighted_loss: False
 
 optimizer: "Adam"  #"Adam"
 

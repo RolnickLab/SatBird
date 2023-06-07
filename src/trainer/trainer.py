@@ -16,7 +16,7 @@ from torchvision import models
 
 from src.dataset.dataloader import EbirdVisionDataset
 from src.dataset.dataloader import get_subset
-from src.losses.losses import CustomCrossEntropyLoss
+from src.losses.losses import CustomCrossEntropyLoss, WeightedCustomCrossEntropyLoss
 from src.losses.metrics import get_metrics
 from src.trainer.utils import get_target_size, get_nb_bands, get_scheduler, init_first_layer_weights, load_from_checkpoint
 from src.transforms.transforms import get_transforms
@@ -34,7 +34,7 @@ class EbirdTask(pl.LightningModule):
         self.opts = opts
         self.means = None
         self.is_transfer_learning = True if self.opts.experiment.module.resume else False
-
+        self.freeze_backbone = self.opts.experiment.module.freeze
         # get target vector size (number of species we consider)
         self.subset = get_subset(self.opts.data.target.subset)
         self.target_size = get_target_size(opts, self.subset)
@@ -97,9 +97,11 @@ class EbirdTask(pl.LightningModule):
                 continue
             # self.state_dict()[name].copy_(param)
             if name == "model.conv1.weight":
-                self.state_dict()[name].copy_(param[:,0:23,:,:])
+                self.state_dict()[name].copy_(param[:, 0:23, :, :])
             else:
                 self.state_dict()[name].copy_(param)
+            if self.freeze_backbone:
+                self.state_dict()[name].requires_grad = False
         self.model.fc = nn.Linear(512, self.target_size)
 
         if self.opts.data.correction_factor.thresh:

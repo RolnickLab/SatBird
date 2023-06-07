@@ -6,3 +6,5 @@ __pycache__/
 4017/*
 outputs/*
 2676/*
+job_*
+checkpoints*

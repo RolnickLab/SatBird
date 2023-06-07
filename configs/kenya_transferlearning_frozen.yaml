@@ -1,8 +1,8 @@
 #where to save checkpoints
-save_path: "checkpoints/kenya_resnet_transfer_learning"
+save_path: "checkpoints/kenya_resnet_frozen_transfer"
 
 # load existing checkpoint for inference. If passing experiment folder instead (for multiple seeds), it will evaluate all of them.
-load_ckpt_path: "checkpoints/kenya_resnet_transfer_learning"
+load_ckpt_path: "checkpoints/kenya_resnet_frozen_transfer"
 save_preds_path: ""
 log_comet: true
 
@@ -21,7 +21,7 @@ loc:
 comet:
   project_name: "neurips_baselines" #"ecosystem-duck"
   tags: ["resnet18"]
-  experiment_name: "kenya-resnet-transfer-learning" # specify for training, or use to report test results, TODO: also use to resume training
+  experiment_name: "kenya-resnet-frozen-transfer-learning" # specify for training, or use to report test results, TODO: also use to resume training
   experiment_key: "" # use to report test results,
 
 experiment:
@@ -40,7 +40,7 @@ experiment:
     resume: "/network/projects/ecosystem-embeddings/ebird_dataset/USA_summer/RGBNIR_ENV_checkpoint/1337/epoch=48-step=29350.ckpt"
     #initializes biases of the output layer sothat sigmoid(bias) = mean over the training set for each species
     # freeze backbone when transfer learning or not
-    freeze: False
+    freeze: True
     init_bias: ""
     means_path: ""
     lr: 0.0003
