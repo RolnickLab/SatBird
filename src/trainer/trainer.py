@@ -137,12 +137,12 @@ class EbirdTask(pl.LightningModule):
             #first lets assume freezing the pretrained model 
             self.feature_extractor = torchvision.models.swin_transformer.swin_v2_b()
             #TODO: remove hardcoded path
-            full_state_dict = torch.load('/network/scratch/a/amna.elmustafa/hager/ecosystem-embedding/src/trainer/satlas-model-v1-lowres.pth')
+            full_state_dict = torch.load('/network/scratch/a/amna.elmustafa/hager/ecosystem-embedding/src/trainer/satlas-model-v1-lowres.pth',map_location=torch.device('cpu'))
             swin_prefix = 'backbone.backbone.'
             swin_state_dict = {k[len(swin_prefix):]: v for k, v in full_state_dict.items() if k.startswith(swin_prefix)}
 
             self.feature_extractor.load_state_dict(swin_state_dict)
-            self.feature_extractor.to('cuda:0')
+            self.feature_extractor.to('cuda')
             print("initialized network, freezing weights")
 
             for param in self.feature_extractor.parameters():
@@ -350,7 +350,7 @@ class EbirdTask(pl.LightningModule):
                 if self.opts.data.correction_factor.thresh:
                     mask = correction_t
                     cloned_pred = pred.clone().type_as(pred)
-                    # print('predictons before: ', cloned_pred)
+                    print('predictons before: ', cloned_pred)
                     cloned_pred *= mask.int()
                     y *= mask.int()
                     pred = cloned_pred
@@ -391,13 +391,13 @@ class EbirdTask(pl.LightningModule):
                     mask = correction_t
 
                     cloned_pred = pred.clone().type_as(pred)
-                    # print('predictons before: ', cloned_pred)
+                    print('predictons before: ', cloned_pred)
 
                     cloned_pred *= mask.int()
                     y *= mask.int()
 
                     pred = cloned_pred
-                    # print('predictions after: ', pred)
+                    print('predictions after: ', pred)
 
                 pred_ = pred.clone().type_as(y)
 
@@ -408,7 +408,7 @@ class EbirdTask(pl.LightningModule):
                 else:
                     # print('maximum ytrue in trainstep',y.max())
                     loss = self.criterion(y, pred)
-                    # print('train_loss', loss)
+                    print('train_loss', loss)
         else:
             y_hat = self.forward(x)
 
@@ -421,13 +421,13 @@ class EbirdTask(pl.LightningModule):
             if self.opts.data.correction_factor.thresh == 'after':
                 mask = correction_t
                 cloned_pred = pred.clone().type_as(pred)
-                # print('predictons before: ', cloned_pred)
+                print('predictons before: ', cloned_pred)
 
                 cloned_pred *= mask.int()
                 y *= mask.int()
 
                 pred = cloned_pred
-                # print('predictions after: ', pred)
+                print('predictions after: ', pred)
 
             pred_ = pred.clone().type_as(y)
 
@@ -438,7 +438,7 @@ class EbirdTask(pl.LightningModule):
             else:
                 # print('maximum ytrue in trainstep',y.max())
                 loss = self.criterion(y, pred)
-                # print('train_loss', loss)
+                print('train_loss', loss)
 
         if self.target_type == "log":
             pred_ = torch.exp(pred_)
@@ -565,7 +565,7 @@ class EbirdTask(pl.LightningModule):
             pred = self.sigmoid_activation(y_hat).type_as(y)
 
             if self.opts.data.correction_factor.thresh == 'after':
-                # print('Adding (after) correction factor')
+                print('Adding (after) correction factor')
                 mask = correction_t
                 cloned_pred = pred.clone().type_as(pred)
 

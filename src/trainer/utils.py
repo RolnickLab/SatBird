@@ -187,7 +187,7 @@ def load_from_checkpoint(path, model):
     print(f'initializing model from pretrained weights at {path}')
     if 'moco' in path:
         # moco pretrained models need some weights renaming
-        checkpoint = torch.load(path)
+        checkpoint = torch.load(path,map_location=torch.device('cpu'))
        
         loaded_dict = checkpoint['state_dict']
 
