@@ -59,8 +59,12 @@ class EbirdTask(pl.LightningModule):
             print("Training with MSE Loss")
         else:
             # target is num checklists reporting species i / total number of checklists at a hotspot
-            self.criterion = CustomCrossEntropyLoss()
-            print("Training with Custom CE Loss")
+            if self.opts.experiment.module.use_weighted_loss:
+                self.criterion = WeightedCustomCrossEntropyLoss()
+                print("Training with Weighted CE Loss")
+            else:
+                self.criterion = CustomCrossEntropyLoss()
+                print("Training with Custom CE Loss")
 
         if self.is_transfer_learning:
             self.model = self.get_sat_model_AtoB()
@@ -176,6 +180,7 @@ class EbirdTask(pl.LightningModule):
             for param in self.feature_extractor.parameters():
                 param.requires_grad = False
             self.model = nn.Linear(in_feat, self.target_size)
+
         elif self.opts.experiment.module.model == "resnet18":
 
             self.model = models.resnet18(pretrained=self.opts.experiment.module.pretrained)
@@ -331,8 +336,19 @@ class EbirdTask(pl.LightningModule):
         x = batch['sat'].squeeze(1)
         print('input shape:', x.shape)
         y = batch['target']
-
         hotspot_id = batch['hotspot_id']
+            
+
+        if self.opts.experiment.module.loss_weight == "sqrt":
+            new_weights = torch.sqrt(batch["num_complete_checklists"])
+        elif self.opts.experiment.module.loss_weight == "log":
+            new_weights = torch.log(batch["num_complete_checklists"])
+        else:
+            new_weights = batch["num_complete_checklists"]
+
+        new_weights = torch.ones(y.shape, device=torch.device("cuda")) * new_weights.view(
+            -1, 1
+        )
 
         if self.opts.data.correction_factor.thresh:
             correction_t = (self.correction_t_data.reset_index().set_index('hotspot_id').loc[list(hotspot_id)]).drop(
@@ -343,6 +359,7 @@ class EbirdTask(pl.LightningModule):
             x = torch.flatten(x, start_dim=1)
         # check weights are moving
         print("Model is on cuda", next(self.model.parameters()).is_cuda)
+       
         if self.opts.experiment.module.model == "inceptionv3":
             y_hat, aux_outputs = self.forward(x)
 
@@ -364,6 +381,7 @@ class EbirdTask(pl.LightningModule):
             loss1 = self.criterion(y, pred)
             loss2 = self.criterion(y, aux_pred)
             loss = loss1 + loss2
+
         elif self.opts.experiment.module.model == "train_linear":
             inter = self.feature_extractor(x)
             y_hat = self.forward(inter)
@@ -381,6 +399,7 @@ class EbirdTask(pl.LightningModule):
             pred_ = pred.clone().type_as(y)
 
             loss = self.criterion(y, pred)
+
         elif self.opts.experiment.module.model=="satlas" or self.opts.experiment.module.model=="satmae" :
                 inter = self.feature_extractor(x)
                 print('features shape ',inter.shape)
@@ -443,7 +462,11 @@ class EbirdTask(pl.LightningModule):
                 loss = self.criterion(pred, torch.log(y + 1e-10))
             else:
                 # print('maximum ytrue in trainstep',y.max())
-                loss = self.criterion(y, pred)
+                if self.opts.experiment.module.use_weighted_loss:
+                    print("Using Weighted CrossEntropy Loss")
+                    loss = self.criterion(y, pred, new_weights)
+                else:
+                    loss = self.criterion(y, pred)
                 # print('train_loss', loss)
 
         if self.target_type == "log":
@@ -465,6 +488,135 @@ class EbirdTask(pl.LightningModule):
             self.log(nname, value, on_epoch=True)
         self.log("train_loss", loss, on_epoch=True)
         return loss
+    
+
+    def training_step_refactored(self, batch: Dict[str, Any], batch_idx: int) -> Tensor:
+        """Training step"""
+        x = batch['sat'].squeeze(1)
+        y = batch['target']
+        hotspot_id = batch['hotspot_id']
+
+        new_weights = self._get_new_weights(batch)
+        correction_t = self._get_correction_t(batch, hotspot_id, y.device) if self.opts.data.correction_factor.thresh else None
+        
+        if self.opts.experiment.module.model == "linear":
+            x = torch.flatten(x, start_dim=1)
+        print("Model is on cuda", next(self.model.parameters()).is_cuda)
+
+        loss, pred = self._compute_loss_and_pred(x, y, new_weights, correction_t)
+
+        self._compute_and_log_metrics(loss, pred, y)
+        return loss
+
+
+    def _get_new_weights(self, batch):
+        """Helper function to calculate new_weights"""
+        weight_type = self.opts.experiment.module.loss_weight
+        if weight_type == "sqrt":
+            return torch.sqrt(batch["num_complete_checklists"])
+        elif weight_type == "log":
+            return torch.log(batch["num_complete_checklists"])
+        else:
+            return batch["num_complete_checklists"]
+
+
+    def _get_correction_t(self, batch, hotspot_id, device):
+        """Helper function to get correction_t"""
+        correction_t = (self.correction_t_data.reset_index().set_index('hotspot_id').loc[list(hotspot_id)]).drop(
+            columns=["index"]).iloc[:, self.subset].values
+        return torch.tensor(correction_t, device=device)
+
+
+    def _compute_loss_and_pred(self, x, y, new_weights, correction_t):
+        """Helper function to compute loss and predictions"""
+        model_type = self.opts.experiment.module.model
+        target_type = self.target_type
+        thresh_type = self.opts.data.correction_factor.thresh
+        use_weighted_loss = self.opts.experiment.module.use_weighted_loss
+
+        if model_type in ["inceptionv3", "train_linear", "satlas", "satmae"]:
+            # The below function computes loss and predictions for model types "inceptionv3", "train_linear", "satlas", "satmae".
+            # It is a more complicated case that has been moved to a separate function for better readability.
+            return self._compute_complex_loss_and_pred(x, y, new_weights, correction_t)
+        else:
+            y_hat = self.forward(x)
+            pred = y_hat if target_type in ["log", "binary"] else self.sigmoid_activation(y_hat).type_as(y)
+            pred = self._apply_correction_factor(pred, y, correction_t, thresh_type)
+
+            if target_type == "binary":
+                loss = self.criterion(pred, y)
+            elif target_type == "log":
+                loss = self.criterion(pred, torch.log(y + 1e-10))
+            else:
+                loss = self.criterion(y, pred, new_weights) if use_weighted_loss else self.criterion(y, pred)
+            return loss, pred
+
+
+    def _compute_complex_loss_and_pred(self, x, y, new_weights, correction_t):
+        """Helper function to compute loss and predictions for complex model types"""
+        model_type = self.opts.experiment.module.model
+        target_type = self.target_type
+        thresh_type = self.opts.data.correction_factor.thresh
+
+        inter = self.feature_extractor(x)
+        y_hat = self.forward(inter) if model_type != "inceptionv3" else self.forward(x)
+
+        pred = y_hat if target_type in ["log", "binary"] else self.sigmoid_activation(y_hat).type_as(y)
+        pred = self._apply_correction_factor(pred, y, correction_t, thresh_type)
+
+        if model_type == "inceptionv3":
+            aux_outputs = y_hat[1]
+            aux_pred = aux_outputs if target_type == "log" else self.sigmoid_activation(aux_outputs).type_as(y)
+            loss1 = self.criterion(y, pred)
+            loss2 = self.criterion(y, aux_pred)
+            loss = loss1 + loss2
+        else:
+            if target_type == "binary":
+                loss = self.criterion(pred, y)
+            elif target_type == "log":
+                loss = self.criterion(pred, torch.log(y + 1e-10))
+            else:
+                loss = self.criterion(y, pred)
+        return loss, pred
+
+
+    def _apply_correction_factor(self, pred, y, correction_t, thresh_type):
+        """Helper function to apply correction factor if necessary"""
+        if thresh_type == 'after' and correction_t is not None:
+            mask = correction_t
+            cloned_pred = pred.clone().type_as(pred)
+            cloned_pred[~mask] = 0
+            pred = cloned_pred
+            y *= mask.int()
+        return pred
+
+
+    def _compute_and_log_metrics(self, loss, pred, y):
+        """Helper function to compute and log metrics"""
+        pred_ = pred.clone().type_as(y)
+
+        if self.target_type == "log":
+            pred_ = torch.exp(pred_)
+
+        if self.opts.data.target.type == "binary":
+            pred_[pred_ >= 0.5] = 1
+            pred_[pred_ < 0.5] = 0
+
+        for (name, _, scale) in self.metrics:
+            nname = "train_" + name
+            if name == "accuracy":
+                value = getattr(self, nname)(pred_, y.type(torch.uint8))
+            elif name == 'r2':
+                value = torch.mean(getattr(self, nname)(y, pred_))
+            else:
+                value = getattr(self, nname)(y, pred_)
+
+            self.log(nname, value, on_epoch=True)
+        self.log("train_loss", loss, on_epoch=True)
+
+
+
+
 
     def validation_step(
             self, batch: Dict[str, Any], batch_idx: int) -> None:

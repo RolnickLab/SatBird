@@ -45,6 +45,8 @@ experiment:
     means_path: ""
     lr: 0.0003
     use_weighted_loss: False
+    loss_weight: "sqrt" #"log", "nchklists"
+
 
 optimizer: "Adam"  #"Adam"
 
