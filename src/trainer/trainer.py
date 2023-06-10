@@ -339,15 +339,15 @@ class EbirdTask(pl.LightningModule):
         hotspot_id = batch['hotspot_id']
             
 
-        if self.opts.experiment.module.loss_weight == "sqrt":
-            print(f"using {self.opts.experiment.module.loss_weight} weights")
-            new_weights = torch.sqrt(batch["num_complete_checklists"])
-        elif self.opts.experiment.module.loss_weight == "log":
-            print(f"using {self.opts.experiment.module.loss_weight} weights")
-            new_weights = torch.log(batch["num_complete_checklists"])
-        else:
-            print(f"using {self.opts.experiment.module.loss_weight} weights")
-            new_weights = batch["num_complete_checklists"]
+        weighted_loss_operations = {
+            "sqrt": torch.sqrt,
+            "log": torch.log,
+            "nchklists": lambda x: x,  # Identity function for the "nchklists" case
+        }
+
+        weight_type = self.opts.experiment.module.loss_weight
+        print(f"using {weight_type} weights")
+        new_weights = weighted_loss_operations[weight_type](batch["num_complete_checklists"])
 
         new_weights = torch.ones(y.shape, device=torch.device("cuda")) * new_weights.view(
             -1, 1

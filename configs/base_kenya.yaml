@@ -44,8 +44,8 @@ experiment:
     init_bias: ""
     means_path: ""
     lr: 0.0003
-    use_weighted_loss: False
-    loss_weight: "sqrt" #"log", "nchklists"
+    use_weighted_loss: True
+    loss_weight: "log" #"log", "nchklists"
 
 
 optimizer: "Adam"  #"Adam"
@@ -121,9 +121,9 @@ data:
   
   files:
     base: "/network/projects/ecosystem-embeddings/ebird_dataset/Kenya"
-    train: "train_clustered_kenya_filtered.csv"
-    val: "valid_clustered_kenya_filtered.csv"
-    test: "test_clustered_kenya_filtered.csv"
+    train: "train_hotspots_kenya.csv"
+    val: "valid_hotspots_kenya.csv"
+    test: "test_hotspots_kenya.csv"
     correction_thresh: "final_range_maps.pkl" # range maps - threshold = False
 
   correction_factor:
