@@ -1,0 +1,171 @@
+#where to save checkpoints
+save_path: "winter_baseline_resnet18_RGBNIR_ENV"
+
+# load existing checkpoint for inference. If passing experiment folder instead (for multiple seeds), it will evaluate all of them.
+load_ckpt_path: "winter_baseline_resnet18_RGBNIR_ENV"
+save_preds_path: ""
+log_comet: true
+
+overfit_batches: 0.0
+# maximum number of epochs to train for
+max_epochs: 100
+# base directory
+base_dir: ""
+#use geographical information
+loc:
+  use: False
+  #if True :concatenate location features with satellite image features, else location features are mappe to same imension as satellite features and the features are multiplie
+  loc_type: "latlon"   #latlon or state
+  concat: True
+
+comet:
+  project_name: "neurips_baselines" #"ecosystem-duck"
+  tags: ["resnet18", "RGBNIR_ENV", "corrected_targets"]
+  experiment_name: "winter_baseline_resnet18_RGBNIR_ENV" # specify for training, or use to report test results, TODO: also use to resume training
+  experiment_key: "" # use to report test results,
+
+experiment:
+  #TASK and name should always be ebird_classifier --> maybe remove it 
+  task: "ebird_classifier"
+  name: "ebird_classifier"
+  seed: 42
+  module:
+    #choose model : "resnet18" "resnet50" "inceptionv3" "linear" (just a linear model)
+    model: "resnet18"
+    #"linear" or "linear_net" for a 2 layer MLP
+    fc: "linear"
+    #use pretrained weights ( torchvision )
+    pretrained: True
+    # resume training from another model (transfer learning), set empty if training from scratch
+    resume: ""
+    freeze: False
+    #initializes biases of the output layer sothat sigmoid(bias) = mean over the training set for each species
+    init_bias: ""
+    means_path: ""
+    lr: 0.0003
+
+optimizer: "Adam"  #"Adam"
+
+#auto lr will only work if there is only one optimizer 
+auto_lr_find: False
+scheduler: 
+  name: "ReduceLROnPlateau" #"" for no schuler, "ReduceLROnPlateau" #"ReduceLROnPlateau" or "StepLR" "WarmUp"
+  reduce_lr_plateau: 
+    factor: 0.5
+    lr_schedule_patience: 20
+  step_lr:
+    step_size: 100 
+    gamma: 0.5
+  warmup:
+    warmup_epochs: 5
+    max_epochs: 100
+  
+  cyclical:
+    warmup_epochs: 10
+
+variables: &default_vars
+    ped_means: &ped_means [2131.4507126782837, 1402.1874244528374, 18.98734756724778, 19.206355496602505,
+                           25.686803478535737, 61.04887424287702, 36.68455014612817, 44.109117464300205]
+    ped_std: &ped_std [2313.3772226719902, 90.43906928504592, 7.699152864602412, 6.496480829022801,
+      18.75583208524458, 8.386246499627912, 10.101407578651429, 13.151165934033779]
+    bioclim_means: &bioclim_means [13.28713410516722, 12.341060264968899, 38.243638097602435, 777.4841343814653,
+                                    30.267121478259813,-3.0567463318565276, 33.323867875393745, 16.912955176169444,
+                                    9.348000171968833, 22.716188512381045, 3.5729913783881733, 937.0255725416687,
+                                    119.4360036865511, 44.6275668268172, 37.51082564220946, 327.618633854667,
+                                    153.3076559229287, 245.24485153175547, 227.94236455253116]
+    bioclim_std: &bioclim_std [4.526007553734555, 2.153201760505691, 8.39250111973792, 213.83004884980002,
+                               3.31492820605785, 6.811538819371468, 6.5429195109711635, 7.527260422281816,
+                               10.078038815049409, 3.460290049894178, 6.590634282380573, 358.5103544719544,
+                               46.285250350796915, 29.20487417504524, 26.002505173454374, 128.35736392680118,
+                               94.53801961593328, 139.7161530669465, 128.49192856508242]
+
+    rgbnir_means: &rgbnir_means [2195.62249683, 2104.94133399, 1962.79481062, 3064.98402716]
+    rgbnir_std: &rgbnir_std [1677.74262281, 1633.08604643, 1686.30696364, 1645.42286719]
+
+    visual_means: &visual_means [95.27658819, 87.25196695, 72.87714609]
+    visual_stds: &visual_stds [73.95271856, 70.83711033, 72.43013114]
+
+data:
+  loaders:
+    num_workers: 8
+    batch_size: 128
+  #What kind of satellite input ? "refl" for "raw" reflectance values or 
+  #"img" for 0-255 values (only supported for "rgb" and "nir" bands)
+  datatype: "refl"
+  multiscale : [64]
+  
+  bands: ["r","g","b", "nir"]  #any subset of ["r", "g", "b", "nir"] if working with "refl" data or ["rgb", "nir"] if using "img" 
+  
+  res: 10 #resolution of the images
+
+  #o you want to use environmental data (pedological and bioclimatic (low res) data) #ped" or "bioclim" or both or empty list
+  env: ["ped", "bioclim"]
+  
+  #resolution of pedological and bioclimatic data in meters
+  ped: 
+      #pedological rasters
+      res: 250
+  bioclim: 
+      #bioclim 
+      res: 1000
+  
+  files:
+    base: "/network/projects/ecosystem-embeddings/ebird_dataset/USA_winter"
+    train: "winter_hotspots_train.csv"
+    val: "winter_hotspots_valid.csv"
+    test: "winter_hotspots_test.csv"
+    correction_thresh: "final_range_maps.pkl" # range maps - threshold = False
+
+  correction_factor:
+     thresh:  # to train with RM
+
+  target:
+    type: "probs"  #binary for classification targets  or "probs" for regression (default should be "probs")
+
+    # choose subset of birds : "ducks" for trying on species [37] or [2] for cooper's hawk (non passerine) "songbirds" (307 species) or None (full set 684 species) "not_songbirds"
+    subset:
+
+  #normalization: None
+  transforms:
+    - name: matchres
+      ignore: false
+      subset: ["bioclim", "ped"]
+      target_size: [64, 64]
+
+    - name: crop
+      ignore: false
+      p: 1
+      ignore_band: ["bioclim", "ped"] #["bioclim", "ped"]
+      center: true # disable randomness, crop around the image's center
+      height: 64
+      width: 64
+    - name: hflip
+      ignore: "val"
+      p: 0.5
+    - name: vflip
+      ignore: "val"
+      p: 0.5
+    - name: normalize
+      ignore: False
+      maxchan: false
+      subset: ["sat"]
+      custom: [*rgbnir_means, *rgbnir_std]
+
+    - name: normalize
+      ignore: true
+      maxchan: false
+      subset: ["bioclim"]
+      custom: [*bioclim_means, *bioclim_std]
+    - name: normalize
+      ignore: true
+      maxchan: false
+      subset: ["ped"]
+      custom: [*ped_means, *ped_std]
+    - name: randomnoise
+      ignore: True #false
+      std: 0.01
+      max_noise: 0.05
+      
+  total_species: 684
+trainer:
+  auto_scale_batch_size: False
