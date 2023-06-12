@@ -101,7 +101,7 @@ class EbirdTask(pl.LightningModule):
                 continue
             # self.state_dict()[name].copy_(param)
             if name == "model.conv1.weight":
-                self.state_dict()[name].copy_(param[:, 0:23, :, :])
+                self.state_dict()[name].copy_(param[:, :self.state_dict()[name].shape[1], :, :])
             else:
                 self.state_dict()[name].copy_(param)
             if self.freeze_backbone:
