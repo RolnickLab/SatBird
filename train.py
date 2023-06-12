@@ -94,7 +94,6 @@ def main(opts):
     trainer_args['max_epochs'] = conf.max_epochs
 
     if not conf.loc.use:
-
         trainer = pl.Trainer(**trainer_args)
         if conf.log_comet:
             trainer.logger.experiment.add_tags(list(conf.comet.tags))
@@ -113,7 +112,6 @@ def main(opts):
         trainer = pl.Trainer(**trainer_args)
         if conf.log_comet:
             trainer.logger.experiment.add_tags(list(conf.comet.tags))
-
     # Run experiment
     trainer.fit(model=task, datamodule=datamodule)
     trainer.test(model=task, datamodule=datamodule)
