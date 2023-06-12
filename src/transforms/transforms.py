@@ -130,21 +130,19 @@ class Normalize:
 
 
 class MatchRes:
-    def __init__(self, target_size):
+    def __init__(self, target_size, custom):
         self.ped_res = 250
         self.bioclim_res = 1000
         self.sat_res = 10
         self.target_size = target_size
+        self.custom = custom
 
     def __call__(self, sample: Dict[str, Tensor]) -> Dict[str, Tensor]:
 
         H, W = self.target_size
-        # import pdb;pdb.set_trace()
-
         if "bioclim" in list(sample.keys()):
             # align bioclim with ped
             Hb, Wb = sample["bioclim"].shape[-2:]
-
             h = floor(Hb * self.sat_res / self.bioclim_res)
             w = floor(Wb * self.sat_res / self.bioclim_res)
             top = max(0, Hb // 2 - h // 2)
@@ -162,31 +160,18 @@ class MatchRes:
             h, w = max(ceil(h), 1), max(ceil(w), 1)
             sample["ped"] = sample["ped"][:, int(top): int(top + h), int(left): int(left + w)]
 
-    
+        means_bioclim, means_ped = self.custom
+
         for elem in list(sample.keys()):
-            
             if elem in env:
                 if ((sample[elem].shape[-1] == 0) or (sample[elem].shape[-2] == 0)):
                     if elem == "bioclim":
-                        print("Using custom bioclim")
-                        # print(sample[elem].shape)
-                        # print(sample["hotspot_id"])
-                        sample[elem] = torch.Tensor([19.8474176483999, 12.154894718001223, 77.15069217731747, 
-                                                    99.81078205346218, 28.183267340556707, 12.459287786784401, 
-                                                    15.72397946204183, 20.392952613384747, 19.14067755664988, 
-                                                    20.98105157816683, 18.518370090732752, 936.0373673689066,
-                                                    179.3224665538982, 24.524834691680763, 64.37541161481003, 
-                                                    397.3427648777487, 97.2606489312625, 277.15392895586655, 
-                                                    144.95832692603415]).unsqueeze(-1).unsqueeze(
-                            -1)
+                        sample[elem] = torch.Tensor(means_bioclim).unsqueeze(-1).unsqueeze(-1)
                     elif elem == "ped":
-                        print("Using custom ped")
-                        sample[elem] = torch.Tensor([2230.56361696, 1374.68551614, 20.45478794, 19.04921312,
-                                                     31.1196319, 61.24246466, 36.68711656, 44.25620165]).unsqueeze(
-                            -1).unsqueeze(-1)
-                
+                        sample[elem] = torch.Tensor(means_ped).unsqueeze(-1).unsqueeze(-1)
+
                 sample[elem] = F.interpolate(sample[elem].unsqueeze(0).float(), size=(H, W))
-        return (sample)
+        return sample
 
 
 class RandomCrop:  # type: ignore[misc,name-defined]
@@ -353,8 +338,6 @@ def get_transforms(opts, mode):
                 print("only taking normalization values for r,g,b")
                 means, std = t.custom
                 t.custom = [means[:3], std[:3]]
-
-            # assert (len(t.custom[0])== len(opts.data.bands))
         # account for multires
         if t.name == 'crop' and len(opts.data.multiscale) > 1:
             for res in opts.data.multiscale:
