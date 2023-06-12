@@ -17,7 +17,7 @@ loc:
   #if True :concatenate location features with satellite image features, else location features are mappe to same imension as satellite features and the features are multiplie
   loc_type: "latlon"   #latlon or state
   concat: True
-  
+
 comet:
   project_name: "neurips_baselines" #"ecosystem-duck"
   tags: ["resnet18"]
@@ -25,7 +25,7 @@ comet:
   experiment_key: "" # use to report test results,
 
 experiment:
-  #TASK and name should always be ebird_classifier --> maybe remove it 
+  #TASK and name should always be ebird_classifier --> maybe remove it
   task: "ebird_classifier"
   name: "ebird_classifier"
   seed: 42
@@ -47,20 +47,20 @@ experiment:
 
 optimizer: "Adam"  #"Adam"
 
-#auto lr will only work if there is only one optimizer 
+#auto lr will only work if there is only one optimizer
 auto_lr_find: False
-scheduler: 
+scheduler:
   name: "ReduceLROnPlateau" #"" for no schuler, "ReduceLROnPlateau" #"ReduceLROnPlateau" or "StepLR" "WarmUp"
-  reduce_lr_plateau: 
+  reduce_lr_plateau:
     factor: 0.5
     lr_schedule_patience: 20
   step_lr:
-    step_size: 100 
+    step_size: 100
     gamma: 0.5
   warmup:
     warmup_epochs: 5
     max_epochs: 100
-  
+
   cyclical:
     warmup_epochs: 10
 
@@ -90,26 +90,26 @@ data:
   loaders:
     num_workers: 8
     batch_size: 128
-  #What kind of satellite input ? "refl" for "raw" reflectance values or 
+  #What kind of satellite input ? "refl" for "raw" reflectance values or
   #"img" for 0-255 values (only supported for "rgb" and "nir" bands)
   datatype: "refl"
   multiscale : [64]
-  
-  bands: ["r","g","b", "nir"]  #any subset of ["r", "g", "b", "nir"] if working with "refl" data or ["rgb", "nir"] if using "img" 
-  
+
+  bands: ["r","g","b", "nir"]  #any subset of ["r", "g", "b", "nir"] if working with "refl" data or ["rgb", "nir"] if using "img"
+
   res: 10 #resolution of the images
 
   #o you want to use environmental data (pedological and bioclimatic (low res) data) #ped" or "bioclim" or both or empty list
   env: []#["ped", "bioclim"]
-  
+
   #resolution of pedological and bioclimatic data in meters
-  ped: 
+  ped:
       #pedological rasters
       res: 250
-  bioclim: 
-      #bioclim 
+  bioclim:
+      #bioclim
       res: 1000
-  
+
   files:
     base: "/network/projects/ecosystem-embeddings/ebird_dataset/USA_summer"
     train: "summer_hotspots_train.csv"
@@ -132,7 +132,7 @@ data:
       ignore: false
       subset: ["bioclim", "ped"]
       target_size: [64, 64]
-      custom: [*bioclim_means, *ped_means]
+      custom_means: [*bioclim_means, *ped_means]
 
     - name: crop
       ignore: false
@@ -167,7 +167,7 @@ data:
       ignore: True #false
       std: 0.01
       max_noise: 0.05
-      
+
   total_species: 684
 trainer:
   auto_scale_batch_size: False
