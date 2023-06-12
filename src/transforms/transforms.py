@@ -287,7 +287,7 @@ def get_transform(transform_item, mode):
     elif transform_item.name == "matchres" and not (
             transform_item.ignore is True or transform_item.ignore == mode
     ):
-        return MatchRes(transform_item.target_size)
+        return MatchRes(transform_item.target_size, transform_item.custom_means)
 
     elif transform_item.name == "hflip" and not (
             transform_item.ignore is True or transform_item.ignore == mode
