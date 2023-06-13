@@ -32,8 +32,12 @@ experiment:
     model: "resnet18"
     pretrained: True
     init_bias: "means"
-    means_path: "/network/scratch/t/tengmeli/scratch/ecosystem-embedding/training/means_all_species.npy"
+    means_path: ""
     lr: 0.001
+    resume: ""
+    freeze: false
+    use_weighted_loss: False
+    loss_weight: "log" #"log", "nchklists"
 
 
 optimizer: "SGD"  #"Adam"
