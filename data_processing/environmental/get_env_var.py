@@ -16,14 +16,14 @@ extractor.add_all_rasters()
 print("Number of rasters: {}".format(len(extractor)))
 
 if __name__=="__main__":
-    df = pd.read_csv("/network/projects/ecosystem-embeddings/ebird_new/summer_hotspots_clean_splits.csv")#"hotspots_data_with_bioclim.csv")
+    df = pd.read_csv("/network/projects/ecosystem-embeddings/ebird_new/clean_winter_with_nan_and_splits.csv") #"hotspots_data_with_bioclim.csv")
     for index, row in df.iterrows():
         i = 0
         if index % 100 == 0:
             print(index)
         try : 
             val = extractor[row.lat, row.lon]
-            np.save("/network/projects/ecosystem-embeddings/ebird_dataset/environmental_data/" + row.hotspot_id + ".npy", val)
+            np.save("/network/projects/ecosystem-embeddings/ebird_dataset/USA_winter/environmental/" + row.hotspot_id + ".npy", val)
         except :
             i+= 1
         #try:
