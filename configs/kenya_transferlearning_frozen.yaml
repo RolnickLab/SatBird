@@ -21,7 +21,7 @@ loc:
 comet:
   project_name: "neurips_baselines" #"ecosystem-duck"
   tags: ["resnet18"]
-  experiment_name: "kenya-resnet-frozen-transfer-learning" # specify for training, or use to report test results, TODO: also use to resume training
+  experiment_name: "[WL]-kenya-resnet-frozen-transfer-learning" # specify for training, or use to report test results, TODO: also use to resume training
   experiment_key: "" # use to report test results,
 
 experiment:
@@ -37,13 +37,16 @@ experiment:
     #use pretrained weights ( torchvision )
     pretrained: True
     # resume training from another model (transfer learning), set empty if training from scratch
-    resume: "/network/projects/ecosystem-embeddings/ebird_dataset/USA_summer/RGBNIR_ENV_checkpoint/1337/epoch=48-step=29350.ckpt"
+    resume: "/network/projects/ecosystem-embeddings/USA_summer_weights/1337/epoch=48-step=29350.ckpt"
     #initializes biases of the output layer sothat sigmoid(bias) = mean over the training set for each species
     # freeze backbone when transfer learning or not
     freeze: True
     init_bias: ""
     means_path: ""
     lr: 0.0003
+    use_weighted_loss: True
+    loss_weight: "nchklists" #"log", "nchklists"
+
 
 optimizer: "Adam"  #"Adam"
 
@@ -118,9 +121,9 @@ data:
   
   files:
     base: "/network/projects/ecosystem-embeddings/ebird_dataset/Kenya"
-    train: "train_clustered_kenya_filtered.csv"
-    val: "valid_clustered_kenya_filtered.csv"
-    test: "test_clustered_kenya_filtered.csv"
+    train: "train_hotspots_kenya.csv"
+    val: "valid_hotspots_kenya.csv"
+    test: "test_hotspots_kenya.csv"
     correction_thresh: "final_range_maps.pkl" # range maps - threshold = False
 
   correction_factor:
