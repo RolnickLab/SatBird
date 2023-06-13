@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 from typing import Any, Dict, cast
 import csv
+import math
 
 import hydra
 from hydra.utils import get_original_cwd
@@ -52,6 +53,10 @@ def save_test_results_to_csv(results, root_dir, file_name='test_results.csv'):
     print(f"CSV file '{output_file}' has been saved.")
 
 
+def get_seed(run_id, fixed_seed):
+    return (run_id * (fixed_seed + (run_id - 1))) % (2 ** 31 - 1)
+
+
 @hydra.main(config_path="configs", config_name="hydra")
 def main(opts):
     hydra_opts = dict(OmegaConf.to_container(opts))
@@ -69,9 +74,9 @@ def main(opts):
     conf.base_dir = base_dir
 
     run_id = args["run_id"]
-    global_seed = (run_id * (conf.program.seed + (run_id - 1))) % (2 ** 31 - 1)
+    global_seed = get_seed(run_id, conf.program.seed)
 
-    conf.save_path = os.path.join(base_dir, conf.save_path, os.environ["SLURM_JOB_ID"], '_seed_', str(global_seed))
+    conf.save_path = os.path.join(base_dir, conf.save_path, str(global_seed))
     pl.seed_everything(conf.program.seed)
 
     # using general trainer without location information
@@ -128,7 +133,7 @@ def main(opts):
             # loop over all seeds
             for run_id in range(1, n_runs + 1):
                 # get path of a single experiment
-                run_id_path = os.path.join(conf.load_ckpt_path, str(run_id * conf.program.seed))
+                run_id_path = os.path.join(conf.load_ckpt_path, str(get_seed(run_id, conf.program.seed)))
                 # get path of the best checkpoint (not last)
                 files = os.listdir(os.path.join(conf.base_dir, run_id_path))
                 best_checkpoint_file_name = [file for file in files if 'last' not in file and file.endswith('.ckpt')][0]

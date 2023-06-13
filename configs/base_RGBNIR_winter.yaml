@@ -1,14 +1,14 @@
 #where to save checkpoints
-save_path: "checkpoints/kenya_resnet_transfer_learning"
+save_path: "winter_baseline_resnet18_RGBNIR"
 
 # load existing checkpoint for inference. If passing experiment folder instead (for multiple seeds), it will evaluate all of them.
-load_ckpt_path: "checkpoints/kenya_resnet_transfer_learning"
+load_ckpt_path: "winter_baseline_resnet18_RGBNIR"
 save_preds_path: ""
 log_comet: true
 
 overfit_batches: 0.0
 # maximum number of epochs to train for
-max_epochs: 50
+max_epochs: 100
 # base directory
 base_dir: ""
 #use geographical information
@@ -17,11 +17,11 @@ loc:
   #if True :concatenate location features with satellite image features, else location features are mappe to same imension as satellite features and the features are multiplie
   loc_type: "latlon"   #latlon or state
   concat: True
-  
+
 comet:
   project_name: "neurips_baselines" #"ecosystem-duck"
-  tags: ["resnet18"]
-  experiment_name: "kenya-resnet-transfer-learning" # specify for training, or use to report test results, TODO: also use to resume training
+  tags: ["resnet18", "RGBNIR", "corrected_targets"]
+  experiment_name: "winter_baseline_resnet18_RGBNIR" # specify for training, or use to report test results, TODO: also use to resume training
   experiment_key: "" # use to report test results,
 
 experiment:
@@ -37,15 +37,12 @@ experiment:
     #use pretrained weights ( torchvision )
     pretrained: True
     # resume training from another model (transfer learning), set empty if training from scratch
-    resume: "/network/projects/ecosystem-embeddings/USA_summer_weights/1337/epoch=48-step=29350.ckpt"
+    resume: ""
+    freeze: false
     #initializes biases of the output layer sothat sigmoid(bias) = mean over the training set for each species
-    # freeze backbone when transfer learning or not
-    freeze: False
     init_bias: ""
     means_path: ""
     lr: 0.0003
-    use_weighted_loss: True
-    loss_weight: "nchklists" #"log", "nchklists"
 
 optimizer: "Adam"  #"Adam"
 
@@ -67,32 +64,26 @@ scheduler:
     warmup_epochs: 10
 
 variables: &default_vars
-    ped_means: &ped_means [2243.6380503 , 1375.25287124,   19.76864701,   18.74593645,
-             28.68707303,   60.79010948,   37.63874729,   43.61135346]
-    ped_std: &ped_std [2192.82241124,  104.32945499,    7.13089499,    6.49068363,
-             20.44677011,    8.44828871,    9.43810439,   12.5079619 ]
+    ped_means: &ped_means [2131.4507126782837, 1402.1874244528374, 18.98734756724778, 19.206355496602505,
+                           25.686803478535737, 61.04887424287702, 36.68455014612817, 44.109117464300205]
+    ped_std: &ped_std [2313.3772226719902, 90.43906928504592, 7.699152864602412, 6.496480829022801,
+      18.75583208524458, 8.386246499627912, 10.101407578651429, 13.151165934033779]
+    bioclim_means: &bioclim_means [13.28713410516722, 12.341060264968899, 38.243638097602435, 777.4841343814653,
+                                    30.267121478259813,-3.0567463318565276, 33.323867875393745, 16.912955176169444,
+                                    9.348000171968833, 22.716188512381045, 3.5729913783881733, 937.0255725416687,
+                                    119.4360036865511, 44.6275668268172, 37.51082564220946, 327.618633854667,
+                                    153.3076559229287, 245.24485153175547, 227.94236455253116]
+    bioclim_std: &bioclim_std [4.526007553734555, 2.153201760505691, 8.39250111973792, 213.83004884980002,
+                               3.31492820605785, 6.811538819371468, 6.5429195109711635, 7.527260422281816,
+                               10.078038815049409, 3.460290049894178, 6.590634282380573, 358.5103544719544,
+                               46.285250350796915, 29.20487417504524, 26.002505173454374, 128.35736392680118,
+                               94.53801961593328, 139.7161530669465, 128.49192856508242]
 
-    bioclim_means: &bioclim_means  [19.8474176483999, 12.154894718001223, 77.15069217731747, 
-            99.81078205346218, 28.183267340556707, 12.459287786784401, 
-            15.72397946204183, 20.392952613384747, 19.14067755664988, 
-            20.98105157816683, 18.518370090732752, 936.0373673689066,
-             179.3224665538982, 24.524834691680763, 64.37541161481003, 
-             397.3427648777487, 97.2606489312625, 277.15392895586655, 144.95832692603415]
+    rgbnir_means: &rgbnir_means [2195.62249683, 2104.94133399, 1962.79481062, 3064.98402716]
+    rgbnir_std: &rgbnir_std [1677.74262281, 1633.08604643, 1686.30696364, 1645.42286719]
 
-           
-
-    bioclim_std: &bioclim_std [3.2981263978688213, 1.6324223404657512, 5.544161337646984, 
-                              30.160392484065373, 2.847688328270172, 3.7377247279239874, 1.6193690150909748,
-                               3.2084164964858726, 3.5158649695967576, 3.3906761242630563, 3.2418588958542376,
-                                292.8185183694009, 53.83569051287938, 15.743267368148034,
-                                 20.43196070048235, 120.22160340179309, 61.491741448661955,
-                                  86.07142859766066, 111.62228522840688]
-
-    rgbnir_means: &rgbnir_means [1929.20305424, 1704.69622632, 1550.82809414, 2432.25047386]
-    rgbnir_std: &rgbnir_std [1211.52480525,  775.86330957, 628.72032381, 1614.65724857]
-
-    visual_means: &visual_means [78.20186183, 83.78967871, 58.99852628]
-    visual_stds: &visual_stds [64.32016159, 49.08529428, 46.45643505]
+    visual_means: &visual_means [95.27658819, 87.25196695, 72.87714609]
+    visual_stds: &visual_stds [73.95271856, 70.83711033, 72.43013114]
 
 data:
   loaders:
@@ -108,7 +99,7 @@ data:
   res: 10 #resolution of the images
 
   #o you want to use environmental data (pedological and bioclimatic (low res) data) #ped" or "bioclim" or both or empty list
-  env: ["bioclim"]
+  env: []#["ped", "bioclim"]
   
   #resolution of pedological and bioclimatic data in meters
   ped: 
@@ -119,14 +110,14 @@ data:
       res: 1000
   
   files:
-    base: "/network/projects/ecosystem-embeddings/ebird_dataset/Kenya"
-    train: "train_hotspots_kenya.csv"
-    val: "valid_hotspots_kenya.csv"
-    test: "test_hotspots_kenya.csv"
+    base: "/network/projects/ecosystem-embeddings/ebird_dataset/USA_winter"
+    train: "winter_hotspots_train_2.csv"
+    val: "winter_hotspots_valid_2.csv"
+    test: "winter_hotspots_test_2.csv"
     correction_thresh: "final_range_maps.pkl" # range maps - threshold = False
 
   correction_factor:
-     thresh: False  # to train with RM
+     thresh:  # to train with RM
 
   target:
     type: "probs"  #binary for classification targets  or "probs" for regression (default should be "probs")
@@ -138,13 +129,13 @@ data:
   transforms:
     - name: matchres
       ignore: false
-      subset: ["bioclim"]
+      subset: ["bioclim", "ped"]
       target_size: [64, 64]
 
     - name: crop
       ignore: false
       p: 1
-      ignore_band: ["bioclim","ped"] #["bioclim", "ped"]
+      ignore_band: ["bioclim", "ped"] #["bioclim", "ped"]
       center: true # disable randomness, crop around the image's center
       height: 64
       width: 64
@@ -175,6 +166,6 @@ data:
       std: 0.01
       max_noise: 0.05
       
-  total_species: 1054
+  total_species: 684
 trainer:
   auto_scale_batch_size: False

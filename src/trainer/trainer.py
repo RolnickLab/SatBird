@@ -101,7 +101,7 @@ class EbirdTask(pl.LightningModule):
                 continue
             # self.state_dict()[name].copy_(param)
             if name == "model.conv1.weight":
-                self.state_dict()[name].copy_(param[:, 0:23, :, :])
+                self.state_dict()[name].copy_(param[:, :self.state_dict()[name].shape[1], :, :])
             else:
                 self.state_dict()[name].copy_(param)
             if self.freeze_backbone:
@@ -336,8 +336,9 @@ class EbirdTask(pl.LightningModule):
         x = batch['sat'].squeeze(1)
         print('input shape:', x.shape)
         y = batch['target']
+
         hotspot_id = batch['hotspot_id']
-            
+
 
         weighted_loss_operations = {
             "sqrt": torch.sqrt,
@@ -362,7 +363,6 @@ class EbirdTask(pl.LightningModule):
             x = torch.flatten(x, start_dim=1)
         # check weights are moving
         print("Model is on cuda", next(self.model.parameters()).is_cuda)
-       
         if self.opts.experiment.module.model == "inceptionv3":
             y_hat, aux_outputs = self.forward(x)
 
