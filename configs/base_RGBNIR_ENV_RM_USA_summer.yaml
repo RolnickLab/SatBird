@@ -130,6 +130,7 @@ data:
       ignore: false
       subset: ["bioclim", "ped"]
       target_size: [64, 64]
+      custom_means: [*bioclim_means, *ped_means]
 
     - name: crop
       ignore: false
