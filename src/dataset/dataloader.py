@@ -76,7 +76,7 @@ def get_img_bands(band_npy):
     return npy_data
 
 
-def get_subset(subset):
+def get_subset(subset, num_species=684):
     if subset == "songbirds":
         return np.load('/network/projects/_groups/ecosystem-embeddings/species_splits/songbirds_idx.npy')
     elif subset == "not_songbirds":
@@ -91,7 +91,7 @@ def get_subset(subset):
         print("using oystercatcher")  # Haematopus palliatus
         return [290]
     else:
-        return [i for i in range(1054)]
+        return [i for i in range(num_species)]
 
 
 class EbirdVisionDataset(VisionDataset):
@@ -108,7 +108,8 @@ class EbirdVisionDataset(VisionDataset):
                  subset=None,
                  use_loc=False,
                  res=[],
-                 loc_type=None) -> None:
+                 loc_type=None, 
+                 num_species = 684) -> None:
         """
         df_paths: dataframe with paths to data for each hotspot
         data_base_dir: base directory for data
@@ -131,11 +132,12 @@ class EbirdVisionDataset(VisionDataset):
         self.mode = mode
         self.type = datatype
         self.target = target
-        self.subset = get_subset(subset)
+        self.subset = get_subset(subset, num_species)
         self.use_loc = use_loc
         self.loc_type = loc_type
         self.res = res
         self.speciesA = get_subset("songbirds")
+        self.num_species = num_species
 
     def __len__(self):
         return self.total_images
@@ -162,7 +164,8 @@ class EbirdVisionDataset(VisionDataset):
             env_npy = os.path.join(self.data_base_dir, "environmental_data", hotspot_id + '.npy')
             env_data = load_file(env_npy)
             item_["bioclim"] = torch.from_numpy(env_data[:19, :, :])
-            # item_["ped"] = torch.from_numpy(env_data[19:, :, :])
+            if self.num_species==684:
+                item_["ped"] = torch.from_numpy(env_data[19:, :, :])
 
         t = trsfs.Compose(self.transform)
         item_ = t(item_)
@@ -245,7 +248,7 @@ class EbirdSpeciesEnvDataset(VisionDataset):
         self.mode = mode
         self.type = datatype
         self.target = target
-        self.subset = get_subset(subset)
+        self.subset = get_subset(subset, num_species)
         self.use_loc = use_loc
         self.loc_type = loc_type
         self.speciesA = get_subset("songbirds")

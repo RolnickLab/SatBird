@@ -689,6 +689,8 @@ class EbirdDataModule(pl.LightningDataModule):
         self.subset = self.opts.data.target.subset
         self.res = self.opts.data.multiscale
         self.use_loc = self.opts.loc.use
+        self.num_species = self.opts.data.total_species
+
 
     def prepare_data(self) -> None:
         """
@@ -697,6 +699,7 @@ class EbirdDataModule(pl.LightningDataModule):
 
     def setup(self, stage: Optional[str] = None) -> None:
         """create the train/test/val splits and prepare the transforms for the multires"""
+        
         self.all_train_dataset = EbirdVisionDataset(
             df_paths=self.df_train,
             data_base_dir=self.data_base_dir,
@@ -708,7 +711,8 @@ class EbirdDataModule(pl.LightningDataModule):
             target=self.target,
             subset=self.subset,
             res=self.res,
-            use_loc=self.use_loc
+            use_loc=self.use_loc,
+            num_species = self.num_species
         )
 
         self.all_test_dataset = EbirdVisionDataset(
@@ -722,7 +726,8 @@ class EbirdDataModule(pl.LightningDataModule):
             target=self.target,
             subset=self.subset,
             res=self.res,
-            use_loc=self.use_loc
+            use_loc=self.use_loc,
+            num_species = self.num_species
         )
 
         self.all_val_dataset = EbirdVisionDataset(
@@ -736,7 +741,8 @@ class EbirdDataModule(pl.LightningDataModule):
             target=self.target,
             subset=self.subset,
             res=self.res,
-            use_loc=self.use_loc
+            use_loc=self.use_loc,
+            num_species = self.num_species
         )
 
         # TODO: Create subsets of the data
