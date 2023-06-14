@@ -110,10 +110,10 @@ data:
       res: 1000
   
   files:
-    base: "/network/projects/ecosystem-embeddings/ebird_dataset/USA_summer"
-    train: "summer_hotspots_train.csv"
-    val: "summer_hotspots_valid.csv"
-    test: "summer_hotspots_test.csv"
+    base: "/network/projects/ecosystem-embeddings/ebird_dataset/USA_winter"
+    train: "winter_hotspots_train.csv"
+    val: "winter_hotspots_valid.csv"
+    test: "winter_hotspots_test.csv"
 
     correction_thresh: '' # range maps - threshold = False
 

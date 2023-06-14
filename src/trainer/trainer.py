@@ -143,7 +143,7 @@ class EbirdTask(pl.LightningModule):
             #first lets assume freezing the pretrained model 
             self.feature_extractor = torchvision.models.swin_transformer.swin_v2_b()
             #TODO: remove hardcoded path
-            full_state_dict = torch.load('/network/scratch/a/amna.elmustafa/hager/ecosystem-embedding/src/trainer/satlas-model-v1-lowres.pth',map_location=torch.device('cpu'))
+            full_state_dict = torch.load('/network/projects/ecosystem-embeddings/trainer_utils/pretrained_weights/satlas-model-v1-lowres.pth',map_location=torch.device('cpu'))
             swin_prefix = 'backbone.backbone.'
             swin_state_dict = {k[len(swin_prefix):]: v for k, v in full_state_dict.items() if k.startswith(swin_prefix)}
 
@@ -167,7 +167,7 @@ class EbirdTask(pl.LightningModule):
                 drop_rate=0.1,
             )
             #TODO: remove the hardcoded path
-            satmae=load_from_checkpoint('/network/scratch/a/amna.elmustafa/hager/ecosystem-embedding/src/trainer/fmow_pretrain.pth',satmae )
+            satmae=load_from_checkpoint('/network/projects/ecosystem-embeddings/trainer_utils/pretrained_weights/fmow_pretrain.pth',satmae )
             satmae.to('cuda')
             in_feat=satmae.fc.in_features
             satmae.fc=nn.Sequential()

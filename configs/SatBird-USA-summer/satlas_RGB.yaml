@@ -20,8 +20,8 @@ loc:
   
 comet:
   project_name: "clean_baselines" #"ecosystem-duck"
-  tags: ["satlas",  "rgb","all_data_winter", "no_correction","filtered"]
-  experiment_name: "baseline_satlas_RGBNIR_winter_filtered" # specify for training, or use to report test results, TODO: also use to resume training
+  tags: ["satlas",  "rgb","all_data_summer", "no_correction","filtered"]
+  experiment_name: "baseline_satlas_RGB" # specify for training, or use to report test results, TODO: also use to resume training
   experiment_key: "" # use to report test results,
 
 experiment:
@@ -63,28 +63,28 @@ scheduler:
     warmup_epochs: 10
 
 variables: &default_vars
-    ped_means: &ped_means [2121.0403494551024, 1393.9937854633883, 19.29955867783482, 18.963073043321625, 27.870665585877692,
-                           61.041069981086196, 36.61019544267315, 44.42637125101324]
-    ped_std: &ped_std [2438.0370686571996, 103.04851065278376, 7.959712486272698, 6.821599185819201, 21.887851169174603,
-                          8.914278168157466, 9.380096589198251, 12.374892055552255]
+    ped_means: &ped_means [2243.6380503 , 1375.25287124,   19.76864701,   18.74593645,
+             28.68707303,   60.79010948,   37.63874729,   43.61135346]
+    ped_std: &ped_std [2192.82241124,  104.32945499,    7.13089499,    6.49068363,
+             20.44677011,    8.44828871,    9.43810439,   12.5079619 ]
+    bioclim_means: &bioclim_means [ 1.09754659e+01,  1.23733808e+01,  3.61467365e+01,  8.37485713e+02,
+            2.90636300e+01, -6.09117271e+00,  3.51548027e+01,  1.50612062e+01,
+            6.45395180e+00,  2.11479405e+01,  5.23920224e-01,  8.94876528e+02,
+            1.12537181e+02,  4.15727670e+01,  3.61017403e+01,  3.10993183e+02,
+            1.43728751e+02,  2.27954854e+02,  2.16715613e+02]
+    bioclim_std: &bioclim_std ([  4.47820155,   2.21161338,   8.0115857 , 204.98822205,
+             3.50164049,   6.65999286,   6.16807484,   8.02128829,
+            10.6351929 ,   3.69966931,   6.33520431, 361.95098003,
+            47.76831975,  27.98050281,  24.19695586, 135.01831158,
+            90.12503615, 117.41413006, 146.55134417]
 
-    bioclim_means: &bioclim_means [ 12.740144948743144, 12.230345398403946, 38.25656206187823, 770.5181806119864,
-                                29.762035675902258, -3.3439501335222666, 33.10598581851715, 15.160649527422294, 10.074888284022924,
-                                22.122542917204193, 3.1582102336961704, 920.5306976347024, 117.66142942532662, 43.12688924942362,
-                                38.869635061973, 323.9086329092306, 147.8199982922039, 216.59713090257023, 244.02390914524807]
+    rgbnir_means: &rgbnir_means [1781.2853091, 1828.38179935, 1580.46310787, 3912.1952206]
+    rgbnir_std: &rgbnir_std [786.6640817697212, 643.0713578941586, 612.5347533547798, 1296.637232875431]
 
-    bioclim_std: &bioclim_std [4.278130253736189, 2.277427838903092, 9.011824198126444, 222.95895589944038, 3.6935397177788887,
-                              6.600396884554333, 6.8091592842713435, 7.9836426260944915, 10.312568319341635, 3.5549742388581147,
-                            6.3238581630831465, 376.8898382672134, 49.56225507275462, 30.869521617050207, 28.630844530761166,
-                            139.7996933022872, 99.38093716057294, 131.77895774032132, 148.17466131783732]
-
-    rgbnir_means: &rgbnir_means [2240.20699685, 2151.8513063, 2015.27437489, 3104.18221113]
-    rgbnir_std: &rgbnir_std [1737.06572918, 1695.89669116, 1750.49694313, 1691.96751052]
-
-    visual_means: &visual_means [96.79688, 89.1327385, 75.31350906]
-    visual_stds: &visual_stds [75.92815686, 73.10537963, 74.86476444]
-
-
+    visual_means: &visual_means [78.20186183, 83.78967871, 58.99852628]
+    visual_stds: &visual_stds [64.32016159, 49.08529428, 46.45643505]
+    
+    
 data:
   loaders:
     num_workers: 8
@@ -110,10 +110,10 @@ data:
       res: 1000
   
   files:
-    base: "/network/projects/ecosystem-embeddings/ebird_dataset/USA_winter"
-    train: "winter_hotspots_train.csv"
-    val: "winter_hotspots_valid.csv"
-    test: "winter_hotspots_test.csv"
+    base: "/network/projects/ecosystem-embeddings/ebird_dataset/USA_summer"
+    train: "summer_hotspots_train.csv"
+    val: "summer_hotspots_valid.csv"
+    test: "summer_hotspots_test.csv"
 
     correction_thresh: '' # range maps - threshold = False
 
