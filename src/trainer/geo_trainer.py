@@ -1,3 +1,4 @@
+# geo-trainer (uses location information into a seperate encoder)
 import copy
 import os
 import pickle
@@ -8,77 +9,20 @@ import pandas as pd
 import pytorch_lightning as pl
 import torch
 import torch.nn as nn
-from pl_bolts.optimizers.lr_scheduler import LinearWarmupCosineAnnealingLR
 from torch import Tensor
 from torch.nn import BCELoss
-from torch.optim.lr_scheduler import ReduceLROnPlateau, StepLR, CosineAnnealingWarmRestarts
 from torch.utils.data import DataLoader
 from torchvision import models
 
-import src.models.geomodels as geomodels
 from src.dataset.dataloader import EbirdVisionDataset
 from src.dataset.dataloader import get_subset
-from src.losses.losses import CustomCrossEntropyLoss, get_metrics
+from src.losses.losses import CustomCrossEntropyLoss
+from src.losses.metrics import get_metrics
+from src.models.geomodels import Identity, LocEncoder
+from src.trainer.utils import get_target_size, get_nb_bands, get_scheduler
 from src.transforms.transforms import get_transforms
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-
-
-def get_nb_bands(bands):
-    n = 0
-    for b in bands:
-        if b in ["r", "g", "b", "nir", "landuse"]:
-            n += 1
-        elif b == "ped":
-            n += 8
-        elif b == "bioclim":
-            n += 19
-        elif b == "rgb":
-            n += 3
-    return n
-
-
-def get_target_size(opts):
-    subset = get_subset(opts.data.target.subset)
-    target_size = len(subset) if subset is not None else opts.data.total_species
-    return target_size
-
-
-class LocEncoder(torch.nn.Module):
-    def __init__(self, opt, **kwargs: Any) -> None:
-        """initializes a new Lightning Module to train"""
-
-        super().__init__()
-        self.opts_ = opt
-        self.target_size = get_target_size(self.opts_)
-
-        num_inputs = 4
-        if self.opts_.loc.elev:
-            num_inputs = 5
-        self.model = geomodels.FCNet(num_inputs, num_classes=self.target_size, num_filts=256)
-
-    def forward(self, loc):
-        return (self.model(loc, class_of_interest=None, return_feats=self.opts_.loc.concat))
-
-    def __str__(self):
-        return ("Location encoder")
-
-
-def create_loc_encoder(opt, verbose=0):
-    print("using location")
-    encoder = LocEncoder(opt)
-
-    if verbose > 0:
-        print(f"  - Add {encoder.__class__.__name__}")
-    return encoder
-
-
-class Identity(nn.Module):
-    def __init__(self):
-        super(Identity, self).__init__()
-
-    def forward(self, x):
-        return x
 
 
 class EbirdTask(pl.LightningModule):
@@ -315,7 +259,7 @@ class EbirdTask(pl.LightningModule):
                 pred = self.m(self.forward(x, loc_tensor))
             else:
                 out_sat, out_loc = self.forward(x, loc_tensor)
-                pred = torch.multiply(m(out_sat), out_loc)  # self.forward(x)
+                pred = torch.multiply(self.m(out_sat), out_loc)  # self.forward(x)
             # range maps
             if self.opts.data.correction_factor.thresh:
                 mask = correction
@@ -361,9 +305,6 @@ class EbirdTask(pl.LightningModule):
         correction = torch.tensor(correction, device=y.device)
         assert correction.shape == (b, no_species), 'shape of correction factor is not as expected'
 
-        # check weights are moving
-        # for p in self.model.fc.parameters():
-        #    print(p.data)
         if self.opts.experiment.module.model == "inceptionv3":
             out_sat, aux_outputs, out_loc = self.forward(x, loc_tensor)
             y_hat = self.m(out_sat)
@@ -486,23 +427,6 @@ class EbirdTask(pl.LightningModule):
                     "monitor": "val_loss",
                 },
             }
-
-
-def get_scheduler(optimizer, opts):
-    if opts.scheduler.name == "ReduceLROnPlateau":
-        return (ReduceLROnPlateau(optimizer, factor=opts.scheduler.reduce_lr_plateau.factor,
-                                  patience=opts.scheduler.reduce_lr_plateau.lr_schedule_patience))
-    elif opts.scheduler.name == "StepLR":
-        return (StepLR(optimizer, opts.scheduler.step_lr.step_size, opts.scheduler.step_lr.gamma))
-    elif opts.scheduler.name == "WarmUp":
-        return (LinearWarmupCosineAnnealingLR(optimizer, opts.scheduler.warmup.warmup_epochs,
-                                              opts.scheduler.warmup.max_epochs))
-    elif opts.scheduler.name == "Cyclical":
-        return (CosineAnnealingWarmRestarts(optimizer, opts.scheduler.cyclical.warmup_epochs))
-    elif opts.scheduler.name == "":
-        return (None)
-    else:
-        raise ValueError(f"Scheduler'{opts.scheduler.name}' is not valid")
 
 
 class EbirdDataModule(pl.LightningDataModule):

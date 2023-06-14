@@ -7,6 +7,7 @@
 args:
   config: null # "What configuration file to use to overwrite shared/defaults.yaml"
   base_dir: ""
+  run_id: 1
   note: null # Note about this training for comet logging
   no_comet: False # DON'T use comet.ml to log experiment
   resume: False # Load latest ckpt
