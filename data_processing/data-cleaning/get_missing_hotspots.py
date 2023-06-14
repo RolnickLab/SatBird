@@ -47,7 +47,7 @@ def find_missing_hotspots(hotspot_csv_files_path):
 
 def main():
     # Path of all individual CSV files for each hotspot
-    hotspot_csv_files_path = '/miniscratch/srishtiy/hotspot_csv_data/'
+    hotspot_csv_files_path = './hotspot_csv_data/'
     
     diff_hotspot = find_missing_hotspots(hotspot_csv_files_path)
     print("Number of missing hotspots:", len(diff_hotspot))

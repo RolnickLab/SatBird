@@ -26,7 +26,7 @@ env_vars = ['bio_1', 'bio_2', 'bio_3', 'bio_4', 'bio_5',
 def set_up_omegaconf() -> DictConfig:
     """Helps with loading config files"""
 
-    conf = OmegaConf.load("/home/mila/t/tengmeli/ecosystem-embedding/configs/env_means.yaml")
+    conf = OmegaConf.load("../../configs/env_means.yaml")
     command_line_conf = OmegaConf.from_cli()
     
     if "config_file" in command_line_conf:
