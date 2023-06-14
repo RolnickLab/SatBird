@@ -1,0 +1,30 @@
+
+root_targets: "/network/projects/_groups/ecosystem-embeddings/ebird_dataset/Kenya/corrected_targets"
+
+random_state: [0,25,50]
+hs_data:  "/network/projects/ecosystem-embeddings/ebird_new/summer_hotspots_clean_splits.csv"
+
+#need to merge df, or do mean imputation, otherwise, if already processed, indicate relevant df in train and val
+process_hs : False
+species: 1054
+save_hs : "/network/projects/_groups/ecosystem-embeddings/experiments_kenya/baselines/"
+
+subset: "" #'/network/projects/_groups/ecosystem-embeddings/species_splits/not_songbirds_idx.npy'
+
+train: "/network/projects/ecosystem-embeddings/ebird_dataset/Kenya/train_clustered_kenya_filtered.csv"
+val: "/network/projects/ecosystem-embeddings/ebird_dataset/Kenya/valid_clustered_kenya_filtered.csv"
+test: "/network/projects/ecosystem-embeddings/ebird_dataset/Kenya/test_clustered_kenya_filtered.csv"
+y_train: "/network/projects/_groups/ecosystem-embeddings/experiments_kenya/baselines/y_train.npy"
+y_val: "/network/projects/_groups/ecosystem-embeddings/experiments_kenya/baselines/y_val.npy"
+y_test: "/network/projects/_groups/ecosystem-embeddings/experiments_kenya/baselines/y_test.npy"
+X_train: "/network/projects/_groups/ecosystem-embeddings/experiments_kenya/baselines/X_train.npy"
+X_val: "/network/projects/_groups/ecosystem-embeddings/experiments_kenya/baselines/X_valid.npy"
+X_test: "/network/projects/_groups/ecosystem-embeddings/experiments_kenya/baselines/X_test.npy"
+
+
+predictor: "GBR"
+
+
+path_means : "/network/projects/_groups/ecosystem-embeddings/experiments_kenya/baselines/means_species.npy"
+
+save_pred : "/network/projects/_groups/ecosystem-embeddings/experiments_kenya/baselines/"
