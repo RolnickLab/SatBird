@@ -66,7 +66,7 @@ conda activate ebird.2
 #{content}
 
 export CUDA_VISIBLE_DEVICES=0,1
-export COMET_API_KEY="9PY4gOZFYKFRPw5xSCtDpdM7H"
+export COMET_API_KEY=$COMET_API_KEY
 export COMET_WORKSPACE="amnaalmgly"
 
 sbatch --output=${LOG_FOLDER}/%j.out --error=${LOG_FOLDER}/%j.err \
