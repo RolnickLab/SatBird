@@ -20,7 +20,7 @@ module load anaconda/3
 conda activate ebird-env
 
 # export keys for logging, etc,
-export COMET_API_KEY="WUET2WpClgOsQfj79XFjAU4ce"
+export COMET_API_KEY=$COMET_API_KEY
 export HYDRA_FULL_ERROR=1
 
 # run training script
