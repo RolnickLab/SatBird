@@ -97,13 +97,6 @@ data:
   multiscale : [64]
   
   bands: ["r","g","b", "nir"]  #any subset of ["r", "g", "b", "nir"] if working with "refl" data or ["rgb", "nir"] if using "img" 
-  
-  #What kind of satellite input ? "refl" for "raw" reflectance values or
-  #"img" for 0-255 values (only supported for "rgb" and "nir" bands)
-  datatype: "refl"
-  multiscale : [64]
-
-  bands: ["r","g","b", "nir"]  #any subset of ["r", "g", "b", "nir"] if working with "refl" data or ["rgb", "nir"] if using "img"
 
   res: 10 #resolution of the images
 

@@ -1,6 +1,5 @@
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional
-from PIL import Image
 import os
 import math
 
@@ -164,7 +163,8 @@ class EbirdVisionDataset(VisionDataset):
             env_npy = os.path.join(self.data_base_dir, "environmental_data", hotspot_id + '.npy')
             env_data = load_file(env_npy)
             item_["bioclim"] = torch.from_numpy(env_data[:19, :, :])
-            if self.num_species==684:
+            #TODO: make it generic
+            if self.num_species == 684:
                 item_["ped"] = torch.from_numpy(env_data[19:, :, :])
 
         t = trsfs.Compose(self.transform)

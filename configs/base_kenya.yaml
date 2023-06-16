@@ -38,7 +38,7 @@ experiment:
     pretrained: True
     # resume training from another model (transfer learning), set empty if training from scratch
     resume: ""
-      #initializes biases of the output layer sothat sigmoid(bias) = mean over the training set for each species
+    #initializes biases of the output layer sothat sigmoid(bias) = mean over the training set for each species
     # freeze backbone when transfer learning or not
     freeze: False
     init_bias: ""
@@ -80,8 +80,6 @@ variables: &default_vars
                                    179.3224665538982, 24.524834691680763, 64.37541161481003,
                                    397.3427648777487, 97.2606489312625, 277.15392895586655, 144.95832692603415 ]
 
-
-
   bioclim_std: &bioclim_std [ 3.2981263978688213, 1.6324223404657512, 5.544161337646984,
                               30.160392484065373, 2.847688328270172, 3.7377247279239874, 1.6193690150909748,
                               3.2084164964858726, 3.5158649695967576, 3.3906761242630563, 3.2418588958542376,
@@ -109,73 +107,75 @@ data:
   res: 10 #resolution of the images
 
   #o you want to use environmental data (pedological and bioclimatic (low res) data) #ped" or "bioclim" or both or empty list
-  env: [ bioclim]#[ "bioclim" ]
+  env: ["bioclim"]
 
-    #resolution of pedological and bioclimatic data in meters
-    ped:
-      #pedological rasters
-      res: 250
-      bioclim:
-        #bioclim
-        res: 1000
+  #resolution of pedological and bioclimatic data in meters
+  ped:
+    #pedological rasters
+    res: 250
 
-      files:
-        base: "/network/projects/ecosystem-embeddings/ebird_dataset/Kenya"
-        train: "train_hotspots_kenya.csv"
-        val: "valid_hotspots_kenya.csv"
-        test: "test_hotspots_kenya.csv"
-        correction_thresh: "final_range_maps.pkl" # range maps - threshold = False
+  bioclim:
+    #bioclim
+    res: 1000
 
-      correction_factor:
-        thresh: False  # to train with RM
+  files:
+    base: "/network/projects/ecosystem-embeddings/ebird_dataset/Kenya"
+    train: "train_hotspots_kenya.csv"
+    val: "valid_hotspots_kenya.csv"
+    test: "test_hotspots_kenya.csv"
+    correction_thresh: "final_range_maps.pkl" # range maps - threshold = False
 
-      target:
-        type: "probs"  #binary for classification targets  or "probs" for regression (default should be "probs")
+  correction_factor:
+    thresh: False  # to train with RM
 
-        # choose subset of birds : "ducks" for trying on species [37] or [2] for cooper's hawk (non passerine) "songbirds" (307 species) or None (full set 684 species) "not_songbirds"
-        subset:
+    target:
+      type: "probs"  #binary for classification targets  or "probs" for regression (default should be "probs")
 
-      #normalization: None
-      transforms:
-        - name: matchres
-          ignore: false
-          subset: [ "bioclim" ]
-          target_size: [ 64, 64 ]
+      # choose subset of birds : "ducks" for trying on species [37] or [2] for cooper's hawk (non passerine) "songbirds" (307 species) or None (full set 684 species) "not_songbirds"
+      subset:
 
-        - name: crop
-          ignore: false
-          p: 1
-          ignore_band: [ "bioclim", "ped" ] #["bioclim", "ped"]
-          center: true # disable randomness, crop around the image's center
-          height: 64
-          width: 64
-        - name: hflip
-          ignore: "val"
-          p: 0.5
-        - name: vflip
-          ignore: "val"
-          p: 0.5
-        - name: normalize
-          ignore: False
-          maxchan: false
-          subset: [ "sat" ]
-          custom: [ *rgbnir_means, *rgbnir_std ]
+    #normalization: None
+  transforms:
+    - name: matchres
+      ignore: false
+      subset: [ "bioclim" ]
+      target_size: [ 64, 64 ]
+      custom_means: [*bioclim_means, *ped_means]
 
-        - name: normalize
-          ignore: true
-          maxchan: false
-          subset: [ "bioclim" ]
-          custom: [ *bioclim_means, *bioclim_std ]
-        - name: normalize
-          ignore: true
-          maxchan: false
-          subset: [ "ped" ]
-          custom: [ *ped_means, *ped_std ]
-        - name: randomnoise
-          ignore: True #false
-          std: 0.01
-          max_noise: 0.05
-      
-      total_species: 1054
-    trainer:
-      auto_scale_batch_size: False
+    - name: crop
+      ignore: false
+      p: 1
+      ignore_band: [ "bioclim", "ped" ] #["bioclim", "ped"]
+      center: true # disable randomness, crop around the image's center
+      height: 64
+      width: 64
+    - name: hflip
+      ignore: "val"
+      p: 0.5
+    - name: vflip
+      ignore: "val"
+      p: 0.5
+    - name: normalize
+      ignore: False
+      maxchan: false
+      subset: [ "sat" ]
+      custom: [ *rgbnir_means, *rgbnir_std ]
+
+    - name: normalize
+      ignore: true
+      maxchan: false
+      subset: [ "bioclim" ]
+      custom: [ *bioclim_means, *bioclim_std ]
+    - name: normalize
+      ignore: true
+      maxchan: false
+      subset: [ "ped" ]
+      custom: [ *ped_means, *ped_std ]
+    - name: randomnoise
+      ignore: True #false
+      std: 0.01
+      max_noise: 0.05
+
+  total_species: 1054
+trainer:
+    auto_scale_batch_size: False

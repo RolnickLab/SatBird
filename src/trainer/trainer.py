@@ -14,8 +14,7 @@ from torch.nn import BCEWithLogitsLoss
 from torch.utils.data import DataLoader
 from torchvision import models
 
-from src.dataset.dataloader import EbirdVisionDataset
-from src.dataset.dataloader import get_subset
+from src.dataset.dataloader import EbirdVisionDataset, get_subset
 from src.losses.losses import CustomCrossEntropyLoss, WeightedCustomCrossEntropyLoss
 from src.losses.metrics import get_metrics
 from src.trainer.utils import get_target_size, get_nb_bands, get_scheduler, init_first_layer_weights, load_from_checkpoint
@@ -36,7 +35,7 @@ class EbirdTask(pl.LightningModule):
         self.is_transfer_learning = True if self.opts.experiment.module.resume else False
         self.freeze_backbone = self.opts.experiment.module.freeze
         # get target vector size (number of species we consider)
-        self.subset = get_subset(self.opts.data.target.subset)
+        self.subset = get_subset(self.opts.data.target.subset, self.opts.data.total_species)
         self.target_size = get_target_size(opts, self.subset)
         print("Predicting ", self.target_size, "species")
 
