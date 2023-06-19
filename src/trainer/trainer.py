@@ -624,7 +624,7 @@ class EbirdTask(pl.LightningModule):
 
         if self.opts.save_preds_path != "":
             for i, elem in enumerate(pred):
-                np.save(os.path.join(self.opts.save_preds_path, batch["hotspot_id"][i] + ".npy"),
+                np.save(os.path.join(self.opts.base_dir, self.opts.save_preds_path, batch["hotspot_id"][i] + ".npy"),
                         elem.cpu().detach().numpy())
         print("saved elems")
 
