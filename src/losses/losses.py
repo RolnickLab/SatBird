@@ -59,9 +59,8 @@ class WeightedCustomCrossEntropyLoss:
         self.lambd_pres = lambd_pres
 
     def __call__(self, p, q, weights=1):
-        p = p * weights
-        loss = (
+        loss = (weights * (
             -self.lambd_pres * p * torch.log(q + eps)
-            - self.lambd_abs * (1 - p) * torch.log(1 - q + eps)
-        ).mean()
+            - self.lambd_abs * (1 - p) * torch.log(1 - q + eps))).mean()
+        
         return loss
