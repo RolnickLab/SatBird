@@ -1,132 +1,126 @@
-# -*- coding: utf-8 -*-
-
+"""
+main training script
+To run: python train.py args.config=$CONFIG_FILE_PATH
+"""
 import os
-from typing import Any, Dict, Tuple, Type, cast
+import hydra
+from hydra.utils import get_original_cwd
+from omegaconf import OmegaConf, DictConfig
+from typing import Any, Dict, cast
+import comet_ml
+
 import pytorch_lightning as pl
-from pytorch_lightning import loggers as pl_loggers
-from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
-from src.trainer.trainer import EbirdTask, EbirdDataModule
-from omegaconf import DictConfig, OmegaConf
+from pytorch_lightning.loggers import CometLogger, WandbLogger
+from pytorch_lightning.callbacks import ModelCheckpoint
+
+from src.utils.config_utils import load_opts
+import src.trainer.trainer as general_trainer
+import src.trainer.geo_trainer as geo_trainer
 
 
-TASK_TO_MODULES_MAPPING: Dict[
-    str, Tuple[Type[pl.LightningModule], Type[pl.LightningDataModule]]
-] = {
-    "ebird_classifier": (EbirdTask, EbirdDataModule),
-    
-}
+@hydra.main(config_path="configs", config_name="hydra")
+def main(opts):
+    hydra_opts = dict(OmegaConf.to_container(opts))
+    args = hydra_opts.pop("args", None)
 
+    base_dir = args['base_dir']
+    run_id = args["run_id"]
+    if not base_dir:
+        base_dir = get_original_cwd()
 
+    config_path = os.path.join(base_dir, args['config'])
+    default_config = os.path.join(base_dir, "configs/defaults.yaml")
 
+    conf = load_opts(config_path, default=default_config, commandline_opts=hydra_opts)
+    global_seed = (run_id * (conf.program.seed + (run_id - 1))) % (2 ** 31 - 1)
 
-def set_up_omegaconf()-> DictConfig:
-    """Helps with loading config files"""
-    
-    conf = OmegaConf.load("./configs/defaults.yaml")
-    command_line_conf = OmegaConf.from_cli()
+    # naming experiment folders with seed information
+    conf.save_path = os.path.join(base_dir, conf.save_path, str(global_seed))
+    conf.comet.experiment_name = conf.comet.experiment_name + '_seed_' + str(global_seed)
+    conf.base_dir = base_dir
 
-    if "config_file" in command_line_conf:
-        config_fn = command_line_conf.config_file
+    pl.seed_everything(global_seed)
 
-        if os.path.isfile(config_fn):
-            user_conf = OmegaConf.load(config_fn)
-            conf = OmegaConf.merge(conf, user_conf)
-        else:
-            raise FileNotFoundError(f"config_file={config_fn} is not a valid file")
+    if not os.path.exists(conf.save_path):
+        os.makedirs(conf.save_path)
+    with open(os.path.join(conf.save_path, "config.yaml"), "w") as fp:
+        OmegaConf.save(config=conf, f=fp)
+    fp.close()
 
-    conf = OmegaConf.merge(
-        conf, command_line_conf
-    )
-
-    task_name = conf.experiment.task
-    task_config_fn = os.path.join("configs", "task_defaults", f"{task_name}.yaml")
-    if task_name == "test":
-        task_conf = OmegaConf.create()
-    elif os.path.exists(task_config_fn):
-        task_conf = cast(DictConfig, OmegaConf.load(task_config_fn))
+    # using general trainer without location information
+    if not conf.loc.use:
+        print("Using general trainer..")
+        task = general_trainer.EbirdTask(conf)
+        datamodule = general_trainer.EbirdDataModule(conf)
+    # using geo-trainer (location encoder)
+    elif conf.loc.use and conf.loc.loc_type == "latlon":
+        print("Using geo-trainer with lat/lon info..")
+        task = geo_trainer.EbirdTask(conf)
+        datamodule = geo_trainer.EbirdDataModule(conf)
     else:
-        raise ValueError(
-            f"experiment.task={task_name} is not recognized as a valid task"
-        )
-
-    conf = OmegaConf.merge(task_conf, conf)
-    conf = cast(DictConfig, conf)  # convince mypy that everything is alright
-
-    return conf
-
-def main(conf: DictConfig) -> None:
-    """Main Training loop"""
-    experiment_name = conf.experiment.name
-    task_name = conf.experiment.task
-
-    if os.path.isfile(conf.program.output_dir):
-        raise NotAdirectoryError("program.output_dir must be a directory")
-
-    os.makedirs(conf.program.output_dir, exist_ok=True)
-    
-    experiment_dir = os.path.join(conf.program.output_dir, experiment_name)
-    os.makedirs(experiment_dir, exist_ok = True)
-
-    if len(os.listdir(experiment_dir)) > 0:
-        if conf.program.overwrite:
-            print(
-                f"WARNING! The experiment directory, {experiment_dir}, already exists, "
-                + "we might overwrite data in it!"
-            )
-        else:
-            raise FileExistsError(
-                f"The experiment directory, {experiment_dir}, already exists and isn't "
-                + "empty. We don't want to overwrite any existing results, exiting..."
-            )
-
-    with open(os.path.join(experiment_dir, "experiment_config.yaml"), "w") as f:
-        OmegaConf.save(config=conf, f=f)
-
-    task_args = cast(Dict[str, Any], OmegaConf.to_object(conf.experiment.module))
-    datamodule_args = cast(
-        Dict[str, Any], OmegaConf.to_object(conf.experiment.datamodule)
-    )
-
-    datamodule: pl.LightningDataModuleModule
-    task: pl.LightningModule
-
-    if task_name in TASK_TO_MODULES_MAPPING:
-        task_class, datamodule_class = TASK_TO_MODULES_MAPPING[task_name]
-        task = task_class(**task_args)
-        datamodule = datamodule_class(**datamodule_args)
-    else:
-        raise ValueError(
-            f"experiment.task={task_name} is not recognized as a valid task"
-        )
-
-    # Setup trainer
-
-    tb_logger = pl_loggers.TensorBoardLogger(conf.program.log_dir, name=experiment_name)
-
-    checkpoint_callback = ModelCheckpoint(
-        monitor="val_loss",
-        dirpath=experiment_dir,
-        save_top_k=3,
-        save_last=True,
-    )
-    early_stopping_callback = EarlyStopping(
-        monitor="val_loss",
-        min_delta=0.00,
-        patience=10,
-    )
+        print("cannot specify trainers based on config..")
+        exit(0)
 
     trainer_args = cast(Dict[str, Any], OmegaConf.to_object(conf.trainer))
-    trainer_args["callbacks"] = [checkpoint_callback, early_stopping_callback]
-    trainer_args["logger"] = tb_logger
-    trainer = pl.Trainer(**trainer_args)
 
-    ## Run experiment
+    if conf.log_comet:
+        comet_logger = CometLogger(
+            api_key=os.environ.get("COMET_API_KEY"),
+            workspace=os.environ.get("COMET_WORKSPACE"),
+            # save_dir=".",  # Optional
+            project_name=conf.comet.project_name,  # Optional
+            experiment_name=conf.comet.experiment_name,
+        )
+        comet_logger.experiment.add_tags(list(conf.comet.tags))
+        print(conf.comet.tags)
+        trainer_args["logger"] = comet_logger
+    else:
+        wandb_logger = WandbLogger(project='test-project')
+        print('in wandb logger')
+        trainer_args["logger"] = wandb_logger
+
+    checkpoint_callback = ModelCheckpoint(
+        monitor="val_topk_epoch",
+        dirpath=conf.save_path,
+        save_top_k=1,
+        mode="max",
+        save_last=True,
+        save_weights_only=True,
+        auto_insert_metric_name=True
+    )
+
+    trainer_args["callbacks"] = [checkpoint_callback]
+    trainer_args["overfit_batches"] = conf.overfit_batches  # 0 if not overfitting
+    trainer_args['max_epochs'] = conf.max_epochs
+
+    if not conf.loc.use:
+        trainer = pl.Trainer(**trainer_args)
+        if conf.log_comet:
+            trainer.logger.experiment.add_tags(list(conf.comet.tags))
+        if conf.auto_lr_find:
+            lr_finder = trainer.tuner.lr_find(task, datamodule=datamodule)
+
+            # Pick point based on plot, or get suggestion
+            new_lr = lr_finder.suggestion()
+
+            # update hparams of the model
+            task.hparams.learning_rate = new_lr
+            task.hparams.lr = new_lr
+            trainer.tune(model=task, datamodule=datamodule)
+    else:
+
+        trainer = pl.Trainer(**trainer_args)
+        if conf.log_comet:
+            trainer.logger.experiment.add_tags(list(conf.comet.tags))
+    # Run experiment
     trainer.fit(model=task, datamodule=datamodule)
     trainer.test(model=task, datamodule=datamodule)
 
+    # logging the best checkpoint to comet ML
+    if conf.log_comet:
+        print(checkpoint_callback.best_model_path)
+        trainer.logger.experiment.log_asset(checkpoint_callback.best_model_path, file_name='best_checkpoint.ckpt')
+
+
 if __name__ == "__main__":
-    conf = set_up_omegaconf()
-    pl.seed_everything(conf.program.seed)
-    
-    # Main training procedure
-    main(conf)
+    main()

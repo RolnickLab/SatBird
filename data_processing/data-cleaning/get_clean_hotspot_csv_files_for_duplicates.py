@@ -31,8 +31,8 @@ def remove_row_duplicates(mypath, output_csv_folder, onlyfiles):
     
 def main():
     # Path of all individual CSV files for each hotspot
-    src_csv_folder = '/miniscratch/tengmeli/ecosystem-embedding/data/hotspot_all_csv/'
-    dest_csv_folder = '/miniscratch/srishtiy/hotspot_csv_data/'
+    src_csv_folder = ''
+    dest_csv_folder = ''
 
     # List of all such csv files
     onlyfiles = [f for f in listdir(src_csv_folder) if isfile(join(src_csv_folder, f))]

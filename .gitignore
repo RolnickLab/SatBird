@@ -1,4 +1,10 @@
 *.ipynb_checkpoints
-*.ipynb
 *.pyc
 __pycache__/
+1337/epoch=11-step=623.ckpt
+1337/*
+4017/*
+outputs/*
+2676/*
+job_*
+checkpoints*

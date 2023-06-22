@@ -1,6 +1,5 @@
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional
-from PIL import Image
 import os
 import math
 
@@ -12,7 +11,6 @@ from torchvision import transforms as trsfs
 from torch.nn import Module
 from torch import Tensor
 import numpy as np
-
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
@@ -77,7 +75,7 @@ def get_img_bands(band_npy):
     return npy_data
 
 
-def get_subset(subset):
+def get_subset(subset, num_species=684):
     if subset == "songbirds":
         return np.load('/network/projects/_groups/ecosystem-embeddings/species_splits/songbirds_idx.npy')
     elif subset == "not_songbirds":
@@ -92,13 +90,14 @@ def get_subset(subset):
         print("using oystercatcher")  # Haematopus palliatus
         return [290]
     else:
-        return [i for i in range(684)]
+        return [i for i in range(num_species)]
 
 
 class EbirdVisionDataset(VisionDataset):
 
     def __init__(self,
                  df_paths,
+                 data_base_dir,
                  bands,
                  env,
                  transforms: Optional[Callable[[Dict[str, Any]], Dict[str, Any]]] = None,
@@ -108,9 +107,11 @@ class EbirdVisionDataset(VisionDataset):
                  subset=None,
                  use_loc=False,
                  res=[],
-                 loc_type=None) -> None:
+                 loc_type=None, 
+                 num_species = 684) -> None:
         """
         df_paths: dataframe with paths to data for each hotspot
+        data_base_dir: base directory for data
         bands: list of bands to include, anysubset of  ["r", "g", "b", "nir"] or  "rgb" (for image dataset) 
         env: list eof env data to take into account [ped, bioclim]
         transforms:
@@ -122,6 +123,7 @@ class EbirdVisionDataset(VisionDataset):
 
         super().__init__()
         self.df = df_paths
+        self.data_base_dir = data_base_dir
         self.total_images = len(df_paths)
         self.transform = transforms
         self.bands = bands
@@ -129,136 +131,90 @@ class EbirdVisionDataset(VisionDataset):
         self.mode = mode
         self.type = datatype
         self.target = target
-        self.subset = get_subset(subset)
+        self.subset = get_subset(subset, num_species)
         self.use_loc = use_loc
         self.loc_type = loc_type
         self.res = res
         self.speciesA = get_subset("songbirds")
+        self.num_species = num_species
 
     def __len__(self):
         return self.total_images
 
     def __getitem__(self, index: int) -> Dict[str, Any]:
-
-        band_npy = [(b, get_path(self.df, index, b)) for b in self.bands if
-                    get_path(self.df, index, b).suffix == ".npy"]
-        env_npy = [(b, get_path(self.df, index, b)) for b in self.env if get_path(self.df, index, b).suffix in ".npy"]
-
         item_ = {}
 
+        hotspot_id = self.df.iloc[index]['hotspot_id']
+
+        if self.type == 'img':
+            img_path = os.path.join(self.data_base_dir, "images_visual", hotspot_id + '_visual.tif')
+        else:
+            img_path = os.path.join(self.data_base_dir, "images", hotspot_id + '.tif')
+
         if self.type == "img":
-            npy_data = get_img_bands(band_npy)
+            img = load_file(img_path)
+        elif self.type == 'refl':
+            img = load_file(img_path)
 
-        elif band_npy:
-            bands = [load_file(band) for (_, band) in band_npy]
-            npy_data = np.stack(bands, axis=1).astype(np.int32)
+        sats = torch.from_numpy(img).float()
+        item_["sat"] = sats
 
-        for (b, band) in env_npy:
-            item_[b] = torch.from_numpy(load_file(band))
+        if len(self.env) > 0:
+            env_npy = os.path.join(self.data_base_dir, "environmental_data", hotspot_id + '.npy')
+            env_data = load_file(env_npy)
+            item_["bioclim"] = torch.from_numpy(env_data[:19, :, :])
+            #TODO: make it generic
+            if self.num_species == 684:
+                item_["ped"] = torch.from_numpy(env_data[19:, :, :])
 
-        if band_npy:
-            sats = torch.from_numpy(npy_data)
-            _, C, _, _ = sats.shape
-            item_["sat"] = sats
+        t = trsfs.Compose(self.transform)
+        item_ = t(item_)
 
-        if "landuse" in self.bands:
-            print("USING LANDUSE")
-            landuse = torch.from_numpy(np.array(Image.open(get_path(self.df, index, "landuse"))) / 10)
-            landuse = torch.unsqueeze(landuse, 0)
-            item_['landuse'] = landuse
-        # TODO: why?
-        if True:
-
-            # if len(self.res<=1):
-            # print("Applying transforms")
-            # crops, transforms= self.transform[0],self.transform[1]
-            # perform different crops and transformation on  both sat and landuse & env data
-
-            # for c in crops:
-            #    transforms.insert(0,c)
-            t = trsfs.Compose(self.transform)
-
-            item_ = t(item_)
-
-            if 'landuse' in self.bands:
-                if band_npy:
-                    item_['sat'] = torch.cat((item_['sat'], item_['landuse']), dim=-3)
-                else:
-                    item_['sat'] = item_["landuse"]
-
-        else:
-            raise ValueError("Unknown transforms_length {}".format(len(self.transform)))
-
-        # shape valdiation
-        if 'landuse' in self.bands:
-            if band_npy:
-                assert item_['sat'].shape == (
-                len(self.res), C + 1, 224, 224), 'shape of item_sat with land use is wrong'
-            else:
-                assert item_['sat'].shape == (len(self.res), 1, 224, 224), 'shape of item_sat is wrong'
-
+       
         for e in self.env:
-            # print("sat_shape", item_["sat"].shape)
-            # print(item_[e].shape)
-            item_["sat"] = torch.cat([item_["sat"], item_[e]], dim=-3)
+            
+            item_["sat"] = torch.cat([item_["sat"], item_[e]], dim=-3).float()
 
-             
-        #print(item_["landuse"].size())
-        #print(item_["sat"].size())
-        if "species" in self.df.columns: 
-            #add target
-            species = load_file(get_path(self.df, index, "species"))
-            item_["speciesA"] = np.array(species["probs"])[self.speciesA]
-            if self.target == "probs":
-                if not self.subset is None:
-                    item_["target"] = np.array(species["probs"])[self.subset]
-                else:
-                    item_["target"] = species["probs"]
-                item_["target"] = torch.Tensor(item_["target"])
+        species = load_file(os.path.join(self.data_base_dir, "corrected_targets", hotspot_id + '.json'))
 
-            elif self.target == "binary":
-                if self.subset is not None:
-                    targ = np.array(species["probs"])[self.subset]
-                else:
-                    targ = species["probs"]
-                item_["original_target"] = torch.Tensor(targ)
-                targ[targ > 0] = 1
-                item_["target"] = torch.Tensor(targ)
-
-            elif self.target == "log":
-                if not self.subset is None:
-                    item_["target"] = np.array(species["probs"])[self.subset]
-                else:
-                    item_["target"] = species["probs"]
-
+        if self.target == "probs":
+            if not self.subset is None:
+                item_["target"] = np.array(species["probs"])[self.subset]
             else:
-                raise NameError("type of target not supported, should be probs or binary")
+                item_["target"] = species["probs"]
+            item_["target"] = torch.Tensor(item_["target"])
 
-            item_["num_complete_checklists"] = species["num_complete_checklists"]
+        elif self.target == "binary":
+            if self.subset is not None:
+                targ = np.array(species["probs"])[self.subset]
+            else:
+                targ = species["probs"]
+            item_["original_target"] = torch.Tensor(targ)
+            targ[targ > 0] = 1
+            item_["target"] = torch.Tensor(targ)
 
-        item_["state_id"] = self.df["state_id"][index]
+        elif self.target == "log":
+            if not self.subset is None:
+                item_["target"] = np.array(species["probs"])[self.subset]
+            else:
+                item_["target"] = species["probs"]
 
-        if "meta" in self.df.columns:
-            meta = load_file(get_path(self.df, index, "meta"))
-            # add metadata information (hotspot info)
-            meta.pop('earliest_date', None)
-            item_.update(meta)
         else:
-            item_["hotspot_id"] = os.path.basename(get_path(self.df, index, "b")).strip(".npy")
+            raise NameError("type of target not supported, should be probs or binary")
+
+        item_["num_complete_checklists"] = species["num_complete_checklists"]
+
+        # item_["state_id"] = self.df["state_id"][index]
 
         if self.use_loc:
             if self.loc_type == "latlon":
-
                 lon, lat = torch.Tensor([item_["lon"]]), torch.Tensor([item_["lat"]])
                 loc = torch.cat((lon, lat)).unsqueeze(0)
                 loc = encode_loc(convert_loc_to_tensor(loc))
                 item_["loc"] = loc
 
-            elif self.loc_type == "state":
-                item_["state_id"] = self.df["state_id"][index]
-                item_["loc"] = torch.zeros([51])
-                item_["loc"][item_["state_id"]] = 1
-        # print(item_.keys())
+        item_["hotspot_id"] = hotspot_id
+
         return item_
 
 
@@ -292,7 +248,7 @@ class EbirdSpeciesEnvDataset(VisionDataset):
         self.mode = mode
         self.type = datatype
         self.target = target
-        self.subset = get_subset(subset)
+        self.subset = get_subset(subset, num_species)
         self.use_loc = use_loc
         self.loc_type = loc_type
         self.speciesA = get_subset("songbirds")

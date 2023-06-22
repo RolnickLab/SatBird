@@ -7,12 +7,12 @@ from collections import OrderedDict
 
 
 # Read complete checklists file
-df = pd.read_csv('/miniscratch/srishtiy/complete-checklists_Jan2021.txt', delimiter = "\t", keep_default_na=False)
+df = pd.read_csv('./complete-checklists_Jan2021.txt', delimiter = "\t", keep_default_na=False)
 
 # n_checklists_Apr2021 is the number of complete checklist per hotspot
 # n_checklists_Apr2021 is same for both Jan and Apr -- tested
 # n_checklists_Apr2021 is from R code
-df_nc_hotspot = pd.read_csv('/miniscratch/srishtiy/n_checklists_Apr2021.csv', keep_default_na=False)
+df_nc_hotspot = pd.read_csv('./n_checklists_Apr2021.csv', keep_default_na=False)
 
 # Sort by number of complete checklists
 df_nc_hotspot_sorted = df_nc_hotspot.sort_values(by=['n'], ascending = False)
