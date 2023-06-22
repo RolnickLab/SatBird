@@ -50,3 +50,17 @@ class CustomCrossEntropy(Metric):
 
     def compute(self):
         return (self.correct / self.total)
+
+
+class WeightedCustomCrossEntropyLoss:
+    def __init__(self, lambd_pres=1, lambd_abs=1):
+        super().__init__()
+        self.lambd_abs = lambd_abs
+        self.lambd_pres = lambd_pres
+
+    def __call__(self, p, q, weights=1):
+        loss = (weights * (
+            -self.lambd_pres * p * torch.log(q + eps)
+            - self.lambd_abs * (1 - p) * torch.log(1 - q + eps))).mean()
+        
+        return loss
