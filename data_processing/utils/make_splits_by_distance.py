@@ -1,4 +1,4 @@
-from sklearn.cluster import dbscan
+from sklearn.cluster import DBSCAN
 from collections import defaultdict
 from copy import deepcopy
 import random
@@ -8,6 +8,8 @@ import json
 import random
 import numpy as np
 import glob
+from math import radians
+
 
 RADIUS_EARTH = 6356.7523  # in km, polar radius of Earth
 
@@ -58,6 +60,7 @@ def get_lon_for_distance(lat, d):
     return lon
 
 
+from sklearn.cluster import DBSCAN
 def cluster_based_on_dist(X, dist):
     '''
     label the cluster each input belongs to , where the cluster is a group of points in that are not far away from other by  dist km
@@ -74,12 +77,8 @@ def cluster_based_on_dist(X, dist):
     - cluster_labels :array of shape(data_size,) labeling each [lat,lon]
     - clusters_dict  :dict(cluster_label:[indices]) map each label to its list of indices in X
     '''
-    # Calculate distance
-    lat = get_lat_for_distance(dist)
-    lon = get_lon_for_distance(lat, dist)
-    total_dist = np.sqrt(lat ** 2 + lon ** 2)
-    _, cluster_labels = dbscan(X=X, eps=total_dist, min_samples=2, metric='l2')
-
+    clustering = DBSCAN( eps=dist, min_samples=2, metric='haversine').fit(X)
+    cluster_labels = clustering.labels_
     # map each label to its indices, each outlier (label of -1) is treated as its own cluster
     loc_indices = defaultdict(list)
     for i, loc in enumerate(X):
@@ -136,26 +135,18 @@ if __name__ == "__main__":
     locs = pd.read_csv("/network/projects/ecosystem-embeddings/ebird_new/summer_hotspots_clean.csv")
     print(len(locs))
     #pd.read_csv('/network/projects/_groups/ecosystem-embeddings/hotspot_split_june/hotspots_june_filtered.csv')
+    locs = locs.sort_values("county_code").reset_index()
     locs = locs.loc[:, ~locs.columns.str.contains('^Unnamed')]
-    #locs = locs[locs['hotspot_id'].isin(data['hotspot'].values)].reset_index(
-    #    drop=True)  # filter only by present hotspots
-
-    # Reading Training data from the existing splits csvs (images & target)
-    #train = pd.read_csv("/network/scratch/t/tengmeli/scratch/ecosystem-embedding/training/train_june_vf.csv")
-    #val = pd.read_csv("/network/scratch/t/tengmeli/scratch/ecosystem-embedding/training/val_june_vf.csv")
-    #test = pd.read_csv("/network/scratch/t/tengmeli/scratch/ecosystem-embedding/training/test_june_vf.csv")
-    #frames = [train, val, test]
-    #data = pd.concat(frames, sort=False)
-    #data = data.loc[:, ~data.columns.str.contains('^Unnamed')]
-    #data = data.reset_index(drop=True)
-
+    u = locs[['lat', 'lon']]
+    u['lat']= np.radians(u["lat"])
+    u['lon']= np.radians(u["lon"])
     # splitting ---
-    X = np.unique(locs[['lat', 'lon']].values, axis=0)
-    assert (len(X)==len(locs))
-    clusters_dict, _ = cluster_based_on_dist(X, dist=5)
+    X = u.values
+   
+    clusters_dict, cluster_labels = cluster_based_on_dist(u.values, dist=5/RADIUS_EARTH )
     train = 0.70
     valid = 0.15
-    splits_names = ['test','valid','train']
+    splits_names = ['valid','test','train']
 
     train_size = int(train * len(X))
     val_size = int(valid * len(X))
@@ -170,12 +161,13 @@ if __name__ == "__main__":
     for name in splits_names:
         lats_lons = locs.loc[splits[name], 'hotspot_id']
         write_array_text(lats_lons,
-                         f"/network/scratch/t/tengmeli/scratch/ecosystem-embedding/training/new_{name}_clustered_summer_4.txt")
+                         f"/network/scratch/t/tengmeli/scratch/ecosystem-embedding/training/new_{name}_clustered_summer_5.txt")
 
     # Write to csv files:
-
-    #for name in splits_names:
-    #    df = data.iloc[splits[name]].reset_index(drop=True)
-    #    df.to_csv(f'/network/scratch/t/tengmeli/scratch/ecosystem-embedding/training/new_{name}_clustered_summer.csv')
+    df = locs
+    df["split"] = ""
+    for name in splits_names:
+        df.loc[splits[name], "split"] = name #.reset_index(drop=True)
+    df.to_csv(f'/network/scratch/t/tengmeli/scratch/ecosystem-embedding/training/satbird_clustered_summer.csv')
 
     # print(df.head())
