@@ -111,10 +111,12 @@ class EbirdVisionDataset(VisionDataset):
                  data_base_dir,
                  bands,
                  env,
+                 env_var_sizes,
                  transforms: Optional[Callable[[Dict[str, Any]], Dict[str, Any]]] = None,
                  mode: Optional[str] = "train",
                  datatype="refl",
                  target="probs",
+                 targets_folder="corrected_targets",
                  subset=None,
                  use_loc=False,
                  res=[],
@@ -139,9 +141,11 @@ class EbirdVisionDataset(VisionDataset):
         self.transform = transforms
         self.bands = bands
         self.env = env
+        self.env_var_sizes = env_var_sizes
         self.mode = mode
         self.type = datatype
         self.target = target
+        self.targets_folder = targets_folder
         self.subset = get_subset(subset, num_species)
         self.use_loc = use_loc
         self.loc_type = loc_type
@@ -169,22 +173,18 @@ class EbirdVisionDataset(VisionDataset):
         sats = torch.from_numpy(img).float()
         item_["sat"] = sats
 
-        if len(self.env) > 0:
+        for i, env_var in enumerate(self.env):
             env_npy = os.path.join(self.data_base_dir, "environmental_data", hotspot_id + '.npy')
             env_data = load_file(env_npy)
-            item_["bioclim"] = torch.from_numpy(env_data[:19, :, :])
-            #TODO: make it generic
-            if self.num_species == 684:
-                item_["ped"] = torch.from_numpy(env_data[19:, :, :])
+            item_[env_var] = torch.from_numpy(env_data[i*self.env_var_sizes[i]:(i+1)*self.env_var_sizes[i], :, :])
 
         t = trsfs.Compose(self.transform)
         item_ = t(item_)
 
         for e in self.env:
-            
             item_["sat"] = torch.cat([item_["sat"], item_[e]], dim=-3).float()
 
-        species = load_file(os.path.join(self.data_base_dir, "corrected_targets", hotspot_id + '.json'))
+        species = load_file(os.path.join(self.data_base_dir, self.targets_folder, hotspot_id + '.json'))
 
         if self.target == "probs":
             if not self.subset is None:

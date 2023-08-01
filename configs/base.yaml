@@ -106,6 +106,7 @@ data:
 
   #o you want to use environmental data (pedological and bioclimatic (low res) data) #ped" or "bioclim" or both or empty list
   env: []#["ped", "bioclim"]
+  env_var_sizes: [19, 8]
 
   #resolution of pedological and bioclimatic data in meters
   ped:
@@ -120,6 +121,8 @@ data:
     train: "summer_hotspots_train.csv"
     val: "summer_hotspots_valid.csv"
     test: "summer_hotspots_test.csv"
+
+    targets_folder: "corrected_targets"
     correction_thresh: "final_range_maps.pkl" # range maps - threshold = False
 
     rgbnir_means: "stats/means_summer_rgbnir.npy"
