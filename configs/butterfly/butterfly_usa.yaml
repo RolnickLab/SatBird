@@ -1,8 +1,8 @@
 #where to save checkpoints
-save_path: "baseline_resnet18_RGBNIR"
+save_path: "butterfly_baseline_resnet18_RGBNIR"
 
 # load existing checkpoint for inference. If passing experiment folder instead (for multiple seeds), it will evaluate all of them.
-load_ckpt_path: "baseline_resnet18_RGBNIR"
+load_ckpt_path: "butterfly_baseline_resnet18_RGBNIR"
 save_preds_path: ""
 log_comet: true
 
@@ -22,7 +22,7 @@ loc:
 comet:
   project_name: "neurips_baselines" #"ecosystem-duck"
   tags: ["resnet18"]
-  experiment_name: "ebutterfly_baseline_resnet18_RGBNIR" # specify for training, or use to report test results, TODO: also use to resume training
+  experiment_name: "butterfly_baseline_resnet18_RGBNIR" # specify for training, or use to report test results, TODO: also use to resume training
   experiment_key: "" # use to report test results,
 
 experiment:
@@ -66,23 +66,23 @@ scheduler:
     warmup_epochs: 10
 
 variables: &default_vars
-    ped_means: &ped_means [2243.6380503 , 1375.25287124,   19.76864701,   18.74593645,
-             28.68707303,   60.79010948,   37.63874729,   43.61135346]
-    ped_std: &ped_std [2192.82241124,  104.32945499,    7.13089499,    6.49068363,
-             20.44677011,    8.44828871,    9.43810439,   12.5079619 ]
-    bioclim_means: &bioclim_means [ 1.09754659e+01,  1.23733808e+01,  3.61467365e+01,  8.37485713e+02,
-            2.90636300e+01, -6.09117271e+00,  3.51548027e+01,  1.50612062e+01,
-            6.45395180e+00,  2.11479405e+01,  5.23920224e-01,  8.94876528e+02,
-            1.12537181e+02,  4.15727670e+01,  3.61017403e+01,  3.10993183e+02,
-            1.43728751e+02,  2.27954854e+02,  2.16715613e+02]
-    bioclim_std: &bioclim_std ([  4.47820155,   2.21161338,   8.0115857 , 204.98822205,
-             3.50164049,   6.65999286,   6.16807484,   8.02128829,
-            10.6351929 ,   3.69966931,   6.33520431, 361.95098003,
-            47.76831975,  27.98050281,  24.19695586, 135.01831158,
-            90.12503615, 117.41413006, 146.55134417]
+    ped_means: &ped_means [1954.4912505229563, 1363.736733595406, 19.313608920109175, 17.537372520567267,
+                           32.11444009317606, 58.89855139642786, 35.32706177150302, 47.127172321822485]
+    ped_std: &ped_std [2194.6516649251826, 110.81597106623036, 9.729355156361533, 6.99370581234767,
+                       23.314670040749974, 8.123141981620352, 9.306674601754972, 12.404424612540323]
+    bioclim_means: &bioclim_means [12.253230312726622, 12.030979549681097, 36.4744577772858, 806.1015534043496,
+                                   29.436776200581825, -4.421969624786123, 33.85874582311301, 16.863659528175717,
+                                   8.11532808995076, 22.01906475930424, 2.1788380886680536, 980.5051592737277,
+                                   120.24720183227176, 50.41711931809582, 31.915783737660362,
+                                   329.1443299176774, 171.6938417741837, 267.4055193882557, 228.86876922078557]
+    bioclim_std: &bioclim_std [5.052473451423352, 2.105185176115935, 8.106983518563572, 194.18796051626583,
+                               3.5088726028509694, 7.032113813533729, 5.749606304816395, 8.18228686926079,
+                               10.148189974292242, 3.8310827323654912, 6.935282266030776, 329.33959099981917,
+                               43.8777234548383, 27.96345195701518, 24.194385704822345, 121.26540594070629,
+                               88.11401547252963, 122.10463269150056, 118.91835739256332]
 
-    rgbnir_means: &rgbnir_means [1781.2853091, 1828.38179935, 1580.46310787, 3912.1952206]
-    rgbnir_std: &rgbnir_std [786.6640817697212, 643.0713578941586, 612.5347533547798, 1296.637232875431]
+    rgbnir_means: &rgbnir_means [1577.72410351, 1824.80655937, 1742.68208621, 4058.0957505]
+    rgbnir_std: &rgbnir_std [725.42679207, 726.68825707, 840.15758313, 1337.02379352]
 
     visual_means: &visual_means [78.20186183, 83.78967871, 58.99852628]
     visual_stds: &visual_stds [64.32016159, 49.08529428, 46.45643505]
@@ -113,7 +113,7 @@ data:
       res: 1000
 
   files:
-    base: "/network/projects/ecosystem-embeddings/ebird_dataset/USA_summer"
+    base: "/network/projects/ecosystem-embeddings/ebird_dataset_v2/USA_summer"
     train: "butterfly_hotspots_train.csv"
     val: "butterfly_hotspots_valid.csv"
     test: "butterfly_hotspots_test.csv"
@@ -173,6 +173,6 @@ data:
       max_noise: 0.05
       
 
-  total_species: 600
+  total_species: 602
 trainer:
   auto_scale_batch_size: False
