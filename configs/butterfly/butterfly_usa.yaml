@@ -101,7 +101,7 @@ data:
   res: 10 #resolution of the images
 
   #o you want to use environmental data (pedological and bioclimatic (low res) data) #ped" or "bioclim" or both or empty list
-  env: ["ped", "bioclim"]
+  env: ["bioclim", "ped"]
   env_var_sizes: [19, 8]
 
   #resolution of pedological and bioclimatic data in meters

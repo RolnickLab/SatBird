@@ -176,7 +176,9 @@ class EbirdVisionDataset(VisionDataset):
         for i, env_var in enumerate(self.env):
             env_npy = os.path.join(self.data_base_dir, "environmental_data", hotspot_id + '.npy')
             env_data = load_file(env_npy)
-            item_[env_var] = torch.from_numpy(env_data[i*self.env_var_sizes[i]:(i+1)*self.env_var_sizes[i], :, :])
+            s_i = i*self.env_var_sizes[i-1]
+            e_i = self.env_var_sizes[i] + s_i
+            item_[env_var] = torch.from_numpy(env_data[s_i:e_i, :, :])
 
         t = trsfs.Compose(self.transform)
         item_ = t(item_)
