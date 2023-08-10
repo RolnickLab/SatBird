@@ -42,6 +42,7 @@ experiment:
     init_bias: ""
     means_path: ""
     lr: 0.0003
+    loss_func: "ce"
 
 optimizer: "Adam"  #"Adam"
 

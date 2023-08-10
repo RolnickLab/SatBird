@@ -67,6 +67,7 @@ class EbirdTask(pl.LightningModule):
         elif self.opts.losses.criterion == "Focal":
             self.criterion = CustomFocalLoss()
         else:
+            # target is num checklists reporting species i / total number of checklists at a hotspot
             if self.opts.experiment.module.use_weighted_loss:
                 self.criterion = WeightedCustomCrossEntropyLoss()
                 print("Training with Weighted CE Loss")
@@ -211,8 +212,8 @@ class EbirdTask(pl.LightningModule):
                     self.model.conv1.weight.data = init_first_layer_weights(get_nb_bands(self.bands), weights)
             # loading seco mode
             if self.opts.experiment.module.resume:
-                #this works for https://zenodo.org/record/4728033/files/seco_resnet18_1m.ckpt?download=1 
-                #Seco ResNet-18-1M model - from which the state dict corresponding only to the ResNet18 part encoder was extracted. 
+                #this works for https://zenodo.org/record/4728033/files/seco_resnet18_1m.ckpt?download=1
+                #Seco ResNet-18-1M model - from which the state dict corresponding only to the ResNet18 part encoder was extracted.
                 print('loading a pretrained SeComodel')
                 """
                 ckpt = torch.load(self.opts.experiment.module.resume)
@@ -237,13 +238,13 @@ class EbirdTask(pl.LightningModule):
                 for key,value in model_dict.items():
                     if not key.startswith("fc") :
                         if not key.startswith("conv1") and not key.startswith("bn1"):
-                            layer_name,weights=pretrained[count]      
+                            layer_name,weights=pretrained[count]
                             model_dict[key]=weights
                         count+=1
 
-                
+
                 self.model.load_state_dict(model_dict)
-                
+
             if self.opts.experiment.module.fc == "linear":
                 self.model.fc = nn.Linear(512, self.target_size)
             elif self.opts.experiment.module.fc == "linear_net":

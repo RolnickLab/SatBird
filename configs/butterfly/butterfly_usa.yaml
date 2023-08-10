@@ -1,8 +1,8 @@
 #where to save checkpoints
-save_path: "butterfly_baseline_resnet18_RGBNIR"
+save_path: "butterfly_baseline_resnet18_RGBNIR_v2_focal_loss"
 
 # load existing checkpoint for inference. If passing experiment folder instead (for multiple seeds), it will evaluate all of them.
-load_ckpt_path: "butterfly_baseline_resnet18_RGBNIR"
+load_ckpt_path: "butterfly_baseline_resnet18_RGBNIR_v2_focal_loss"
 save_preds_path: ""
 log_comet: true
 
@@ -22,7 +22,7 @@ loc:
 comet:
   project_name: "neurips_baselines" #"ecosystem-duck"
   tags: ["resnet18"]
-  experiment_name: "butterfly_baseline_resnet18_RGBNIR" # specify for training, or use to report test results, TODO: also use to resume training
+  experiment_name: "butterfly_baseline_resnet18_RGBNIR_v2_focal_loss" # specify for training, or use to report test results, TODO: also use to resume training
   experiment_key: "" # use to report test results,
 
 experiment:
@@ -46,6 +46,7 @@ experiment:
     init_bias: ""
     means_path: ""
     lr: 0.0003
+    loss_func: "focal"
 
 optimizer: "Adam"  #"Adam"
 
