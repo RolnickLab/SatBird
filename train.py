@@ -16,7 +16,7 @@ from pytorch_lightning.callbacks import ModelCheckpoint
 from src.utils.config_utils import load_opts
 import src.trainer.trainer as general_trainer
 import src.trainer.geo_trainer as geo_trainer
-
+from src.utils.compute_normalization_stats import *
 
 @hydra.main(config_path="configs", config_name="hydra")
 def main(opts):
@@ -38,6 +38,14 @@ def main(opts):
     conf.save_path = os.path.join(base_dir, conf.save_path, str(global_seed))
     conf.comet.experiment_name = conf.comet.experiment_name + '_seed_' + str(global_seed)
     conf.base_dir = base_dir
+
+    # compute means and stds for normalization
+    conf.variables.bioclim_means, conf.variables.bioclim_stds, conf.variables.ped_means,\
+        conf.variables.ped_stds  = compute_means_stds_env_vars(root_dir=conf.data.files.base, train_csv=conf.data.files.train)
+
+    conf.variables.rgbnir_means, conf.variables.rgbnir_std = compute_means_stds_images(root_dir=conf.data.files.base, train_csv=conf.data.files.train)
+
+    # conf.variables.visual_means, conf.variables.visual_stds = compute_means_stds_images_visual(root_dir=conf.data.files.base, train_csv=conf.data.files.train)
 
     pl.seed_everything(global_seed)
 

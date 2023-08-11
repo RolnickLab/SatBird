@@ -76,21 +76,32 @@ def get_img_bands(band_npy):
 
 
 def get_subset(subset, num_species=684):
-    if subset == "songbirds":
-        return np.load('/network/projects/_groups/ecosystem-embeddings/species_splits/songbirds_idx.npy')
-    elif subset == "not_songbirds":
-        return np.load('/network/projects/_groups/ecosystem-embeddings/species_splits/not_songbirds_idx.npy')
-    elif subset == "ducks":
-        return [37]
-    elif subset == "code1":
-        return np.load("/network/projects/_groups/ecosystem-embeddings/species_splits/code1.npy")
-    elif subset == "hawk":
-        return [2]
-    elif subset == "oystercatcher":
-        print("using oystercatcher")  # Haematopus palliatus
-        return [290]
-    else:
+    """
+    subset can be the filename instead
+    """
+    if not subset:
         return [i for i in range(num_species)]
+    else:
+        if os.path.isfile(subset):
+            return np.load(subset).astype(int)
+        else:
+            raise TypeError("Only npy files are allowed")
+
+    # if subset == "songbirds":
+    #     return np.load('/network/projects/_groups/ecosystem-embeddings/species_splits/songbirds_idx.npy')
+    # elif subset == "not_songbirds":
+    #     return np.load('/network/projects/_groups/ecosystem-embeddings/species_splits/not_songbirds_idx.npy')
+    # elif subset == "ducks":
+    #     return [37]
+    # elif subset == "code1":
+    #     return np.load("/network/projects/_groups/ecosystem-embeddings/species_splits/code1.npy")
+    # elif subset == "hawk":
+    #     return [2]
+    # elif subset == "oystercatcher":
+    #     print("using oystercatcher")  # Haematopus palliatus
+    #     return [290]
+    # else:
+    #     return [i for i in range(num_species)]
 
 
 class EbirdVisionDataset(VisionDataset):
@@ -135,7 +146,7 @@ class EbirdVisionDataset(VisionDataset):
         self.use_loc = use_loc
         self.loc_type = loc_type
         self.res = res
-        self.speciesA = get_subset("songbirds")
+        # self.speciesA = get_subset("songbirds")
         self.num_species = num_species
 
     def __len__(self):
@@ -251,7 +262,7 @@ class EbirdSpeciesEnvDataset(VisionDataset):
         self.subset = get_subset(subset, num_species)
         self.use_loc = use_loc
         self.loc_type = loc_type
-        self.speciesA = get_subset("songbirds")
+        # self.speciesA = get_subset("songbirds")
 
     def __len__(self):
         return self.total_images
