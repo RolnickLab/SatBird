@@ -146,7 +146,6 @@ class EbirdVisionDataset(VisionDataset):
         self.use_loc = use_loc
         self.loc_type = loc_type
         self.res = res
-        # self.speciesA = get_subset("songbirds")
         self.num_species = num_species
 
     def __len__(self):
@@ -181,7 +180,6 @@ class EbirdVisionDataset(VisionDataset):
         t = trsfs.Compose(self.transform)
         item_ = t(item_)
 
-       
         for e in self.env:
             
             item_["sat"] = torch.cat([item_["sat"], item_[e]], dim=-3).float()
