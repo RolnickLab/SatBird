@@ -43,7 +43,8 @@ def compute_means_stds_images(root_dir, train_csv, output_file_means="stats/mean
         means = np.array([mean_b, mean_g, mean_r, mean_nir])
         means_to_save = np.array([mean_r, mean_g, mean_b, mean_nir])
         np.save(output_file_means_path, means_to_save)
-    print("Images RGBNIR means: ", means_to_save)
+
+    print("Images RGBNIR means: ", means)
 
     output_file_stds_path = os.path.join(root_dir, output_file_std)
     if os.path.exists(output_file_stds_path):

@@ -18,6 +18,7 @@ import src.trainer.trainer as general_trainer
 import src.trainer.geo_trainer as geo_trainer
 from src.utils.compute_normalization_stats import *
 
+
 @hydra.main(config_path="configs", config_name="hydra")
 def main(opts):
     hydra_opts = dict(OmegaConf.to_container(opts))
@@ -40,8 +41,8 @@ def main(opts):
     conf.base_dir = base_dir
 
     # compute means and stds for normalization
-    conf.variables.bioclim_means, conf.variables.bioclim_stds, conf.variables.ped_means,\
-        conf.variables.ped_stds = compute_means_stds_env_vars(root_dir=conf.data.files.base, train_csv=conf.data.files.train)
+    # conf.variables.bioclim_means, conf.variables.bioclim_stds, conf.variables.ped_means,\
+    #     conf.variables.ped_stds = compute_means_stds_env_vars(root_dir=conf.data.files.base, train_csv=conf.data.files.train)
 
     if conf.data.datatype == "refl":
         conf.variables.rgbnir_means, conf.variables.rgbnir_std = compute_means_stds_images(root_dir=conf.data.files.base, train_csv=conf.data.files.train)
