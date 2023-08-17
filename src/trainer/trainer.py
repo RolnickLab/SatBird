@@ -66,16 +66,16 @@ class EbirdTask(pl.LightningModule):
                 self.criterion = CustomCrossEntropyLoss()
                 print("Training with Custom CE Loss")
 
-        if self.is_transfer_learning:
-            self.model = self.get_sat_model_AtoB()
-        else:
-            self.model = self.get_sat_model()
-
+        #if self.is_transfer_learning:
+        #    self.model = self.get_sat_model_AtoB()
+        #else:
+        self.model = self.get_sat_model()
+    """
     def get_sat_model_AtoB(self):
-        """
+    """
         #TODO: merge with get_sat_model()
-        transfers weights between species A to species B
-        """
+        #transfers weights between species A to species B
+    """
         self.model = models.resnet18(pretrained=self.opts.experiment.module.pretrained)
         if len(self.opts.data.bands) != 3 or len(self.opts.data.env) > 0:
             self.bands = self.opts.data.bands + self.opts.data.env
@@ -122,7 +122,7 @@ class EbirdTask(pl.LightningModule):
         self.metrics = metrics
 
         return self.model
-
+    """
     def get_sat_model(self):
         if self.opts.experiment.module.model == "train_linear":
             self.feature_extractor = models.resnet18(pretrained=self.opts.experiment.module.pretrained)
@@ -203,7 +203,10 @@ class EbirdTask(pl.LightningModule):
                     self.model.conv1.weight.data = init_first_layer_weights(get_nb_bands(self.bands), weights)
             # loading seco mode
             if self.opts.experiment.module.resume:
-                print('loading a pretrained model')
+             
+                print("AAAAAAAAAAAAAAAAAAAAAAA")
+                print('loading a pretrained SeComodel')
+                """
                 ckpt = torch.load(self.opts.experiment.module.resume)
                 self.model.fc = nn.Sequential()
                 loaded_dict = ckpt['state_dict']
@@ -216,7 +219,21 @@ class EbirdTask(pl.LightningModule):
                     if key_model == 'conv1.weight':
                         continue
                     model_dict[key_model] = loaded_dict[key_seco]
+                """
+                with open(self.opts.experiment.module.resume, "rb") as file:
+                    enc = pickle.load(file)
+                pretrained=list(enc.items())
+                #match the weights
+                model_dict=dict(self.model.state_dict())
+                count=0
+                for key,value in model_dict.items():
+                    if not key.startswith("fc") :
+                        if not key.startswith("conv1") and not key.startswith("bn1"):
+                            layer_name,weights=pretrained[count]      
+                            model_dict[key]=weights
+                        count+=1
 
+                
                 self.model.load_state_dict(model_dict)
             if self.opts.experiment.module.fc == "linear":
                 self.model.fc = nn.Linear(512, self.target_size)

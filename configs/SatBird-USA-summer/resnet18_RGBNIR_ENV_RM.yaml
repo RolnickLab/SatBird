@@ -1,16 +1,16 @@
 #where to save checkpoints
-save_path: "baseline_resnet18_RGBNIR_ENV_RM_all_classes"
+save_path: "/network/scratch/t/tengmeli/neurips_rebuttals/seco"
 
 # load existing checkpoint for inference. If passing experiment folder instead (for multiple seeds), it will evaluate all of them.
-load_ckpt_path: "baseline_resnet18_RGBNIR_ENV_RM_all_classes"
+load_ckpt_path: ""  #"baseline_resnet18_RGBNIR_ENV_RM_all_classes"
 save_preds_path: ""
 log_comet: true
 
 overfit_batches: 0.0
 # maximum number of epochs to train for
-max_epochs: 50
+max_epochs: 30
 # base directory
-base_dir: ""
+base_dir: 
 #use geographical information
 loc:
   use: False
@@ -20,8 +20,8 @@ loc:
 
 comet:
   project_name: "neurips_rebuttal" #"ecosystem-duck"
-  tags: ["resnet18", "RGBNIR_ENV_RM", "corrected_targets"]
-  experiment_name: "baseline_resnet18_RGBNIR_ENV_RM_all_classes" # specify for training, or use to report test results, TODO: also use to resume training
+  tags: ["resnet18", "SECO"]
+  experiment_name: "baseline_seco" # specify for training, or use to report test results, TODO: also use to resume training
   experiment_key: "" # use to report test results,
 
 experiment:
@@ -37,7 +37,7 @@ experiment:
     #use pretrained weights ( torchvision )
     pretrained: True
     # resume training from another model (transfer learning), set empty if training from scratch
-    resume: ""
+    resume: "/network/projects/ecosystem-embeddings/seco_weights.pkl"
     #initializes biases of the output layer sothat sigmoid(bias) = mean over the training set for each species
     init_bias: ""
     means_path: ""

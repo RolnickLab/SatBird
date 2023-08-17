@@ -16,7 +16,7 @@ def crop_center(img, cropx, cropy):
 
 
 def compute_means_stds_images(root_dir, train_csv, output_file_means="stats/means_summer_rgbnir.npy",
-                              output_file_std="stats/stds_means_rgbnir.npy"):
+                              output_file_std="stats/stds_summer_rgbnir.npy"):
 
     stats_df = pd.DataFrame(columns=["hotspot_id", "r", "g", "b", "nir"])
     df = pd.read_csv(os.path.join(root_dir, train_csv))
