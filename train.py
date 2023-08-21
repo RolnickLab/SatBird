@@ -41,8 +41,8 @@ def main(opts):
     conf.base_dir = base_dir
 
     # compute means and stds for normalization
-    # conf.variables.bioclim_means, conf.variables.bioclim_stds, conf.variables.ped_means,\
-    #     conf.variables.ped_stds = compute_means_stds_env_vars(root_dir=conf.data.files.base, train_csv=conf.data.files.train)
+    conf.variables.bioclim_means, conf.variables.bioclim_stds, conf.variables.ped_means,\
+        conf.variables.ped_stds = compute_means_stds_env_vars(root_dir=conf.data.files.base, train_csv=conf.data.files.train)
 
     if conf.data.datatype == "refl":
         conf.variables.rgbnir_means, conf.variables.rgbnir_std = compute_means_stds_images(root_dir=conf.data.files.base, train_csv=conf.data.files.train)
