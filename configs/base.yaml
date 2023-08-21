@@ -49,6 +49,10 @@ experiment:
 
 optimizer: "Adam"  #"Adam"
 
+losses:
+#scale attribute is just for plotting if the values are very small
+  criterion: "CE" #or MAE or MSE or Focal or RMSLE  (loss to choose for optim )
+
 #auto lr will only work if there is only one optimizer
 auto_lr_find: False
 scheduler:

@@ -13,6 +13,10 @@ class CustomCrossEntropyLoss:
         self.lambd_pres = lambd_pres
 
     def __call__(self, p, q):
+        """
+        p: ground truth
+        q: prediction
+        """
         # print('maximum prediction value ',q.max())
         # print('maximum target value',p.max())
         # p=torch.clip(p, min=0, max=0.98)
