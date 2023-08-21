@@ -1,3 +1,6 @@
+"""
+utility functions to get information about species and their frequencies
+"""
 import json
 import os.path
 import json
@@ -5,12 +8,11 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 
-num_species = 684
-root_dir = "/network/projects/ecosystem-embeddings/ebird_dataset/USA_summer/species_data"
 
-
-def compute_species_frequencies(output_file="species_frequencies.npy"):
-
+def compute_species_frequencies(root_dir, output_file="species_frequencies.npy", num_species=684):
+    """
+    computes frequency of all species given a csv of hotspots
+    """
     df = pd.read_csv(os.path.join(root_dir, "all_summer_hotspots.csv"))
 
     list_of_frequencies = np.zeros(num_species)
@@ -64,9 +66,6 @@ def get_least_common_species(species_frequencies, output_file=None):
 
 
 if __name__ == "__main__":
+    root_dir = "/network/projects/ecosystem-embeddings/ebird_dataset/USA_summer/species_data"
     species_freq_file_name = "species_frequencies.npy"
-    list_of_frequencies = np.load(os.path.join(root_dir, species_freq_file_name))
-
-    get_subset_of_species(list_of_frequencies)
-    # get_most_common_species(list_of_frequencies,output_file="most_common_species.npy")
-    # get_least_common_species(list_of_frequencies, output_file="least_common_species.npy")
+    compute_species_frequencies(root_dir, species_freq_file_name)
