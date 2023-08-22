@@ -12,16 +12,16 @@ class CustomCrossEntropyLoss:
         self.lambd_abs = lambd_abs
         self.lambd_pres = lambd_pres
 
-    def __call__(self, p, q):
+    def __call__(self, target, pred):
         """
-        p: ground truth
-        q: prediction
+        target: ground truth
+        pred: prediction
         """
         # print('maximum prediction value ',q.max())
         # print('maximum target value',p.max())
         # p=torch.clip(p, min=0, max=0.98)
         # q=torch.clip(q, min=0, max=0.98)
-        loss = (-self.lambd_pres * p * torch.log(q + eps) - self.lambd_abs * (1 - p) * torch.log(1 - q + eps)).mean()
+        loss = (-self.lambd_pres * target * torch.log(pred + eps) - self.lambd_abs * (1 - target) * torch.log(1 - pred + eps)).mean()
         # print('inside_loss',loss)
         return loss
 
@@ -36,18 +36,6 @@ class RMSLELoss(nn.Module):
 
     def forward(self, actual, pred):
         return torch.sqrt(self.mse(torch.log(pred + 1), torch.log(actual + 1)))
-
-
-class MAELoss(nn.Module):
-    """
-    L1 loss, or MAE
-    """
-    def __init__(self):
-        super().__init__()
-        self.l1loss = nn.L1Loss()
-
-    def forward(self, actual, pred):
-        return self.l1loss(pred, actual)
 
 
 class CustomFocalLoss:
