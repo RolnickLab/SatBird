@@ -122,6 +122,12 @@ data:
     test: "summer_hotspots_test.csv"
     correction_thresh: "final_range_maps.pkl" # range maps - threshold = False
 
+    rgbnir_means: "stats/means_summer_rgbnir.npy"
+    rgbnir_stds: "stats/stds_summer_rgbnir.npy"
+
+    rgb_means: "stats/means_summer_images_visual.npy"
+    rgb_stds: "stats/stds_summer_images_visual.npy"
+
   correction_factor:
      thresh:  # to train with RM
 

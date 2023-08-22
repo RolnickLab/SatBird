@@ -332,8 +332,10 @@ def get_transforms(opts, mode):
 
     for t in opts.data.transforms:
         if t.name == "normalize":
-            if t.subset == ["sat"]:
+            if t.subset == ["sat"] and opts.data.datatype == "refl":
                 t.custom = opts.variables.rgbnir_means, opts.variables.rgbnir_std
+            if t.subset == ["sat"] and opts.data.datatype == "img":
+                t.custom = opts.variables.visual_means, opts.variables.visual_stds
             elif t.subset == ["bioclim"]:
                 t.custom = opts.variables.bioclim_means, opts.variables.bioclim_std
             elif t.subset == ["ped"]:
