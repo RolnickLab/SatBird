@@ -67,7 +67,7 @@ def process_hotspot(
     hotspot_df = pd.read_csv(os.path.join("/network/scratch/t/tengmeli/newebd/output/split-" + hotspot[-3:], hotspot+".csv"), sep ="\t", parse_dates=["OBSERVATION DATE"])
     #hotspot_name = hotspot_file.stem
     # Dicts mapping from
-    summer_targets_and_entries: dict[str, tuple[dict, pd.DataFrame]] = {}
+    targets_and_entries: dict[str, tuple[dict, pd.DataFrame]] = {}
     #winter_targets_and_entries: dict[str, tuple[dict, pd.DataFrame]] = {}
 
     if hotspot_df["STATE"].isin(["Hawaii", "Alaska"]).any():
@@ -95,14 +95,14 @@ def target_and_entry(
 
     #sometimes species might be reported twice in the complete checklists because observers will indicate subspecies. In our application, we do not consider subspecies and thus only count one of the observations of the same species in the same checklist. 
     targets = (
-        csv[["SCIENTIFIC NAME", "SAMPLING EVENT IDENTIFIER"]].drop_duplicates(keep="first").groupby("SCIENTIFIC NAME").agg("count")
+        df[["SCIENTIFIC NAME", "SAMPLING EVENT IDENTIFIER"]].drop_duplicates(keep="first").groupby("SCIENTIFIC NAME").agg("count")
     )
-    num_checklists = csv["SAMPLING EVENT IDENTIFIER"].nunique()
+    num_checklists = df["SAMPLING EVENT IDENTIFIER"].nunique()
     targets = targets/ num_checklists
     
     
     targ = targets.reset_index().merge(filler, how="right")
-    targ = list(targ.fillna(0)["GLOBAL UNIQUE IDENTIFIER"].values)
+    targ = list(targ.fillna(0)["SAMPLING EVENT IDENTIFIER"].values)
     target = {
         "hotspot_id": hotspot_name,
         "probs": targ,
@@ -172,12 +172,14 @@ def main():
     winter_path = Path("/network/projects/ecosystem-embeddings/ebird_new/checklists_USA/winter_list.txt")
     #or csv file with hotspot ids
     
-    csv_file = "/network/projects/_groups/ecosystem-embeddings/SatBird_data/extra_summer.csv"
+    csv_file =  "/network/projects/_groups/ecosystem-embeddings/ebird_dataset_v2/USA_summer/all_summer_hotspots.csv"
+
+    #"/network/projects/_groups/ecosystem-embeddings/SatBird_data/extra_summer.csv"
     
     #total_lines = 843_311_790
 
     # Directory where the output files should be created.
-    output_dir = Path(f"/network/projects/ecosystem-embeddings/SatBird_data/USA_{season}/")
+    output_dir = Path("/network/projects/ecosystem-embeddings/SatBird_data_v2/")
 
     # Do NOT allow the output directory to exist, since we want a "clean" preprocessed dataset.
     #output_dir.mkdir(parents=True, exist_ok=True)  # FIXME: Set `exist_ok` to False before posting
@@ -214,7 +216,7 @@ def main():
     
     print("Creating the datasets for the summer and winter seasons...")
     targets_dir = output_dir / f"{season}_targets"
-    _remove_dir_if_it_exists(targets_dir)
+    _remove_dir_if_it_exists(targets_dir, targets_dir)
     targets_dir.mkdir(parents=True, exist_ok=False)
 
 
