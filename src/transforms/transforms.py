@@ -331,6 +331,18 @@ def get_transforms(opts, mode):
     transforms = []
 
     for t in opts.data.transforms:
+        if t.name == "normalize":
+            if t.subset == ["sat"] and opts.data.datatype == "refl":
+                t.custom = opts.variables.rgbnir_means, opts.variables.rgbnir_std
+            if t.subset == ["sat"] and opts.data.datatype == "img":
+                t.custom = opts.variables.visual_means, opts.variables.visual_stds
+            elif t.subset == ["bioclim"]:
+                t.custom = opts.variables.bioclim_means, opts.variables.bioclim_std
+            elif t.subset == ["ped"]:
+                t.custom = opts.variables.ped_means, opts.variables.ped_std
+        if t.name == "matchres":
+            t.custom_means = opts.variables.bioclim_means, opts.variables.ped_means
+
         if t.name == "normalize" and not (
                 t.ignore is True or t.ignore == mode
         ) and t.subset == ["sat"]:

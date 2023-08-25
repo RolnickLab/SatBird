@@ -49,6 +49,10 @@ experiment:
 
 optimizer: "Adam"  #"Adam"
 
+losses:
+#scale attribute is just for plotting if the values are very small
+  criterion: "CE" #or MAE or MSE or Focal or RMSLE  (loss to choose for optim )
+
 #auto lr will only work if there is only one optimizer
 auto_lr_find: False
 scheduler:
@@ -117,6 +121,12 @@ data:
     val: "summer_hotspots_valid.csv"
     test: "summer_hotspots_test.csv"
     correction_thresh: "final_range_maps.pkl" # range maps - threshold = False
+
+    rgbnir_means: "stats/means_summer_rgbnir.npy"
+    rgbnir_stds: "stats/stds_summer_rgbnir.npy"
+
+    rgb_means: "stats/means_summer_images_visual.npy"
+    rgb_stds: "stats/stds_summer_images_visual.npy"
 
   correction_factor:
      thresh:  # to train with RM
