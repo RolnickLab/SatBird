@@ -1,5 +1,6 @@
 import torch
 from torchmetrics import Metric
+import torch.nn as nn
 
 eps = 1e-7
 
@@ -21,15 +22,44 @@ class CustomCrossEntropyLoss:
         return loss
 
 
-'''
-class CustomCrossEntropyLoss(nn.Module):
-    def __init__(self, lambd_pres = 1, lambd_abs = 1):
+class RMSLELoss(nn.Module):
+    """
+    root mean squared log error
+    """
+    def __init__(self):
         super().__init__()
-        self.lambd_abs = lambd_abs
-        self.lambd_pres =lambd_pres
-    def __call__(self, p, q):
-        return (-self.lambd_pres *p * torch.log(q) - self.lambd_abs * (1-p) *torch.log(1 - q)).mean()
-'''
+        self.mse = nn.MSELoss()
+
+    def forward(self, actual, pred):
+        return torch.sqrt(self.mse(torch.log(pred + 1), torch.log(actual + 1)))
+
+
+class MAELoss(nn.Module):
+    """
+    L1 loss, or MAE
+    """
+    def __init__(self):
+        super().__init__()
+        self.l1loss = nn.L1Loss()
+
+    def forward(self, actual, pred):
+        return self.l1loss(pred, actual)
+
+
+class CustomFocalLoss:
+    def __init__(self, alpha=1, gamma=2):
+        """
+        build on top of binary cross entropy as implemented before
+        """
+        super().__init__()
+        self.alpha = alpha
+        self.gamma = gamma
+
+    def __call__(self, target, pred):
+        ce_loss = (- target * torch.log(pred + eps) - (1 - target) * torch.log(1 - pred + eps)).mean()
+        pt = torch.exp(-ce_loss)
+        focal_loss = self.alpha * (1 - pt) ** self.gamma * ce_loss
+        return focal_loss
 
 
 class CustomCrossEntropy(Metric):

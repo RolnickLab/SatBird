@@ -15,7 +15,7 @@ from torch.utils.data import DataLoader
 from torchvision import models
 
 from src.dataset.dataloader import EbirdVisionDataset, get_subset
-from src.losses.losses import CustomCrossEntropyLoss, WeightedCustomCrossEntropyLoss
+from src.losses.losses import CustomCrossEntropyLoss, WeightedCustomCrossEntropyLoss, RMSLELoss, CustomFocalLoss
 from src.losses.metrics import get_metrics
 from src.trainer.utils import get_target_size, get_nb_bands, get_scheduler, init_first_layer_weights, \
     load_from_checkpoint
@@ -57,8 +57,16 @@ class EbirdTask(pl.LightningModule):
         elif self.target_type == "log":
             self.criterion = nn.MSELoss()
             print("Training with MSE Loss")
+
+        if self.opts.losses.criterion == "MSE":
+            self.criterion = nn.MSELoss()
+        elif self.opts.losses.criterion == "MAE":
+            self.criterion = nn.L1Loss()
+        elif self.opts.losses.criterion == "RMSLE":
+            self.criterion = RMSLELoss()
+        elif self.opts.losses.criterion == "Focal":
+            self.criterion = CustomFocalLoss()
         else:
-            # target is num checklists reporting species i / total number of checklists at a hotspot
             if self.opts.experiment.module.use_weighted_loss:
                 self.criterion = WeightedCustomCrossEntropyLoss()
                 print("Training with Weighted CE Loss")
@@ -203,8 +211,8 @@ class EbirdTask(pl.LightningModule):
                     self.model.conv1.weight.data = init_first_layer_weights(get_nb_bands(self.bands), weights)
             # loading seco mode
             if self.opts.experiment.module.resume:
-             
-                print("AAAAAAAAAAAAAAAAAAAAAAA")
+                #this works for https://zenodo.org/record/4728033/files/seco_resnet18_1m.ckpt?download=1 
+                #Seco ResNet-18-1M model - from which the state dict corresponding only to the ResNet18 part encoder was extracted. 
                 print('loading a pretrained SeComodel')
                 """
                 ckpt = torch.load(self.opts.experiment.module.resume)
@@ -235,6 +243,7 @@ class EbirdTask(pl.LightningModule):
 
                 
                 self.model.load_state_dict(model_dict)
+                
             if self.opts.experiment.module.fc == "linear":
                 self.model.fc = nn.Linear(512, self.target_size)
             elif self.opts.experiment.module.fc == "linear_net":
@@ -459,7 +468,6 @@ class EbirdTask(pl.LightningModule):
             if self.target_type == "log" or self.target_type == "binary":
                 pred = y_hat.type_as(y)
             else:
-
                 pred = self.sigmoid_activation(y_hat).type_as(y)
 
             if self.opts.data.correction_factor.thresh == 'after':

@@ -58,15 +58,6 @@ def load_geotiff_visual(file):
     return img
 
 def load_geotiff(file):
-    # ds = gdal.Open(file)
-    # band1 = ds.GetRasterBand(1).ReadAsArray() # Blue channel
-    # band2 = ds.GetRasterBand(2).ReadAsArray() # Green channel
-    # band3 = ds.GetRasterBand(3).ReadAsArray() # Red channel
-    # band4 = (ds.GetRasterBand(4).ReadAsArray()/ds.GetRasterBand(4).ReadAsArray().max())*255 # nir
-    # band4=band4.astype(np.uint8)
-    # img = np.dstack((band3, band2, band1,band4))
-    # img=np.reshape(img,(img.shape[2],img.shape[0],img.shape[1])) #C X H X W
-
     img = tiff.imread(file)
     new_band_order = [2, 1, 0, 3] # r, g, b, nir
     img = img[:, :, new_band_order].astype(np.float)
