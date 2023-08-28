@@ -1,107 +1,13 @@
-from pathlib import Path
-from typing import Any, Callable, Dict, Optional
 import os
-import math
-
-from src.dataset.geo import VisionDataset
-from src.dataset.utils import load_file
-
+from typing import Any, Callable, Dict, Optional
+import numpy as np
 import torch
 from torchvision import transforms as trsfs
-from torch.nn import Module
-from torch import Tensor
-import numpy as np
+
+from src.dataset.geo import VisionDataset
+from src.dataset.utils import get_subset, load_file, encode_loc
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-
-
-def get_path(df, index, band):
-    return Path(df.iloc[index][band])
-
-
-def encode_loc(loc, concat_dim=1, elev=False):
-    # loc is (lon, lat ) or (lon, lat, elev)
-
-    feats = torch.cat((torch.sin(math.pi * loc[:, :2]), torch.cos(math.pi * loc[:, :2])), concat_dim)
-    if elev:
-        elev_feats = torch.unsqueeze(loc_ip[:, 2], concat_dim)
-        feats = torch.cat((feats, elev_feats), concat_dim)
-    return (feats)
-
-
-def convert_loc_to_tensor(x, elev=False, device=None):
-    # input is in lon {-180, 180}, lat {90, -90}
-    xt = x
-    xt[:, 0] /= 180.0  # longitude
-    xt[:, 1] /= 90.0  # latitude
-    if elev:
-        xt[:, 2] /= 5000.0  # elevation
-    if device is not None:
-        xt = xt.to(device)
-    return xt
-
-
-class Identity(Module):  # type: ignore[misc,name-defined]
-    """Identity function used for testing purposes."""
-
-    def forward(self, sample: Dict[str, Tensor]) -> Dict[str, Tensor]:
-        """Do nothing.
-        Args:
-            sample: the input
-        Returns:
-            the unchanged input
-        """
-        return sample
-
-
-def get_img_bands(band_npy):
-    """
-    band_npy: list of tuples (band_name, item_paths) item_paths being paths to npy objects
-    
-    Returns: 
-        stacked satellite bands data as numpy array
-    """
-    bands = []
-    for elem in band_npy:
-        b, band = elem
-        if b == "rgb":
-            bands += [np.squeeze(load_file(band))]
-        elif b == "nir":
-            nir_band = load_file(band)
-            nir_band = (nir_band / nir_band.max()) * 255
-            nir_band = nir_band.astype(np.uint8)
-            bands += [nir_band]
-    npy_data = np.vstack(bands) / 255
-    return npy_data
-
-
-def get_subset(subset, num_species=684):
-    """
-    subset can be the filename instead
-    """
-    if not subset:
-        return [i for i in range(num_species)]
-    else:
-        if os.path.isfile(subset):
-            return np.load(subset).astype(int)
-        else:
-            raise TypeError("Only npy files are allowed")
-
-    # if subset == "songbirds":
-    #     return np.load('/network/projects/_groups/ecosystem-embeddings/species_splits/songbirds_idx.npy')
-    # elif subset == "not_songbirds":
-    #     return np.load('/network/projects/_groups/ecosystem-embeddings/species_splits/not_songbirds_idx.npy')
-    # elif subset == "ducks":
-    #     return [37]
-    # elif subset == "code1":
-    #     return np.load("/network/projects/_groups/ecosystem-embeddings/species_splits/code1.npy")
-    # elif subset == "hawk":
-    #     return [2]
-    # elif subset == "oystercatcher":
-    #     print("using oystercatcher")  # Haematopus palliatus
-    #     return [290]
-    # else:
-    #     return [i for i in range(num_species)]
 
 
 class EbirdVisionDataset(VisionDataset):
@@ -120,8 +26,8 @@ class EbirdVisionDataset(VisionDataset):
                  subset=None,
                  use_loc=False,
                  res=[],
-                 loc_type=None, 
-                 num_species = 684) -> None:
+                 loc_type=None,
+                 num_species=684) -> None:
         """
         df_paths: dataframe with paths to data for each hotspot
         data_base_dir: base directory for data
@@ -160,23 +66,21 @@ class EbirdVisionDataset(VisionDataset):
 
         hotspot_id = self.df.iloc[index]['hotspot_id']
 
+        # satellite image
         if self.type == 'img':
             img_path = os.path.join(self.data_base_dir, "images_visual", hotspot_id + '_visual.tif')
         else:
             img_path = os.path.join(self.data_base_dir, "images", hotspot_id + '.tif')
 
-        if self.type == "img":
-            img = load_file(img_path)
-        elif self.type == 'refl':
-            img = load_file(img_path)
-
+        img = load_file(img_path)
         sats = torch.from_numpy(img).float()
         item_["sat"] = sats
 
+        # env rasters
         for i, env_var in enumerate(self.env):
             env_npy = os.path.join(self.data_base_dir, "environmental_data", hotspot_id + '.npy')
             env_data = load_file(env_npy)
-            s_i = i*self.env_var_sizes[i-1]
+            s_i = i * self.env_var_sizes[i - 1]
             e_i = self.env_var_sizes[i] + s_i
             item_[env_var] = torch.from_numpy(env_data[s_i:e_i, :, :])
 
@@ -186,8 +90,8 @@ class EbirdVisionDataset(VisionDataset):
         for e in self.env:
             item_["sat"] = torch.cat([item_["sat"], item_[e]], dim=-3).float()
 
+        # target labels
         species = load_file(os.path.join(self.data_base_dir, self.targets_folder, hotspot_id + '.json'))
-
         if self.target == "probs":
             if not self.subset is None:
                 item_["target"] = np.array(species["probs"])[self.subset]
@@ -215,13 +119,11 @@ class EbirdVisionDataset(VisionDataset):
 
         item_["num_complete_checklists"] = species["num_complete_checklists"]
 
-        # item_["state_id"] = self.df["state_id"][index]
-
         if self.use_loc:
             if self.loc_type == "latlon":
                 lon, lat = torch.Tensor([item_["lon"]]), torch.Tensor([item_["lat"]])
                 loc = torch.cat((lon, lat)).unsqueeze(0)
-                loc = encode_loc(convert_loc_to_tensor(loc))
+                loc = encode_loc(loc)
                 item_["loc"] = loc
 
         item_["hotspot_id"] = hotspot_id

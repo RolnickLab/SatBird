@@ -1,21 +1,21 @@
-import os
-import sys
-from typing import Tuple
-from datetime import datetime, timedelta
-# from osgeo import gdal
-import tifffile as tiff
-"""All non-tensor utils
-"""
 import json
-import os
+import math
 import shutil
+import sys
+import os
 import traceback
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, List, Optional, Union
-from PIL import Image
+from typing import Tuple
+
 import numpy as np
+import tifffile as tiff
 import yaml
+from PIL import Image
 from addict import Dict
+import torch
+from torch.nn import Module
 
 comet_kwargs = {
     "auto_metric_logging": False,
@@ -29,13 +29,22 @@ IMG_EXTENSIONS = set(
     [".jpg", ".JPG", ".jpeg", ".JPEG", ".png", ".PNG", ".ppm", ".PPM", ".bmp", ".BMP"]
 )
 
+
 def json_load(file_path):
+    """
+    loads a json file given path
+    """
     with open(file_path, "r") as f:
         return json.load(f)
 
+
 def yaml_load(file_path):
+    """
+    loads a yaml file given path
+    """
     with open(file_path, "r") as f:
         return yaml.safe_load(f)
+
 
 def is_image_file(filename):
     """Check that a file's name points to a known image format"""
@@ -43,23 +52,18 @@ def is_image_file(filename):
         return filename.suffix in IMG_EXTENSIONS
     return Path(filename).suffix in IMG_EXTENSIONS
 
-def load_geotiff_visual(file):
-    # ds = gdal.Open(file)
-    # band1 = ds.GetRasterBand(1).ReadAsArray() # Blue channel
-    # band2 = ds.GetRasterBand(2).ReadAsArray() # Green channel
-    # band3 = ds.GetRasterBand(3).ReadAsArray() # Red channel
-    # img = np.dstack((band1, band2, band3))  #RGB order
-    # img = np.reshape(img,(img.shape[2],img.shape[0],img.shape[1])) #C X H X W
 
+def load_geotiff_visual(file):
     img = tiff.imread(file).astype(np.float32)
-   
+
     img = np.reshape(img, (img.shape[2], img.shape[0], img.shape[1]))
     img = img / 255
     return img
 
+
 def load_geotiff(file):
     img = tiff.imread(file)
-    new_band_order = [2, 1, 0, 3] # r, g, b, nir
+    new_band_order = [2, 1, 0, 3]  # r, g, b, nir
     img = img[:, :, new_band_order].astype(np.float)
     img[:, :, -1] = (img[:, :, -1] / img[:, :, -1].max()) * 255
     img[:, :, -1] = img[:, :, -1].astype(np.uint8)
@@ -71,20 +75,78 @@ def load_geotiff(file):
 
 def load_file(file_path):
     if is_image_file(file_path):
-        return (Image.open(file_path))
+        return Image.open(file_path)
     elif file_path.split('.')[-1] == "yaml":
-        return (yaml_load(file_path))
+        return yaml_load(file_path)
     elif file_path.split('.')[-1] == "json":
-        return (json_load(file_path))
+        return json_load(file_path)
     elif file_path.split('.')[-1] == "npy":
-        return (np.load(file_path))
+        return np.load(file_path)
     elif file_path.split('.')[-1] == "tif":
         if 'visual' in str(file_path):
-           
-             return (load_geotiff_visual(file_path))
+            return load_geotiff_visual(file_path)
         else:
-            return (load_geotiff(file_path))
-    
+            return load_geotiff(file_path)
+
+
+def get_path(df, index, band):
+    return Path(df.iloc[index][band])
+
+
+def encode_loc(loc, concat_dim=1, elev=False):
+    # loc is (lon, lat ) or (lon, lat, elev)
+    loc = convert_loc_to_tensor(loc)
+    feats = torch.cat((torch.sin(math.pi * loc[:, :2]), torch.cos(math.pi * loc[:, :2])), concat_dim)
+    if elev:
+        elev_feats = torch.unsqueeze(loc_ip[:, 2], concat_dim)
+        feats = torch.cat((feats, elev_feats), concat_dim)
+    return (feats)
+
+
+def convert_loc_to_tensor(x, elev=False, device=None):
+    # input is in lon {-180, 180}, lat {90, -90}
+    xt = x
+    xt[:, 0] /= 180.0  # longitude
+    xt[:, 1] /= 90.0  # latitude
+    if elev:
+        xt[:, 2] /= 5000.0  # elevation
+    if device is not None:
+        xt = xt.to(device)
+    return xt
+
+
+def get_img_bands(band_npy):
+    """
+    band_npy: list of tuples (band_name, item_paths) item_paths being paths to npy objects
+
+    Returns:
+        stacked satellite bands data as numpy array
+    """
+    bands = []
+    for elem in band_npy:
+        b, band = elem
+        if b == "rgb":
+            bands += [np.squeeze(load_file(band))]
+        elif b == "nir":
+            nir_band = load_file(band)
+            nir_band = (nir_band / nir_band.max()) * 255
+            nir_band = nir_band.astype(np.uint8)
+            bands += [nir_band]
+    npy_data = np.vstack(bands) / 255
+    return npy_data
+
+
+def get_subset(subset, num_species=684):
+    """
+    subset can be the filename instead
+    """
+    if not subset:
+        return [i for i in range(num_species)]
+    else:
+        if os.path.isfile(subset):
+            return np.load(subset).astype(int)
+        else:
+            raise TypeError("Only npy files are allowed")
 
 
 def copy_run_files(opts: Dict) -> None:
@@ -108,7 +170,7 @@ def copy_run_files(opts: Dict) -> None:
 
 
 def merge(
-    source: Union[dict, Dict], destination: Union[dict, Dict]
+        source: Union[dict, Dict], destination: Union[dict, Dict]
 ) -> Union[dict, Dict]:
     """
     run me with nosetests --with-doctest file.py
@@ -148,9 +210,9 @@ def merge(
 
 
 def load_opts(
-    path: Optional[Union[str, Path]] = None,
-    default: Optional[Union[str, Path, dict, Dict]] = None,
-    commandline_opts: Optional[Union[Dict, dict]] = None,
+        path: Optional[Union[str, Path]] = None,
+        default: Optional[Union[str, Path, dict, Dict]] = None,
+        commandline_opts: Optional[Union[Dict, dict]] = None,
 ) -> Dict:
     """Loadsize a configuration Dict from 2 files:
     1. default files with shared values across runs and users
@@ -203,16 +265,17 @@ def set_data_paths(opts: Dict) -> Dict:
         addict.Dict: updated options
     """
 
-    for mode in ["train", "val","test"]:
+    for mode in ["train", "val", "test"]:
         if opts.data.files.base:
-            opts.data.files[mode]= str(
-                    Path(opts.data.files.base) / opts.data.files[mode]
-                )
+            opts.data.files[mode] = str(
+                Path(opts.data.files.base) / opts.data.files[mode]
+            )
             assert Path(
                 opts.data.files[mode]
             ).exists(), "Cannot find {}".format(str(opts.data.files[mode]))
-        
+
     return opts
+
 
 class BoundingBox(Tuple[float, float, float, float, float, float]):
     """Data class for indexing spatiotemporal data.
@@ -226,13 +289,13 @@ class BoundingBox(Tuple[float, float, float, float, float, float]):
     """
 
     def __new__(
-        cls,
-        minx: float,
-        maxx: float,
-        miny: float,
-        maxy: float,
-        mint: float,
-        maxt: float,
+            cls,
+            minx: float,
+            maxx: float,
+            miny: float,
+            maxy: float,
+            mint: float,
+            maxt: float,
     ) -> "BoundingBox":
         """Create a new instance of BoundingBox.
         Args:
@@ -258,13 +321,13 @@ class BoundingBox(Tuple[float, float, float, float, float, float]):
         return tuple.__new__(cls, [minx, maxx, miny, maxy, mint, maxt])
 
     def __init__(
-        self,
-        minx: float,
-        maxx: float,
-        miny: float,
-        maxy: float,
-        mint: float,
-        maxt: float,
+            self,
+            minx: float,
+            maxx: float,
+            miny: float,
+            maxy: float,
+            mint: float,
+            maxt: float,
     ) -> None:
         """Initialize a new instance of BoundingBox.
         Args:
@@ -307,12 +370,12 @@ class BoundingBox(Tuple[float, float, float, float, float, float]):
             True if bounding boxes intersect, else False
         """
         return (
-            self.minx <= other.maxx
-            and self.maxx >= other.minx
-            and self.miny <= other.maxy
-            and self.maxy >= other.miny
-            and self.mint <= other.maxt
-            and self.maxt >= other.mint
+                self.minx <= other.maxx
+                and self.maxx >= other.minx
+                and self.miny <= other.maxy
+                and self.maxy >= other.miny
+                and self.mint <= other.maxt
+                and self.maxt >= other.mint
         )
 
 
