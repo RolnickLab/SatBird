@@ -1,8 +1,8 @@
 #where to save checkpoints
-save_path: "baseline_resnet18_RGBNIR_ENV_v2"
+save_path: "baseline_resnet18_RGBNIR_ENV"
 
 # load existing checkpoint for inference. If passing experiment folder instead (for multiple seeds), it will evaluate all of them.
-load_ckpt_path: "baseline_resnet18_RGBNIR_ENV_v2"
+load_ckpt_path: "baseline_resnet18_RGBNIR_ENV"
 save_preds_path: "" #"/network/scratch/h/hager.radi/ecosystem-embedding/baseline_resnet18_RGBNIR_ENV/preds_path"
 log_comet: true
 
@@ -21,7 +21,7 @@ loc:
 comet:
   project_name: "neurips_baselines" #"ecosystem-duck"
   tags: ["resnet18", "RGBNIR_ENV", "corrected_targets"]
-  experiment_name: "baseline_resnet18_RGBNIR_ENV_v2" # specify for training, or use to report test results, TODO: also use to resume training
+  experiment_name: "baseline_resnet18_RGBNIR_ENV" # specify for training, or use to report test results, TODO: also use to resume training
   experiment_key: "" # use to report test results,
 
 experiment:
@@ -112,10 +112,10 @@ data:
       res: 1000
   
   files:
-    base: "/network/projects/ecosystem-embeddings/ebird_dataset_v2/USA_summer"
-    train: "summer_hotspots_train_no_nans.csv"
-    val: "summer_hotspots_valid_no_nans.csv"
-    test: "summer_hotspots_test_no_nans.csv"
+    base: "/network/projects/ecosystem-embeddings/ebird_dataset/USA_summer"
+    train: "summer_hotspots_train.csv"
+    val: "summer_hotspots_valid.csv"
+    test: "summer_hotspots_test.csv"
 
     targets_folder: "corrected_targets"
     correction_thresh: "final_range_maps.pkl" # range maps - threshold = False
