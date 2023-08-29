@@ -1,4 +1,6 @@
-# main trainer
+"""
+general trainer: supports training Resnet18, Satlas, and SATMAE
+"""
 import os
 import pickle
 from typing import Any, Dict, Optional

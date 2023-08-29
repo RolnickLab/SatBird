@@ -39,6 +39,7 @@ experiment:
     use_weighted_loss: False
     loss_weight: "log" #"log", "nchklists"
 
+use_rtran: False
 
 optimizer: "SGD"  #"Adam"
 
@@ -163,7 +164,7 @@ program: # These are the arguments that define how the train.py script works
 losses:
 #scale attribute is just for plotting if the values are very small 
 
-  criterion: "CrossEntropy" #or MAE or MSE  (loss to choosefor optim )
+  criterion: "CE" #or MAE or MSE  (loss to choosefor optim )
   ce:
     ignore: False
       #weights on the cross entropy
@@ -195,10 +196,10 @@ losses:
       ignore: True
       scale: 1
     - name: top10
-      ignore: True
+      ignore: False
       scale: 1
     - name: top30
-      ignore: True
+      ignore: False
       scale: 1
         
 # The values here are taken from the defaults here https://pytorch-lightning.readthedocs.io/en/1.3.8/common/trainer.html#init

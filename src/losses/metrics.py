@@ -163,13 +163,10 @@ def get_metric(metric):
         # raise ValueError("Unknown metric_item {}".format(metric))
 
 
-def get_metrics(opts):
+def get_metrics(config):
     metrics = []
-
-    for m in opts.losses.metrics:
+    for m in config.losses.metrics:
         metrics.append((m.name, get_metric(m), m.scale))
-    metrics.append(('top10', CustomTop10(), 1))
-    metrics.append(('top30', CustomTop30(), 1))
     metrics = [(a, b, c) for (a, b, c) in metrics if b is not None]
     print(metrics)
     return metrics
