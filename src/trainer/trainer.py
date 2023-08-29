@@ -407,8 +407,8 @@ class EbirdTask(pl.LightningModule):
                     y *= mask.int()
                     pred = cloned_pred
 
-            loss1 = self.criterion(y, pred)
-            loss2 = self.criterion(y, aux_pred)
+            loss1 = self.criterion(pred, y)
+            loss2 = self.criterion(aux_pred, y)
             loss = loss1 + loss2
 
         elif self.opts.experiment.module.model == "train_linear":
@@ -427,7 +427,7 @@ class EbirdTask(pl.LightningModule):
 
             pred_ = pred.clone().type_as(y)
 
-            loss = self.criterion(y, pred)
+            loss = self.criterion(pred, y)
 
         elif self.opts.experiment.module.model == "satlas" or self.opts.experiment.module.model == "satmae":
             inter = self.feature_extractor(x)
@@ -461,7 +461,7 @@ class EbirdTask(pl.LightningModule):
                 loss = self.criterion(pred, torch.log(y + 1e-10))
             else:
                 # print('maximum ytrue in trainstep',y.max())
-                loss = self.criterion(y, pred)
+                loss = self.criterion(pred, y)
                 # print('train_loss', loss)
         else:
             y_hat = self.forward(x)
@@ -492,9 +492,9 @@ class EbirdTask(pl.LightningModule):
                 # print('maximum ytrue in trainstep',y.max())
                 if self.opts.experiment.module.use_weighted_loss:
                     print("Using Weighted CrossEntropy Loss")
-                    loss = self.criterion(y, pred, new_weights)
+                    loss = self.criterion(pred, y, new_weights)
                 else:
-                    loss = self.criterion(y, pred)
+                    loss = self.criterion(pred, y)
                 # print('train_loss', loss)
 
         if self.target_type == "log":
@@ -568,7 +568,7 @@ class EbirdTask(pl.LightningModule):
         elif self.target_type == "log":
             loss = self.criterion(pred, torch.log(y + 1e-10))
         else:
-            loss = self.criterion(y, pred)
+            loss = self.criterion(pred, y)
 
         if self.target_type == "log":
             pred_ = torch.exp(pred_)
@@ -630,7 +630,7 @@ class EbirdTask(pl.LightningModule):
                 y *= mask
                 pred = cloned_pred
 
-        loss = self.criterion(y, pred)
+        loss = self.criterion(pred, y)
 
         pred_ = pred.clone().type_as(y)
 
