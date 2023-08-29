@@ -132,23 +132,6 @@ def get_target_size(opts, subset=None):
     return target_size
 
 
-def get_nb_bands(bands):
-    """
-    Get number of channels in the satellite input branch (stack bands of satellite + environmental variables)
-    """
-    n = 0
-    for b in bands:
-        if b in ["r", "g", "b", "nir", "landuse"]:
-            n += 1
-        elif b == "ped":
-            n += 8
-        elif b == "bioclim":
-            n += 19
-        elif b == "rgb":
-            n += 3
-    return (n)
-
-
 def get_scheduler(optimizer, opts):
     if opts.scheduler.name == "ReduceLROnPlateau":
         return (ReduceLROnPlateau(optimizer, factor=opts.scheduler.reduce_lr_plateau.factor,
@@ -162,23 +145,6 @@ def get_scheduler(optimizer, opts):
         return (CosineAnnealingWarmRestarts(optimizer, opts.scheduler.cyclical.t0, opts.scheduler.cyclical.tmult))
     elif opts.scheduler.name == "":
         return (None)
-    else:
-        raise ValueError(f"Scheduler'{opts.scheduler.name}' is not valid")
-
-
-def get_scheduler(optimizer, opts):
-    if opts.scheduler.name == "ReduceLROnPlateau":
-        return (ReduceLROnPlateau(optimizer, factor=opts.scheduler.reduce_lr_plateau.factor,
-                                  patience=opts.scheduler.reduce_lr_plateau.lr_schedule_patience))
-    elif opts.scheduler.name == "StepLR":
-        return StepLR(optimizer, opts.scheduler.step_lr.step_size, opts.scheduler.step_lr.gamma)
-    elif opts.scheduler.name == "WarmUp":
-        return (LinearWarmupCosineAnnealingLR(optimizer, opts.scheduler.warmup.warmup_epochs,
-                                              opts.scheduler.warmup.max_epochs))
-    elif opts.scheduler.name == "Cyclical":
-        return CosineAnnealingWarmRestarts(optimizer, opts.scheduler.cyclical.warmup_epochs)
-    elif opts.scheduler.name == "":
-        return None
     else:
         raise ValueError(f"Scheduler'{opts.scheduler.name}' is not valid")
 
