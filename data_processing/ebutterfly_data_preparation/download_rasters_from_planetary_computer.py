@@ -107,9 +107,10 @@ def process_row(row, save_dir):
 
 def main():
     # Specify the directory to save the rasters
-    save_dir = "/home/hagerradi/projects/Ecosystem_embeddings/ebutterfly/Darwin/0177350-230224095556074/ebutterfly_data_v3/raw_images_visual/"
+    root_dir = ""
+    save_dir = root_dir + "/ebutterfly/Darwin/0177350-230224095556074/ebutterfly_data_v3/raw_images_visual/"
 
-    polygons_file = "/home/hagerradi/projects/Ecosystem_embeddings/ebutterfly/Darwin/0177350-230224095556074/ebutterfly_data_v3/ebutterfly_center_polygons.csv"
+    polygons_file = root_dir + "/ebutterfly/Darwin/0177350-230224095556074/ebutterfly_data_v3/ebutterfly_center_polygons.csv"
 
     arg_parser = argparse.ArgumentParser(
         prog='DownloadData',
