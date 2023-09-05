@@ -12,7 +12,7 @@ import pytorch_lightning as pl
 from typing import Any, Dict, Optional
 from torch.utils.data import DataLoader
 
-from Rtran.dataloader import EbirdVisionMaskedDataset
+from Rtran.dataloader import SDMVisionMaskedDataset
 from src.transforms.transforms import get_transforms
 from src.losses.metrics import get_metrics
 from src.losses.losses import RMSLELoss, CustomFocalLoss, CustomCrossEntropyLoss
@@ -24,15 +24,19 @@ class RegressionTransformerTask(pl.LightningModule):
         """
         opts: configurations
         """
+        super().__init__()
         self.config = opts
 
-        self.num_species = self.config.opts.data.total_species
+        self.num_species = self.config.data.total_species
 
         # model and optimizer utils
-        self.learning_rate = self.opts.experiment.module.lr
+        self.learning_rate = self.config.experiment.module.lr
         self.criterion = self.__loss_mapping(self.config.losses.criterion)
+        self.image_input_channels = len(self.config.data.bands)
+        self.image_input_channels += sum(self.config.data.env_var_sizes) if len(self.config.data.env) > 0 else 0
+
+        self.model = RTranModel(num_classes=self.num_species, input_channels=self.image_input_channels, pretrained_backbone=self.config.experiment.module.pretrained)
         self.sigmoid_activation = nn.Sigmoid()
-        self.model = RTranModel(num_classes=self.config.num_species)
 
         # if using range maps (RM)
         if self.config.data.correction_factor.thresh:
@@ -56,7 +60,7 @@ class RegressionTransformerTask(pl.LightningModule):
 
         x = batch["sat"]
         y = batch["target"]
-        mask = batch["mask"]
+        mask = batch["mask"].long()
 
         y_pred = self.sigmoid_activation(self.model(x, mask))
 
@@ -81,7 +85,7 @@ class RegressionTransformerTask(pl.LightningModule):
 
         x = batch["sat"]
         y = batch["target"]
-        mask = batch["mask"]
+        mask = batch["mask"].long()
 
         y_pred = self.sigmoid_activation(self.model(x, mask))
 
@@ -107,7 +111,7 @@ class RegressionTransformerTask(pl.LightningModule):
 
         x = batch["sat"]
         y = batch["target"]
-        mask = batch["mask"]
+        mask = batch["mask"].long()
 
         y_pred = self.sigmoid_activation(self.model(x, mask))
 
@@ -127,7 +131,7 @@ class RegressionTransformerTask(pl.LightningModule):
         # saving model predictions
         if self.config.save_preds_path != "":
             for i, elem in enumerate(y_pred):
-                np.save(os.path.join(self.opts.base_dir, self.opts.save_preds_path, batch["hotspot_id"][i] + ".npy"),
+                np.save(os.path.join(self.config.base_dir, self.config.save_preds_path, batch["hotspot_id"][i] + ".npy"),
                         elem.cpu().detach().numpy())
 
     def __loss_mapping(self, loss_fn_name):
@@ -166,58 +170,58 @@ class SDMDataModule(pl.LightningDataModule):
     """
     def __init__(self, opts) -> None:
         super().__init__()
-        self.opts = opts
+        self.config = opts
 
-        self.seed = self.opts.program.seed
-        self.batch_size = self.opts.data.loaders.batch_size
-        self.num_workers = self.opts.data.loaders.num_workers
-        self.data_base_dir = self.opts.data.files.base
-        self.targets_folder = self.opts.data.files.targets_folder
+        self.seed = self.config.program.seed
+        self.batch_size = self.config.data.loaders.batch_size
+        self.num_workers = self.config.data.loaders.num_workers
+        self.data_base_dir = self.config.data.files.base
+        self.targets_folder = self.config.data.files.targets_folder
 
-        self.df_train = pd.read_csv(os.path.join(self.data_base_dir, self.opts.data.files.train))
-        self.df_val = pd.read_csv(os.path.join(self.data_base_dir, self.opts.data.files.val))
-        self.df_test = pd.read_csv(os.path.join(self.data_base_dir, self.opts.data.files.test))
+        self.df_train = pd.read_csv(os.path.join(self.data_base_dir, self.config.data.files.train))
+        self.df_val = pd.read_csv(os.path.join(self.data_base_dir, self.config.data.files.val))
+        self.df_test = pd.read_csv(os.path.join(self.data_base_dir, self.config.data.files.test))
 
-        self.bands = self.opts.data.bands
-        self.env = self.opts.data.env
-        self.env_var_sizes = self.opts.data.env_var_sizes
-        self.datatype = self.opts.data.datatype
+        self.bands = self.config.data.bands
+        self.env = self.config.data.env
+        self.env_var_sizes = self.config.data.env_var_sizes
+        self.datatype = self.config.data.datatype
 
-        self.subset = self.opts.data.target.subset
-        self.num_species = self.opts.data.total_species
+        self.subset = self.config.data.target.subset
+        self.num_species = self.config.data.total_species
 
     def setup(self, stage: Optional[str] = None) -> None:
         """create the train/test/val splits and prepare the transforms for the multires"""
-        self.all_train_dataset = EbirdVisionMaskedDataset(
+        self.all_train_dataset = SDMVisionMaskedDataset(
             df=self.df_train,
             data_base_dir=self.data_base_dir,
             env=self.env,
             env_var_sizes=self.env_var_sizes,
-            transforms=get_transforms(self.opts, "train"),
+            transforms=get_transforms(self.config, "train"),
             mode="train",
             datatype=self.datatype,
             targets_folder=self.targets_folder,
             subset=self.subset,
             num_species=self.num_species)
 
-        self.all_val_dataset = EbirdVisionMaskedDataset(
+        self.all_val_dataset = SDMVisionMaskedDataset(
             df=self.df_val,
             data_base_dir=self.data_base_dir,
             env=self.env,
             env_var_sizes=self.env_var_sizes,
-            transforms=get_transforms(self.opts, "val"),
+            transforms=get_transforms(self.config, "val"),
             mode="val",
             datatype=self.datatype,
             targets_folder=self.targets_folder,
             subset=self.subset,
             num_species=self.num_species)
 
-        self.all_test_dataset = EbirdVisionMaskedDataset(
+        self.all_test_dataset = SDMVisionMaskedDataset(
             df=self.df_test,
             data_base_dir=self.data_base_dir,
             env=self.env,
             env_var_sizes=self.env_var_sizes,
-            transforms=get_transforms(self.opts, "val"),
+            transforms=get_transforms(self.config, "val"),
             mode="test",
             datatype=self.datatype,
             targets_folder=self.targets_folder,

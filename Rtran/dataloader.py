@@ -12,19 +12,19 @@ import numpy as np
 
 def get_unkown_mask_indices(num_labels, known_labels, max_unknown=0.5):
     # sample random number of known labels during training; in testing, everything is unknown
-    # TODO: try structured masking instead of random masking
+    # TODO: use structured masking instead of random masking
     if known_labels > 0:
         random.seed()
         num_unknown = random.randint(0, int(num_labels * max_unknown))
+        unk_mask_indices = random.sample(range(num_labels), num_unknown)
     else:
-        num_unknown = 0
-
-    unk_mask_indices = random.sample(range(num_labels), num_unknown)
+        # for testing, everything is unknown
+        unk_mask_indices = np.arange(0, num_labels)
 
     return unk_mask_indices
 
 
-class EbirdVisionMaskedDataset(VisionDataset):
+class SDMVisionMaskedDataset(VisionDataset):
     def __init__(self, df, data_base_dir, env, env_var_sizes,
                  transforms: Optional[Callable[[Dict[str, Any]], Dict[str, Any]]] = None, mode="train", datatype="refl",
                  targets_folder="corrected_targets", subset=None, num_species=684) -> None:
@@ -69,7 +69,7 @@ class EbirdVisionMaskedDataset(VisionDataset):
         sats = torch.from_numpy(img).float()
         item_["sat"] = sats
 
-        # loading environmental rasters
+        # loading environmental rasters, if any
         for i, env_var in enumerate(self.env):
             env_npy = os.path.join(self.data_base_dir, "environmental_data", hotspot_id + '.npy')
             env_data = load_file(env_npy)
@@ -78,13 +78,15 @@ class EbirdVisionMaskedDataset(VisionDataset):
             item_[env_var] = torch.from_numpy(env_data[s_i:e_i, :, :])
 
         # applying transforms
-        t = trsfs.Compose(self.transform)
-        item_ = t(item_)
+        if self.transform:
+            t = trsfs.Compose(self.transform)
+            item_ = t(item_)
 
         # concatenating env rasters, if any, with satellite image
         for e in self.env:
             item_["sat"] = torch.cat([item_["sat"], item_[e]], dim=-3).float()
 
+        item_["sat"] = item_["sat"].squeeze(0)
         # constructing targets
         species = load_file(os.path.join(self.data_base_dir, self.targets_folder, hotspot_id + '.json'))
 
@@ -100,7 +102,8 @@ class EbirdVisionMaskedDataset(VisionDataset):
             self.known_labels = 100
         unk_mask_indices = get_unkown_mask_indices(num_labels=self.num_species, known_labels=self.known_labels)
         mask = item_["target"].clone()
-        mask.scatter_(0, torch.Tensor(unk_mask_indices).long(), -1)
+        mask[mask != 0] = 1
+        mask.scatter_(dim=0, index=torch.Tensor(unk_mask_indices).long(), value=-1.0)
         item_["mask"] = mask
 
         # meta data

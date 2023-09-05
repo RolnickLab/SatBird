@@ -15,7 +15,6 @@ from pytorch_lightning.callbacks import ModelCheckpoint
 
 from src.utils.config_utils import load_opts
 import src.trainer.trainer as general_trainer
-import src.trainer.geo_trainer as geo_trainer
 import Rtran.trainer as RtranTrainer
 from src.utils.compute_normalization_stats import *
 

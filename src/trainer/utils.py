@@ -40,7 +40,7 @@ def init_first_layer_weights(in_channels: int, rgb_weights,
       '''
 
     out_channels, rgb_channels, H, W = rgb_weights.shape
-    rgb_weights = torch.tensor(rgb_weights, device='cuda')
+    rgb_weights = torch.tensor(rgb_weights, device=rgb_weights.device)
     ms_channels = in_channels - rgb_channels
     if in_channels == 3:
         final_weights = rgb_weights
@@ -49,7 +49,7 @@ def init_first_layer_weights(in_channels: int, rgb_weights,
         with torch.no_grad():
             mean = rgb_weights.mean()
             std = rgb_weights.std()
-            final_weights = torch.empty((out_channels, in_channels, H, W), device='cuda')
+            final_weights = torch.empty((out_channels, in_channels, H, W), device=rgb_weights.device)
             final_weights = torch.nn.init.trunc_normal_(final_weights, mean, std)
     elif in_channels > 3:
         # spectral images
@@ -66,7 +66,7 @@ def init_first_layer_weights(in_channels: int, rgb_weights,
             with torch.no_grad():
                 mean = rgb_weights.mean()
                 std = rgb_weights.std()
-                ms_weights = torch.empty((out_channels, ms_channels, H, W), device='cuda')
+                ms_weights = torch.empty((out_channels, ms_channels, H, W), device=rgb_weights.device)
                 ms_weights = torch.nn.init.trunc_normal_(ms_weights, mean, std)
             print(f'random: {time.time() - start}')
 
@@ -85,7 +85,6 @@ def init_first_layer_weights(in_channels: int, rgb_weights,
             raise ValueError(f'Unknown hs_weight_init type: {hs_weight_init}')
 
         final_weights = torch.cat([rgb_weights, ms_weights], dim=1)
-    print('init__layer_weight shape ', final_weights.shape)
     return final_weights
 
 

@@ -5,12 +5,12 @@ Code is based on the C-tran paper: https://github.com/QData/C-Tran
 import torch
 import torch.nn as nn
 import numpy as np
-from Rtran.utils import weights_init
-from Rtran.models import Resnet101, SelfAttnLayer
+from Rtran.utils import weights_init, custom_replace
+from Rtran.models import Resnet50, SelfAttnLayer
 
 
 class RTranModel(nn.Module):
-    def __init__(self, num_classes, d_hidden=2048, n_state=2, attention_layers=3, heads=4, dropout=0.1):
+    def __init__(self, num_classes, input_channels=3, pretrained_backbone=True, d_hidden=2048, n_state=3, attention_layers=3, heads=4, dropout=0.1):
         """
         pos_emb is false by default
         """
@@ -18,7 +18,7 @@ class RTranModel(nn.Module):
         self.d_hidden = d_hidden  # this should match the backbone output feature size
 
         # ResNet101 backbone
-        self.backbone = Resnet101()
+        self.backbone = Resnet50(input_channels=input_channels, pretrained=pretrained_backbone)
 
         # Label Embeddings
         self.label_input = torch.Tensor(np.arange(num_classes)).view(1, -1).long()
@@ -51,14 +51,17 @@ class RTranModel(nn.Module):
     def forward(self, images, mask):
         z_features = self.backbone(images) # image: HxWxD
 
-        const_label_input = self.label_input.repeat(images.size(0), 1).cuda() # LxD
+        const_label_input = self.label_input.repeat(images.size(0), 1).to(images.device) # LxD
         init_label_embeddings = self.label_embeddings(const_label_input)    # LxD
 
         z_features = z_features.view(z_features.size(0), z_features.size(1), -1).permute(0, 2, 1)
 
         # TODO: multiply the mask by the regression value, instead of the state embedding
-        # Get state embeddings
-        state_embeddings = self.state_embeddings(mask)
+        # Get state embeddings (mask is 0 or regression value)
+        # print(torch.unique(mask))
+        # print(self.state_embeddings)
+        label_feat_vec = custom_replace(mask, 0, 1, 2).long()
+        state_embeddings = self.state_embeddings(label_feat_vec)
 
         # Add state embeddings to label embeddings
         init_label_embeddings += state_embeddings
@@ -74,7 +77,7 @@ class RTranModel(nn.Module):
         # Readout each label embedding using a linear layer
         label_embeddings = embeddings[:, -init_label_embeddings.size(1):, :]
         output = self.output_linear(label_embeddings)
-        diag_mask = torch.eye(output.size(1)).unsqueeze(0).repeat(output.size(0), 1, 1).cuda()
+        diag_mask = torch.eye(output.size(1), device=output.device).unsqueeze(0).repeat(output.size(0), 1, 1)
         output = (output * diag_mask).sum(-1)
 
         return output
