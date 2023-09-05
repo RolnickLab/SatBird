@@ -103,7 +103,7 @@ def main(opts):
         mode="max",
         save_last=True,
         save_weights_only=True,
-        #auto_insert_metric_name=True
+        auto_insert_metric_name=True
     )
 
     trainer_args["callbacks"] = [checkpoint_callback]

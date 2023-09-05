@@ -42,6 +42,7 @@ experiment:
     init_bias: ""
     means_path: ""
     lr: 0.0003
+    loss_func: "ce"
 
 optimizer: "Adam"  #"Adam"
 
@@ -113,7 +114,9 @@ data:
     train: "summer_hotspots_train.csv"
     val: "summer_hotspots_valid.csv"
     test: "summer_hotspots_test.csv"
-    correction_thresh: "final_range_maps.pkl" # range maps - threshold = False
+
+    targets_folder: "corrected_targets"
+    correction_thresh: "" # range maps - threshold = False
 
   correction_factor:
      thresh:  # to train with RM

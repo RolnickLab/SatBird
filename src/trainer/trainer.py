@@ -67,6 +67,7 @@ class EbirdTask(pl.LightningModule):
         elif self.opts.losses.criterion == "Focal":
             self.criterion = CustomFocalLoss()
         else:
+            # target is num checklists reporting species i / total number of checklists at a hotspot
             if self.opts.experiment.module.use_weighted_loss:
                 self.criterion = WeightedCustomCrossEntropyLoss()
                 print("Training with Weighted CE Loss")
@@ -211,8 +212,8 @@ class EbirdTask(pl.LightningModule):
                     self.model.conv1.weight.data = init_first_layer_weights(get_nb_bands(self.bands), weights)
             # loading seco mode
             if self.opts.experiment.module.resume:
-                #this works for https://zenodo.org/record/4728033/files/seco_resnet18_1m.ckpt?download=1 
-                #Seco ResNet-18-1M model - from which the state dict corresponding only to the ResNet18 part encoder was extracted. 
+                #this works for https://zenodo.org/record/4728033/files/seco_resnet18_1m.ckpt?download=1
+                #Seco ResNet-18-1M model - from which the state dict corresponding only to the ResNet18 part encoder was extracted.
                 print('loading a pretrained SeComodel')
                 """
                 ckpt = torch.load(self.opts.experiment.module.resume)
@@ -237,13 +238,13 @@ class EbirdTask(pl.LightningModule):
                 for key,value in model_dict.items():
                     if not key.startswith("fc") :
                         if not key.startswith("conv1") and not key.startswith("bn1"):
-                            layer_name,weights=pretrained[count]      
+                            layer_name,weights=pretrained[count]
                             model_dict[key]=weights
                         count+=1
 
-                
+
                 self.model.load_state_dict(model_dict)
-                
+
             if self.opts.experiment.module.fc == "linear":
                 self.model.fc = nn.Linear(512, self.target_size)
             elif self.opts.experiment.module.fc == "linear_net":
@@ -406,8 +407,8 @@ class EbirdTask(pl.LightningModule):
                     y *= mask.int()
                     pred = cloned_pred
 
-            loss1 = self.criterion(y, pred)
-            loss2 = self.criterion(y, aux_pred)
+            loss1 = self.criterion(pred, y)
+            loss2 = self.criterion(aux_pred, y)
             loss = loss1 + loss2
 
         elif self.opts.experiment.module.model == "train_linear":
@@ -426,7 +427,7 @@ class EbirdTask(pl.LightningModule):
 
             pred_ = pred.clone().type_as(y)
 
-            loss = self.criterion(y, pred)
+            loss = self.criterion(pred, y)
 
         elif self.opts.experiment.module.model == "satlas" or self.opts.experiment.module.model == "satmae":
             inter = self.feature_extractor(x)
@@ -460,7 +461,7 @@ class EbirdTask(pl.LightningModule):
                 loss = self.criterion(pred, torch.log(y + 1e-10))
             else:
                 # print('maximum ytrue in trainstep',y.max())
-                loss = self.criterion(y, pred)
+                loss = self.criterion(pred, y)
                 # print('train_loss', loss)
         else:
             y_hat = self.forward(x)
@@ -491,9 +492,9 @@ class EbirdTask(pl.LightningModule):
                 # print('maximum ytrue in trainstep',y.max())
                 if self.opts.experiment.module.use_weighted_loss:
                     print("Using Weighted CrossEntropy Loss")
-                    loss = self.criterion(y, pred, new_weights)
+                    loss = self.criterion(pred, y, new_weights)
                 else:
-                    loss = self.criterion(y, pred)
+                    loss = self.criterion(pred, y)
                 # print('train_loss', loss)
 
         if self.target_type == "log":
@@ -567,7 +568,7 @@ class EbirdTask(pl.LightningModule):
         elif self.target_type == "log":
             loss = self.criterion(pred, torch.log(y + 1e-10))
         else:
-            loss = self.criterion(y, pred)
+            loss = self.criterion(pred, y)
 
         if self.target_type == "log":
             pred_ = torch.exp(pred_)
@@ -629,7 +630,7 @@ class EbirdTask(pl.LightningModule):
                 y *= mask
                 pred = cloned_pred
 
-        loss = self.criterion(y, pred)
+        loss = self.criterion(pred, y)
 
         pred_ = pred.clone().type_as(y)
 
@@ -701,11 +702,13 @@ class EbirdDataModule(pl.LightningDataModule):
         self.batch_size = self.opts.data.loaders.batch_size
         self.num_workers = self.opts.data.loaders.num_workers
         self.data_base_dir = self.opts.data.files.base
+        self.targets_folder = self.opts.data.files.targets_folder
         self.df_train = pd.read_csv(os.path.join(self.data_base_dir, self.opts.data.files.train))
         self.df_val = pd.read_csv(os.path.join(self.data_base_dir, self.opts.data.files.val))
         self.df_test = pd.read_csv(os.path.join(self.data_base_dir, self.opts.data.files.test))
         self.bands = self.opts.data.bands
         self.env = self.opts.data.env
+        self.env_var_sizes = self.opts.data.env_var_sizes
         self.datatype = self.opts.data.datatype
         self.target = self.opts.data.target.type
         self.subset = self.opts.data.target.subset
@@ -726,10 +729,12 @@ class EbirdDataModule(pl.LightningDataModule):
             data_base_dir=self.data_base_dir,
             bands=self.bands,
             env=self.env,
+            env_var_sizes=self.env_var_sizes,
             transforms=get_transforms(self.opts, "train"),
             mode="train",
             datatype=self.datatype,
             target=self.target,
+            targets_folder=self.targets_folder,
             subset=self.subset,
             res=self.res,
             use_loc=self.use_loc,
@@ -741,10 +746,12 @@ class EbirdDataModule(pl.LightningDataModule):
             data_base_dir=self.data_base_dir,
             bands=self.bands,
             env=self.env,
+            env_var_sizes=self.env_var_sizes,
             transforms=get_transforms(self.opts, "val"),
             mode="test",
             datatype=self.datatype,
             target=self.target,
+            targets_folder=self.targets_folder,
             subset=self.subset,
             res=self.res,
             use_loc=self.use_loc,
@@ -756,10 +763,12 @@ class EbirdDataModule(pl.LightningDataModule):
             data_base_dir=self.data_base_dir,
             bands=self.bands,
             env=self.env,
+            env_var_sizes=self.env_var_sizes,
             transforms=get_transforms(self.opts, "val"),
             mode="val",
             datatype=self.datatype,
             target=self.target,
+            targets_folder=self.targets_folder,
             subset=self.subset,
             res=self.res,
             use_loc=self.use_loc,
