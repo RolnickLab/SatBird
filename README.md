@@ -18,7 +18,20 @@ You can do so with `export COMET_API_KEY=your_comet_api_key` in your terminal.
 To run the environmental baseline and the mean encounter rate baseline, refer to `data_processing/environmental/env_baseline.py`. \\
 For the MOSAIKS baseline, please refer to the [original MOSAIKS implementation](https://github.com/Global-Policy-Lab/mosaiks-paper).
 
+### Testing
+Tests assume access to data files, so it has to run on the cluster
+To run all tests, in root directory, run: ```pytest```
+Some tests that go through all datafiles are marked with "slow", ```pytest -k "slow"```
+Other tests that run faster can be run with:  ```pytest -k "fast" ```
+To run a specific test, example: ```pytest tests/data/test_data_files.py -k "test_corresponding_files_from_csv -s"```
+
 ### Repository structure
+
+The repo includes implementations for all the experiments/baselines reported in the paper: 
+a) env-baseline: dataprocessing/environmental/envbaseline.py 
+b) satmae: src/models/vit.py 
+c) Resnet18 (all variants)
+d) satlas: src/trainer/trainer.py
 
 
 
