@@ -28,7 +28,7 @@ catalog = pystac_client.Client.open(
 )
 
 # Define the bands we are interested in --> r,g,b,nir and true color image
-BANDS = ["visual"]#["B02", "B03", "B04", "B08"]
+BANDS = ["B02", "B03", "B04", "B08"]
 
 time_of_interest = "2022-01-01/2022-12-31"
 
@@ -108,9 +108,9 @@ def process_row(row, save_dir):
 def main():
     # Specify the directory to save the rasters
     root_dir = ""
-    save_dir = root_dir + "/ebutterfly/Darwin/0177350-230224095556074/ebutterfly_data_v3/raw_images_visual/"
+    save_dir = root_dir + "/ebutterfly/Darwin/0177350-230224095556074/ebutterfly_data_v4/raw_images/"
 
-    polygons_file = root_dir + "/ebutterfly/Darwin/0177350-230224095556074/ebutterfly_data_v3/ebutterfly_center_polygons.csv"
+    polygons_file = root_dir + "/ebutterfly/Darwin/0177350-230224095556074/ebutterfly_data_v4/ebutterfly_center_polygons.csv"
 
     arg_parser = argparse.ArgumentParser(
         prog='DownloadData',
