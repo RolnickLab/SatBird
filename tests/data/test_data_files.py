@@ -39,7 +39,7 @@ def test_corresponding_files_from_csv(config, hotspots_list) -> None:
     given hotspots, verify that their corresponding data files (in env data, targets, images and images visual) are there
     """
     # assert if environmental data doesn't contain all hotspot files
-    environmental_data = os.listdir(os.path.join(config.data.files.base, "environmental_data"))
+    environmental_data = os.listdir(os.path.join(config.data.files.base, "environmental"))
     assert len(environmental_data) >= len(hotspots_list)
     hotspots_from_env_files = [file.split('.')[0] for file in environmental_data]
     assert set(hotspots_list).issubset(hotspots_from_env_files)
@@ -68,6 +68,7 @@ def test_nan_refl_image_values(hotspots_list, config) -> None:
     """
     test that images have non Nan values
     """
+    hotspots_with_nans = []
     sat_images = os.listdir(os.path.join(config.data.files.base, "images"))
     hotspots_from_sat_files = [file.split('.')[0] for file in sat_images]
     hotspots_from_sat_files = list(set(hotspots_from_sat_files).intersection(hotspots_list))
@@ -77,7 +78,11 @@ def test_nan_refl_image_values(hotspots_list, config) -> None:
         img = tiff.imread(image_path)
         # Check if there are any NaN values in the image
         has_nan = np.isnan(img).any()
-        assert not has_nan
+        if np.sum(has_nan):
+            hotspots_with_nans.append(tif_file)
+        # assert not has_nan
+    np.save(os.path.join(config.data.files.base, "hotspots_with_nan_refl_images.npy"), np.array(hotspots_with_nans))
+    assert len(hotspots_with_nans) == 0
 
 
 @pytest.mark.slow
@@ -85,6 +90,7 @@ def test_nan_visual_image_values(hotspots_list, config) -> None:
     """
     test that images have non Nan values
     """
+    hotspots_with_nans = []
     sat_images = os.listdir(os.path.join(config.data.files.base, "images_visual"))
     hotspots_from_sat_files = [file.split('_')[0] for file in sat_images]
     hotspots_from_sat_files = list(set(hotspots_from_sat_files).intersection(hotspots_list))
@@ -94,4 +100,8 @@ def test_nan_visual_image_values(hotspots_list, config) -> None:
         img = tiff.imread(image_path)
         # Check if there are any NaN values in the image
         has_nan = np.isnan(img).any()
-        assert not has_nan
+        if np.sum(has_nan):
+            hotspots_with_nans.append(tif_file)
+            # assert not has_nan
+    np.save(os.path.join(config.data.files.base, "hotspots_with_nan_visual_images.npy"), np.array(hotspots_with_nans))
+    assert len(hotspots_with_nans) == 0
