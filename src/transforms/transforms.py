@@ -4,8 +4,12 @@ import numpy as np
 import torch
 from torch import Tensor
 from torch.nn import Module  # type: ignore[attr-defined]
+import torchvision
 from torchvision.transforms.functional import normalize
 import torch.nn.functional as F
+import collections
+import numbers
+import random
 
 Module.__module__ = "torch.nn"
 
@@ -238,7 +242,6 @@ class Resize:
     def __call__(self, sample: Dict[str, Tensor]) -> Dict[str, Tensor]:
         for s in sample:
             if s in sat:
-
                 sample[s] = F.interpolate(sample[s].float(), size=(self.h, self.w), mode='bilinear')
             elif s in env or s in landuse:
 
@@ -249,10 +252,11 @@ class Resize:
 class RandomGaussianNoise:  # type: ignore[misc,name-defined]
     """Identity function used for testing purposes."""
 
-    def __init__(self, max_noise=5e-2, std=1e-2):
+    def __init__(self, prob=0.5, max_noise=5e-2, std=1e-2):
 
         self.max = max_noise
         self.std = std
+        self.prob = prob
 
     def __call__(self, sample: Dict[str, Tensor]) -> Dict[str, Tensor]:
         """
@@ -261,12 +265,97 @@ class RandomGaussianNoise:  # type: ignore[misc,name-defined]
         Returns:
             theinput with added gaussian noise
         """
+        if random.random() < self.prob:
+            for s in sample:
+                if s in sat:
 
-        for s in sample:
-            if s in sat:
-                noise = torch.normal(0, self.std, sample[s].shape)
-                noise = torch.clamp(sample[s], min=0, max=self.max)
-                sample[s] += noise
+                    noise = torch.normal(0, self.std, sample[s].shape)
+                    noise = torch.clamp(sample[s], min=0, max=self.max)
+                    sample[s] += noise
+        return sample
+
+class RandBrightness:
+    def __init__(self, prob=0.5, max_value=0):
+        self.value = max_value
+        self.prob = prob
+
+    def __call__(self, sample: Dict[str, Tensor]) -> Dict[str, Tensor]:
+        if random.random() < self.prob:
+            for s in sample:
+                if s in sat:
+                    sample[s][:,0:3, :, :] = torchvision.transforms.functional.adjust_brightness(sample[s][:,0:3, :, :], self.value)
+        return sample
+
+
+class RandContrast:
+    def __init__(self, prob=0.5, max_factor=0):
+        self.factor = max_factor
+        self.prob = prob
+
+    def __call__(self, sample: Dict[str, Tensor]) -> Dict[str, Tensor]:
+        if random.random() < self.prob:
+            for s in sample:
+                if s in sat:
+                    sample[s][:,0:3, :, :] = torchvision.transforms.functional.adjust_contrast(sample[s][:,0:3, :, :], self.factor)
+        return sample
+
+
+class RandRotation:
+    """random rotate the ndarray image with the degrees.
+
+    Args:
+        degrees (number or sequence): the rotate degree.
+                                  If single number, it must be positive.
+                                  if squeence, it's length must 2 and first number should small than the second one.
+
+    Raises:
+        ValueError: If degrees is a single number, it must be positive.
+        ValueError: If degrees is a sequence, it must be of len 2.
+
+    Returns:
+        ndarray: return rotated ndarray image.
+    """
+
+    def __init__(self, degrees, prob=0.5, center=None):
+        if isinstance(degrees, numbers.Number):
+            if degrees < 0:
+                raise ValueError("If degrees is a single number, it must be positive.")
+            self.degrees = (-degrees, degrees)
+        else:
+            if len(degrees) != 2:
+                raise ValueError("If degrees is a sequence, it must be of len 2.")
+            self.degrees = degrees
+        self.center = center
+        self.prob = prob
+
+    def __call__(self, sample: Dict[str, Tensor]) -> Dict[str, Tensor]:
+        if random.random() < self.prob:
+            angle = random.uniform(self.degrees[0], self.degrees[1])
+            for s in sample:
+                if s in sat:
+                    sample[s] = torchvision.transforms.functional.rotate(sample[s], angle=angle, center=self.center)
+        return sample
+
+
+class GaussianBlurring:
+    """Convert the input ndarray image to blurred image by gaussian method.
+
+    Args:
+        kernel_size (int): kernel size of gaussian blur method. (default: 3)
+
+    Returns:
+        ndarray: the blurred image.
+    """
+
+    def __init__(self, prob=0.5, kernel_size=3):
+        self.kernel_size = kernel_size
+        self.prob = prob
+
+    def __call__(self, sample: Dict[str, Tensor]) -> Dict[str, Tensor]:
+        if random.random() < self.prob:
+            for s in sample:
+                if s in sat:
+                    sample[s] = torchvision.transforms.functional.gaussian_blur(sample[s], kernel_size=self.kernel_size)
         return sample
 
 
@@ -317,6 +406,25 @@ def get_transform(transform_item, mode):
 
         return Resize(size=transform_item.size)
 
+    elif transform_item.name == "blur" and not (
+            transform_item.ignore is True or transform_item.ignore == mode
+    ):
+        return GaussianBlurring(prob=transform_item.p)
+    elif transform_item.name == "rotate" and not (
+            transform_item.ignore is True or transform_item.ignore == mode
+    ):
+        return RandRotation(prob=transform_item.p, degrees=transform_item.val)
+
+    elif transform_item.name == "randomcontrast" and not (
+            transform_item.ignore is True or transform_item.ignore == mode
+    ):
+        return RandContrast(prob=transform_item.p, max_factor=transform_item.val)
+
+    elif transform_item.name == "randombrightness" and not (
+            transform_item.ignore is True or transform_item.ignore == mode
+    ):
+        return RandBrightness(prob=transform_item.p, max_value=transform_item.val)
+
     elif transform_item.ignore is True or transform_item.ignore == mode:
         return None
 
@@ -343,13 +451,13 @@ def get_transforms(opts, mode):
         if t.name == "matchres":
             t.custom_means = opts.variables.bioclim_means, opts.variables.ped_means
 
-        if t.name == "normalize" and not (
-                t.ignore is True or t.ignore == mode
-        ) and t.subset == ["sat"]:
-            if opts.data.bands == ["r", "g", "b"]:
-                print("only taking normalization values for r,g,b")
-                means, std = t.custom
-                t.custom = [means[:3], std[:3]]
+        # if t.name == "normalize" and not (
+        #         t.ignore is True or t.ignore == mode
+        # ) and t.subset == ["sat"]:
+        #     if opts.data.bands == ["r", "g", "b"]:
+        #         print("only taking normalization values for r,g,b")
+        #         means, std = t.custom
+        #         t.custom = [means[:3], std[:3]]
         # account for multires
         if t.name == 'crop' and len(opts.data.multiscale) > 1:
             for res in opts.data.multiscale:
