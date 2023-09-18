@@ -42,7 +42,11 @@ def main(opts):
 
     # compute means and stds for normalization
     config.variables.bioclim_means, config.variables.bioclim_stds, config.variables.ped_means,\
-        config.variables.ped_stds = compute_means_stds_env_vars(root_dir=config.data.files.base, train_csv=config.data.files.train)
+        config.variables.ped_stds = compute_means_stds_env_vars(root_dir=config.data.files.base, train_csv=config.data.files.train,
+                                                                env_data_folder=config.data.files.env_data_folder,
+                                                                output_file_means=config.data.files.env_means,
+                                                                output_file_std=config.data.files.env_stds
+                                                                )
 
     if config.data.datatype == "refl":
         config.variables.rgbnir_means, config.variables.rgbnir_std = compute_means_stds_images(root_dir=config.data.files.base,
@@ -76,23 +80,22 @@ def main(opts):
     trainer_args = cast(Dict[str, Any], OmegaConf.to_object(config.trainer))
 
     if config.log_comet:
-        comet_logger = CometLogger(
-            api_key=os.environ.get("COMET_API_KEY"),
-            workspace=os.environ.get("COMET_WORKSPACE"),
-            # save_dir=".",  # Optional
-            project_name=config.comet.project_name,  # Optional
-            experiment_name=config.comet.experiment_name,
-        )
-        comet_logger.experiment.add_tags(list(config.comet.tags))
-        print(config.comet.tags)
-        trainer_args["logger"] = comet_logger
-    else:
-        wandb_logger = WandbLogger(project='test-project')
-        print('in wandb logger')
-        trainer_args["logger"] = wandb_logger
+        if os.environ.get("COMET_API_KEY"):
+            comet_logger = CometLogger(
+                api_key=os.environ.get("COMET_API_KEY"),
+                workspace=os.environ.get("COMET_WORKSPACE"),
+                # save_dir=".",  # Optional
+                project_name=config.comet.project_name,  # Optional
+                experiment_name=config.comet.experiment_name,
+            )
+            comet_logger.experiment.add_tags(list(config.comet.tags))
+            trainer_args["logger"] = comet_logger
+        else:
+            print("no COMET API Key found..continuing without logging..")
+            return
 
     checkpoint_callback = ModelCheckpoint(
-        monitor="val_topk_epoch",
+        monitor="val_topk",
         dirpath=config.save_path,
         save_top_k=1,
         mode="max",
