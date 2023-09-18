@@ -99,6 +99,15 @@ data:
     test: ""
     correction_thresh: "" # range maps - threshold = False
 
+    rgbnir_means: ""
+    rgbnir_stds: ""
+
+    rgb_means: ""
+    rgb_stds: ""
+
+    env_means: ""
+    env_stds: ""
+
   correction_factor:
      thresh:  # to train with RM
 

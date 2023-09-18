@@ -1,8 +1,8 @@
 #where to save checkpoints
-save_path: "butterfly_baseline_resnet18_RGBNIR_v2_focal_loss"
+save_path: "testing_rtran"
 
 # load existing checkpoint for inference. If passing experiment folder instead (for multiple seeds), it will evaluate all of them.
-load_ckpt_path: "butterfly_baseline_resnet18_RGBNIR_v2_focal_loss"
+load_ckpt_path: ""
 save_preds_path: ""
 log_comet: true
 
@@ -11,18 +11,11 @@ overfit_batches: 0.0
 max_epochs: 100
 # base directory
 base_dir: ""
-#use geographical information
-loc:
-  use: False
-  #if True :concatenate location features with satellite image features, else location features are mappe to same imension as satellite features and the features are multiplie
-  loc_type: "latlon"   #latlon or state
-  concat: True
-  
 
 comet:
-  project_name: "neurips_baselines" #"ecosystem-duck"
-  tags: ["resnet18"]
-  experiment_name: "butterfly_baseline_resnet18_RGBNIR_v2_focal_loss" # specify for training, or use to report test results, TODO: also use to resume training
+  project_name: ""
+  tags: ["rtran"]
+  experiment_name: "testing_rtran" # specify for training, or use to report test results, TODO: also use to resume training
   experiment_key: "" # use to report test results,
 
 experiment:
@@ -46,7 +39,8 @@ experiment:
     init_bias: ""
     means_path: ""
     lr: 0.0003
-    loss_func: "focal"
+
+use_rtran: True
 
 optimizer: "Adam"  #"Adam"
 
@@ -67,26 +61,16 @@ scheduler:
     warmup_epochs: 10
 
 variables: &default_vars
-    ped_means: &ped_means [1954.4912505229563, 1363.736733595406, 19.313608920109175, 17.537372520567267,
-                           32.11444009317606, 58.89855139642786, 35.32706177150302, 47.127172321822485]
-    ped_std: &ped_std [2194.6516649251826, 110.81597106623036, 9.729355156361533, 6.99370581234767,
-                       23.314670040749974, 8.123141981620352, 9.306674601754972, 12.404424612540323]
-    bioclim_means: &bioclim_means [12.253230312726622, 12.030979549681097, 36.4744577772858, 806.1015534043496,
-                                   29.436776200581825, -4.421969624786123, 33.85874582311301, 16.863659528175717,
-                                   8.11532808995076, 22.01906475930424, 2.1788380886680536, 980.5051592737277,
-                                   120.24720183227176, 50.41711931809582, 31.915783737660362,
-                                   329.1443299176774, 171.6938417741837, 267.4055193882557, 228.86876922078557]
-    bioclim_std: &bioclim_std [5.052473451423352, 2.105185176115935, 8.106983518563572, 194.18796051626583,
-                               3.5088726028509694, 7.032113813533729, 5.749606304816395, 8.18228686926079,
-                               10.148189974292242, 3.8310827323654912, 6.935282266030776, 329.33959099981917,
-                               43.8777234548383, 27.96345195701518, 24.194385704822345, 121.26540594070629,
-                               88.11401547252963, 122.10463269150056, 118.91835739256332]
+    ped_means: &ped_means []
+    ped_std: &ped_std []
+    bioclim_means: &bioclim_means []
+    bioclim_std: &bioclim_std []
 
-    rgbnir_means: &rgbnir_means [1577.72410351, 1824.80655937, 1742.68208621, 4058.0957505]
-    rgbnir_std: &rgbnir_std [725.42679207, 726.68825707, 840.15758313, 1337.02379352]
+    rgbnir_means: &rgbnir_means []
+    rgbnir_std: &rgbnir_std []
 
-    visual_means: &visual_means [78.20186183, 83.78967871, 58.99852628]
-    visual_stds: &visual_stds [64.32016159, 49.08529428, 46.45643505]
+    visual_means: &visual_means []
+    visual_stds: &visual_stds []
 
 data:
   loaders:
@@ -121,6 +105,15 @@ data:
 
     targets_folder: "butterfly_targets"
     correction_thresh: "final_range_maps.pkl" # range maps - threshold = False
+
+    rgbnir_means: "stats/means_butterfly_rgbnir.npy"
+    rgbnir_stds: "stats/stds_butterfly_rgbnir.npy"
+
+    rgb_means: "stats/means_summer_images_visual.npy"
+    rgb_stds: "stats/stds_summer_images_visual.npy"
+
+    env_means: "stats/env_means.npy"
+    env_stds: "stats/env_stds.npy"
 
   correction_factor:
      thresh:  # to train with RM
