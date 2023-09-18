@@ -10,7 +10,7 @@ from torchvision import transforms as trsfs
 import numpy as np
 
 
-def get_unkown_mask_indices(num_labels, known_labels, max_unknown=0.5):
+def get_unkown_mask_indices(num_labels, known_labels, max_unknown=0.75):
     # sample random number of known labels during training; in testing, everything is unknown
     # TODO: use structured masking instead of random masking
     if known_labels > 0:
@@ -27,7 +27,7 @@ def get_unkown_mask_indices(num_labels, known_labels, max_unknown=0.5):
 class SDMVisionMaskedDataset(VisionDataset):
     def __init__(self, df, data_base_dir, env, env_var_sizes,
                  transforms: Optional[Callable[[Dict[str, Any]], Dict[str, Any]]] = None, mode="train", datatype="refl",
-                 targets_folder="corrected_targets", subset=None, num_species=684) -> None:
+                 targets_folder="corrected_targets", env_data_folder="environmental", subset=None, num_species=684) -> None:
         """
         df_paths: dataframe with paths to data for each hotspot
         data_base_dir: base directory for data
@@ -48,6 +48,7 @@ class SDMVisionMaskedDataset(VisionDataset):
         self.mode = mode
         self.data_type = datatype
         self.targets_folder = targets_folder
+        self.env_data_folder = env_data_folder
         self.subset = get_subset(subset, num_species)
         self.num_species = num_species
 
@@ -71,7 +72,7 @@ class SDMVisionMaskedDataset(VisionDataset):
 
         # loading environmental rasters, if any
         for i, env_var in enumerate(self.env):
-            env_npy = os.path.join(self.data_base_dir, "environmental_data", hotspot_id + '.npy')
+            env_npy = os.path.join(self.data_base_dir, self.env_data_folder, hotspot_id + '.npy')
             env_data = load_file(env_npy)
             s_i = i * self.env_var_sizes[i - 1]
             e_i = self.env_var_sizes[i] + s_i
@@ -90,7 +91,7 @@ class SDMVisionMaskedDataset(VisionDataset):
         # constructing targets
         species = load_file(os.path.join(self.data_base_dir, self.targets_folder, hotspot_id + '.json'))
 
-        if not self.subset is None:
+        if self.subset:
             item_["target"] = np.array(species["probs"])[self.subset]
         else:
             item_["target"] = species["probs"]

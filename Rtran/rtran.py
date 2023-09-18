@@ -6,11 +6,11 @@ import torch
 import torch.nn as nn
 import numpy as np
 from Rtran.utils import weights_init, custom_replace
-from Rtran.models import Resnet50, SelfAttnLayer
+from Rtran.models import *
 
 
 class RTranModel(nn.Module):
-    def __init__(self, num_classes, input_channels=3, pretrained_backbone=True, d_hidden=2048, n_state=3, attention_layers=3, heads=4, dropout=0.1):
+    def __init__(self, num_classes, input_channels=3, pretrained_backbone=True, d_hidden=512, n_state=3, attention_layers=3, heads=4, dropout=0.2):
         """
         pos_emb is false by default
         """
@@ -18,7 +18,7 @@ class RTranModel(nn.Module):
         self.d_hidden = d_hidden  # this should match the backbone output feature size
 
         # ResNet101 backbone
-        self.backbone = Resnet50(input_channels=input_channels, pretrained=pretrained_backbone)
+        self.backbone = Resnet18(input_channels=input_channels, pretrained=pretrained_backbone)
 
         # Label Embeddings
         self.label_input = torch.Tensor(np.arange(num_classes)).view(1, -1).long()

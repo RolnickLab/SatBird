@@ -73,8 +73,9 @@ class RegressionTransformerTask(pl.LightningModule):
             y *= mask.int()
 
         loss = self.criterion(y_pred, y)
-        self.log("train_loss", loss, on_epoch=True)
-        self.log_metrics(mode="train", pred=y_pred, y=y)
+        if batch_idx % 50 == 0:
+            self.log("train_loss", loss, on_epoch=True)
+            self.log_metrics(mode="train", pred=y_pred, y=y)
 
         return loss
 
@@ -98,9 +99,10 @@ class RegressionTransformerTask(pl.LightningModule):
             y *= mask.int()
 
         loss = self.criterion(y_pred, y)
-        self.log("val_loss", loss, on_epoch=True)
 
-        self.log_metrics(mode="val", pred=y_pred, y=y)
+        if batch_idx % 50 == 0:
+            self.log("val_loss", loss, on_epoch=True)
+            self.log_metrics(mode="val", pred=y_pred, y=y)
         return loss
 
     def test_step(
@@ -124,9 +126,10 @@ class RegressionTransformerTask(pl.LightningModule):
             y_pred *= range_maps_correction_data.int()
             y *= mask.int()
 
-        loss = self.criterion(y_pred, y)
-        self.log("test_loss", loss, on_epoch=True)
-        self.log_metrics(mode="test", pred=y_pred, y=y)
+        if batch_idx % 50 == 0:
+            loss = self.criterion(y_pred, y)
+            self.log("test_loss", loss, on_epoch=True)
+            self.log_metrics(mode="test", pred=y_pred, y=y)
 
         # saving model predictions
         if self.config.save_preds_path != "":
@@ -145,8 +148,26 @@ class RegressionTransformerTask(pl.LightningModule):
         return loss_mapping.get(loss_fn_name)
 
     def configure_optimizers(self):
-        optimizer = optim.Adam(filter(lambda p: p.requires_grad, self.model.parameters()), lr=self.learning_rate)
-        return optimizer
+        optimizer_mapping = {
+            "Adam": optim.Adam(filter(lambda p: p.requires_grad, self.model.parameters()), lr=self.learning_rate, weight_decay=0.01),
+            "AdamW": optim.AdamW(filter(lambda p: p.requires_grad, self.model.parameters()), lr=self.learning_rate, weight_decay=0.01),
+            "SGD": optim.SGD(filter(lambda p: p.requires_grad, self.model.parameters()), lr=self.learning_rate, momentum=0.9)
+        }
+        optimizer = optimizer_mapping.get(self.config.optimizer)
+
+        if self.config.scheduler.name == "ReduceLROnPlateau":
+            scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, factor=self.config.scheduler.reduce_lr_plateau.factor,
+                              patience=self.config.scheduler.reduce_lr_plateau.lr_schedule_patience)
+            return {
+                "optimizer": optimizer,
+                "lr_scheduler": {
+                    "scheduler": scheduler,
+                    "monitor": "val_loss",
+                    "frequency": 1
+                }
+            }
+        else:
+            return optimizer
 
     def log_metrics(self, mode, pred, y):
         """
@@ -177,6 +198,7 @@ class SDMDataModule(pl.LightningDataModule):
         self.num_workers = self.config.data.loaders.num_workers
         self.data_base_dir = self.config.data.files.base
         self.targets_folder = self.config.data.files.targets_folder
+        self.env_data_folder = self.config.data.files.env_data_folder
 
         self.df_train = pd.read_csv(os.path.join(self.data_base_dir, self.config.data.files.train))
         self.df_val = pd.read_csv(os.path.join(self.data_base_dir, self.config.data.files.val))
@@ -201,6 +223,7 @@ class SDMDataModule(pl.LightningDataModule):
             mode="train",
             datatype=self.datatype,
             targets_folder=self.targets_folder,
+            env_data_folder=self.env_data_folder,
             subset=self.subset,
             num_species=self.num_species)
 
@@ -213,6 +236,7 @@ class SDMDataModule(pl.LightningDataModule):
             mode="val",
             datatype=self.datatype,
             targets_folder=self.targets_folder,
+            env_data_folder=self.env_data_folder,
             subset=self.subset,
             num_species=self.num_species)
 
@@ -225,6 +249,7 @@ class SDMDataModule(pl.LightningDataModule):
             mode="test",
             datatype=self.datatype,
             targets_folder=self.targets_folder,
+            env_data_folder=self.env_data_folder,
             subset=self.subset,
             num_species=self.num_species)
 
