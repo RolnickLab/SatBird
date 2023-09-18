@@ -705,6 +705,7 @@ class EbirdDataModule(pl.LightningDataModule):
         self.num_workers = self.opts.data.loaders.num_workers
         self.data_base_dir = self.opts.data.files.base
         self.targets_folder = self.opts.data.files.targets_folder
+        self.env_data_folder = self.config.data.files.env_data_folder
         self.df_train = pd.read_csv(os.path.join(self.data_base_dir, self.opts.data.files.train))
         self.df_val = pd.read_csv(os.path.join(self.data_base_dir, self.opts.data.files.val))
         self.df_test = pd.read_csv(os.path.join(self.data_base_dir, self.opts.data.files.test))
@@ -737,6 +738,7 @@ class EbirdDataModule(pl.LightningDataModule):
             datatype=self.datatype,
             target=self.target,
             targets_folder=self.targets_folder,
+            env_data_folder=self.env_data_folder,
             subset=self.subset,
             res=self.res,
             use_loc=self.use_loc,
@@ -754,6 +756,7 @@ class EbirdDataModule(pl.LightningDataModule):
             datatype=self.datatype,
             target=self.target,
             targets_folder=self.targets_folder,
+            env_data_folder=self.env_data_folder,
             subset=self.subset,
             res=self.res,
             use_loc=self.use_loc,
@@ -771,6 +774,7 @@ class EbirdDataModule(pl.LightningDataModule):
             datatype=self.datatype,
             target=self.target,
             targets_folder=self.targets_folder,
+            env_data_folder=self.env_data_folder,
             subset=self.subset,
             res=self.res,
             use_loc=self.use_loc,

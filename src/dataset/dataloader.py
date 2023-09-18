@@ -23,6 +23,7 @@ class EbirdVisionDataset(VisionDataset):
                  datatype="refl",
                  target="probs",
                  targets_folder="corrected_targets",
+                 env_data_folder="environmental",
                  subset=None,
                  use_loc=False,
                  res=[],
@@ -52,6 +53,7 @@ class EbirdVisionDataset(VisionDataset):
         self.type = datatype
         self.target = target
         self.targets_folder = targets_folder
+        self.env_data_folder = env_data_folder
         self.subset = get_subset(subset, num_species)
         self.use_loc = use_loc
         self.loc_type = loc_type
@@ -78,7 +80,7 @@ class EbirdVisionDataset(VisionDataset):
 
         # env rasters
         for i, env_var in enumerate(self.env):
-            env_npy = os.path.join(self.data_base_dir, "environmental_data", hotspot_id + '.npy')
+            env_npy = os.path.join(self.data_base_dir, "environmental_bounded_2", hotspot_id + '.npy')
             env_data = load_file(env_npy)
             s_i = i * self.env_var_sizes[i - 1]
             e_i = self.env_var_sizes[i] + s_i

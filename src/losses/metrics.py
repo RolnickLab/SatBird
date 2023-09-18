@@ -164,5 +164,4 @@ def get_metrics(config):
     for m in config.losses.metrics:
         metrics.append((m.name, get_metric(m), m.scale))
     metrics = [(a, b, c) for (a, b, c) in metrics if b is not None]
-    print(metrics)
     return metrics
