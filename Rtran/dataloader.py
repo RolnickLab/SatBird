@@ -10,7 +10,7 @@ from torchvision import transforms as trsfs
 import numpy as np
 
 
-def get_unkown_mask_indices(num_labels, known_labels, max_unknown=0.75):
+def get_unkown_mask_indices(num_labels, known_labels, max_unknown=0.5):
     # sample random number of known labels during training; in testing, everything is unknown
     # TODO: use structured masking instead of random masking
     if known_labels > 0:

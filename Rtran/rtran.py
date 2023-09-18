@@ -10,7 +10,7 @@ from Rtran.models import *
 
 
 class RTranModel(nn.Module):
-    def __init__(self, num_classes, input_channels=3, pretrained_backbone=True, d_hidden=512, n_state=3, attention_layers=3, heads=4, dropout=0.2):
+    def __init__(self, num_classes, input_channels=3, pretrained_backbone=True, d_hidden=512, n_state=3, attention_layers=2, heads=2, dropout=0.2):
         """
         pos_emb is false by default
         """
