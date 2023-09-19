@@ -76,7 +76,7 @@ def main(opts):
     config.base_dir = base_dir
 
     # compute means and stds for normalization
-    config.variables.ped_stds = compute_means_stds_env_vars(root_dir=config.data.files.base,
+    config.variables.bioclim_means, config.variables.bioclim_std, config.variables.ped_means, config.variables.ped_std = compute_means_stds_env_vars(root_dir=config.data.files.base,
                                                             train_csv=config.data.files.train,
                                                             env_data_folder=config.data.files.env_data_folder,
                                                             output_file_means=config.data.files.env_means,
@@ -152,18 +152,19 @@ def main(opts):
                 # get path of a single experiment
                 run_id_path = os.path.join(config.load_ckpt_path, str(get_seed(run_id, config.program.seed)))
                 # get path of the best checkpoint (not last)
-                if os.path.exists(os.path.join(config.base_dir, run_id_path)):
-                    files = os.listdir(os.path.join(config.base_dir, run_id_path))
-                    best_checkpoint_file_name = [file for file in files if 'last' not in file and file.endswith('.ckpt')][0]
-                    checkpoint_path_per_run_id = os.path.join(run_id_path, best_checkpoint_file_name)
-                    # load the best checkpoint for the given run
-                    task = load_existing_checkpoint(task=task, base_dir=config.base_dir,
-                                                    checkpint_path=checkpoint_path_per_run_id,
-                                                    save_preds_path=config.save_preds_path)
-
-                    test_results = test_task(task)
-                    save_test_results_to_csv(results=test_results[0],
-                                             root_dir=os.path.join(config.base_dir, config.load_ckpt_path))
+                files = os.listdir(os.path.join(config.base_dir, run_id_path))
+                best_checkpoint_file_name = [file for file in files if 'last' not in file and file.endswith('.ckpt')][0]
+                checkpoint_path_per_run_id = os.path.join(run_id_path, best_checkpoint_file_name)
+                # load the best checkpoint for the given run
+                # print(task.model.output_linear.weight)
+                task = load_existing_checkpoint(task=task, base_dir=config.base_dir,
+                                                checkpint_path=checkpoint_path_per_run_id,
+                                                save_preds_path=config.save_preds_path)
+                # print(task.model.output_linear.weight)
+                # exit(0)
+                test_results = test_task(task)
+                save_test_results_to_csv(results=test_results[0],
+                                         root_dir=os.path.join(config.base_dir, config.load_ckpt_path))
 
     else:
         print("No checkpoint provided...Evaluating a random model")
