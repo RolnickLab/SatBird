@@ -10,7 +10,7 @@ from torchvision import transforms as trsfs
 import numpy as np
 
 
-def get_unkown_mask_indices(num_labels, known_labels, max_unknown=0.5):
+def get_unknown_mask_indices(num_labels, known_labels, max_unknown=0.5):
     # sample random number of known labels during training; in testing, everything is unknown
     # TODO: use structured masking instead of random masking
     if known_labels > 0:
@@ -19,7 +19,8 @@ def get_unkown_mask_indices(num_labels, known_labels, max_unknown=0.5):
         unk_mask_indices = random.sample(range(num_labels), num_unknown)
     else:
         # for testing, everything is unknown
-        unk_mask_indices = np.arange(0, num_labels)
+        test_unknown_percentage = 1.0
+        unk_mask_indices = random.sample(range(num_labels), int(num_labels * test_unknown_percentage))
 
     return unk_mask_indices
 
@@ -101,12 +102,11 @@ class SDMVisionMaskedDataset(VisionDataset):
         self.known_labels = 0
         if self.mode == "train":
             self.known_labels = 100
-        unk_mask_indices = get_unkown_mask_indices(num_labels=self.num_species, known_labels=self.known_labels)
+        unk_mask_indices = get_unknown_mask_indices(num_labels=self.num_species, known_labels=self.known_labels)
         mask = item_["target"].clone()
         mask[mask != 0] = 1
         mask.scatter_(dim=0, index=torch.Tensor(unk_mask_indices).long(), value=-1.0)
         item_["mask"] = mask
-
         # meta data
         item_["num_complete_checklists"] = species["num_complete_checklists"]
         item_["hotspot_id"] = hotspot_id

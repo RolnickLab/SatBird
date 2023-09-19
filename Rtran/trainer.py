@@ -17,6 +17,7 @@ from src.transforms.transforms import get_transforms
 from src.losses.metrics import get_metrics
 from src.losses.losses import RMSLELoss, CustomFocalLoss, CustomCrossEntropyLoss
 from Rtran.rtran import RTranModel
+from Rtran.utils import custom_replace
 
 
 class RegressionTransformerTask(pl.LightningModule):
@@ -54,7 +55,7 @@ class RegressionTransformerTask(pl.LightningModule):
         self.metrics = metrics
 
     def training_step(
-            self, batch: Dict[str, Any], batch_idx: int) -> None:
+            self, batch: Dict[str, Any], batch_idx: int):
 
         hotspot_id = batch["hotspot_id"]
 
@@ -70,9 +71,15 @@ class RegressionTransformerTask(pl.LightningModule):
                                         columns=["index"]).iloc[:, self.subset].values
             range_maps_correction_data = torch.tensor(range_maps_correction_data, device=y.device)
             y_pred *= range_maps_correction_data.int()
-            y *= mask.int()
+            y *= range_maps_correction_data.int()
 
         loss = self.criterion(y_pred, y)
+
+        ### to train on unknown labels only
+        # unknown_mask = custom_replace(mask, 1, 0, 0)
+        # loss = self.criterion(y_pred[unknown_mask], y[unknown_mask], reduction='None')
+        # loss = (unknown_mask * loss).sum() / unknown_mask.sum().item()
+        ###
         if batch_idx % 50 == 0:
             self.log("train_loss", loss, on_epoch=True)
             self.log_metrics(mode="train", pred=y_pred, y=y)
@@ -96,14 +103,12 @@ class RegressionTransformerTask(pl.LightningModule):
                                         columns=["index"]).iloc[:, self.subset].values
             range_maps_correction_data = torch.tensor(range_maps_correction_data, device=y.device)
             y_pred *= range_maps_correction_data.int()
-            y *= mask.int()
+            y *= range_maps_correction_data.int()
 
         loss = self.criterion(y_pred, y)
 
-        if batch_idx % 50 == 0:
-            self.log("val_loss", loss, on_epoch=True)
-            self.log_metrics(mode="val", pred=y_pred, y=y)
-        return loss
+        self.log("val_loss", loss, on_epoch=True)
+        self.log_metrics(mode="val", pred=y_pred, y=y, mask=mask)
 
     def test_step(
             self, batch: Dict[str, Any], batch_idx: int
@@ -124,12 +129,11 @@ class RegressionTransformerTask(pl.LightningModule):
                 columns=["index"]).iloc[:, self.subset].values
             range_maps_correction_data = torch.tensor(range_maps_correction_data, device=y.device)
             y_pred *= range_maps_correction_data.int()
-            y *= mask.int()
+            y *= range_maps_correction_data.int()
 
-        if batch_idx % 50 == 0:
-            loss = self.criterion(y_pred, y)
-            self.log("test_loss", loss, on_epoch=True)
-            self.log_metrics(mode="test", pred=y_pred, y=y)
+        loss = self.criterion(y_pred, y)
+        self.log("test_loss", loss, on_epoch=True)
+        self.log_metrics(mode="test", pred=y_pred, y=y, mask=mask)
 
         # saving model predictions
         if self.config.save_preds_path != "":
@@ -169,10 +173,15 @@ class RegressionTransformerTask(pl.LightningModule):
         else:
             return optimizer
 
-    def log_metrics(self, mode, pred, y):
+    def log_metrics(self, mode, pred, y, mask=None):
         """
         log metrics through logger
         """
+        if mask is not None:
+            unknown_mask = custom_replace(mask, 1, 0, 0)
+            unknown_mask = unknown_mask > 0
+            pred = pred * unknown_mask
+            y = y * unknown_mask
         for (name, _, scale) in self.metrics:
             nname = str(mode) + "_" + name
             if name == "accuracy":
