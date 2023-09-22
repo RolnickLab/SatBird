@@ -39,7 +39,8 @@ experiment:
     use_weighted_loss: False
     loss_weight: "log" #"log", "nchklists"
 
-use_rtran: False
+Rtran:
+  use: False
 
 optimizer: "SGD"  #"Adam"
 

@@ -1,8 +1,8 @@
 #where to save checkpoints
-save_path: "Satbird_v2_baseline_resnet18_RGBNIR_ENV"
+save_path: "Satbird_v2_baseline_resnet18_RGBNIR_ENV_wNorm"
 
 # load existing checkpoint for inference. If passing experiment folder instead (for multiple seeds), it will evaluate all of them.
-load_ckpt_path: "Satbird_v2_baseline_resnet18_RGBNIR_ENV"
+load_ckpt_path: "Satbird_v2_baseline_resnet18_RGBNIR_ENV_wNorm"
 save_preds_path: "" #"/network/scratch/h/hager.radi/ecosystem-embedding/baseline_resnet18_RGBNIR_ENV/preds_path"
 log_comet: true
 
@@ -20,8 +20,8 @@ loc:
 
 comet:
   project_name: "new_baselines"
-  tags: ["resnet18", "RGBNIR_ENV", "corrected_targets"]
-  experiment_name: "Satbird_v2_baseline_resnet18_RGBNIR_ENV" # specify for training, or use to report test results, TODO: also use to resume training
+  tags: ["resnet18", "RGBNIR_ENV", "corrected_targets", "EnvNormalization"]
+  experiment_name: "Satbird_v2_baseline_resnet18_RGBNIR_ENV_wNorm" # specify for training, or use to report test results, TODO: also use to resume training
   experiment_key: "" # use to report test results,
 
 experiment:
@@ -161,12 +161,12 @@ data:
       custom: [*rgbnir_means, *rgbnir_std]
 
     - name: normalize
-      ignore: true
+      ignore: False
       maxchan: false
       subset: ["bioclim"]
       custom: [*bioclim_means, *bioclim_std]
     - name: normalize
-      ignore: true
+      ignore: False
       maxchan: false
       subset: ["ped"]
       custom: [*ped_means, *ped_std]

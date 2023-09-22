@@ -3,7 +3,7 @@ from math import ceil, floor
 import numpy as np
 import torch
 from torch import Tensor
-from torch.nn import Module  # type: ignore[attr-defined]
+from torch.nn import Module
 import torchvision
 from torchvision.transforms.functional import normalize
 import torch.nn.functional as F
@@ -115,22 +115,12 @@ class Normalize:
             for task in self.subset:
                 tensor = sample[task]
                 sample[task] = tensor / torch.amax(tensor, dim=(-2, -1), keepdims=True)
-            # d =  {
-            #    task: tensor/ torch.amax(tensor, dim=(-2,-1), keepdims=True)
-            #    for task, tensor in sample.items() if task in subset
-            # }
         # TODO
         if self.custom:
             means, std = self.custom
             for task in self.subset:
-                sample[task] = normalize(torch.tensor(sample[task], dtype=torch.float32), means, std)
-            # d = {
-            #    task: normalize(tensor.type(torch.FloatTensor), means, std)
-            #     for task, tensor in sample.items() if task in subset
-            # }
-        #    pass
-
-        return (sample)
+                sample[task] = normalize(sample[task], means, std)
+        return sample
 
 
 class MatchRes:
@@ -451,13 +441,6 @@ def get_transforms(opts, mode):
         if t.name == "matchres":
             t.custom_means = opts.variables.bioclim_means, opts.variables.ped_means
 
-        # if t.name == "normalize" and not (
-        #         t.ignore is True or t.ignore == mode
-        # ) and t.subset == ["sat"]:
-        #     if opts.data.bands == ["r", "g", "b"]:
-        #         print("only taking normalization values for r,g,b")
-        #         means, std = t.custom
-        #         t.custom = [means[:3], std[:3]]
         # account for multires
         if t.name == 'crop' and len(opts.data.multiscale) > 1:
             for res in opts.data.multiscale:

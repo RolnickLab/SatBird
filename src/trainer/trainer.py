@@ -375,7 +375,7 @@ class EbirdTask(pl.LightningModule):
         }
 
         weight_type = self.opts.experiment.module.loss_weight
-        print(f"using {weight_type} weights")
+        # print(f"using {weight_type} weights")
         new_weights = weighted_loss_operations[weight_type](batch["num_complete_checklists"])
 
         new_weights = torch.ones(y.shape, device=torch.device("cuda")) * new_weights.view(
@@ -534,7 +534,7 @@ class EbirdTask(pl.LightningModule):
             correction_t = torch.tensor(correction_t, device=y.device)
             self.correction = correction_t
 
-        print("Model is on cuda", next(self.model.parameters()).is_cuda)
+        # print("Model is on cuda", next(self.model.parameters()).is_cuda)
         if self.opts.experiment.module.model == "linear":
             x = torch.flatten(x, start_dim=1)
 
@@ -607,7 +607,7 @@ class EbirdTask(pl.LightningModule):
                 columns=["index"]).iloc[:, self.subset].values
             correction_t = torch.tensor(correction_t, device=y.device)
 
-        print("Model is on cuda", next(self.model.parameters()).is_cuda)
+        # print("Model is on cuda", next(self.model.parameters()).is_cuda)
         if self.opts.experiment.module.model == "linear":
             x = torch.flatten(x, start_dim=1)
         elif self.opts.experiment.module.model == "satlas" or self.opts.experiment.module.model == "satmae":
@@ -705,7 +705,7 @@ class EbirdDataModule(pl.LightningDataModule):
         self.num_workers = self.opts.data.loaders.num_workers
         self.data_base_dir = self.opts.data.files.base
         self.targets_folder = self.opts.data.files.targets_folder
-        self.env_data_folder = self.config.data.files.env_data_folder
+        self.env_data_folder = self.opts.data.files.env_data_folder
         self.df_train = pd.read_csv(os.path.join(self.data_base_dir, self.opts.data.files.train))
         self.df_val = pd.read_csv(os.path.join(self.data_base_dir, self.opts.data.files.val))
         self.df_test = pd.read_csv(os.path.join(self.data_base_dir, self.opts.data.files.test))
