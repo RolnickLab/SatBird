@@ -12,16 +12,23 @@ class CustomCrossEntropyLoss:
         self.lambd_abs = lambd_abs
         self.lambd_pres = lambd_pres
 
-    def __call__(self, pred, target):
+    def __call__(self, pred, target, reduction='mean'):
         """
         target: ground truth
         pred: prediction
+        reduction: mean, sum, none
         """
         # print('maximum prediction value ',q.max())
         # print('maximum target value',p.max())
         # p=torch.clip(p, min=0, max=0.98)
         # q=torch.clip(q, min=0, max=0.98)
-        loss = (-self.lambd_pres * target * torch.log(pred + eps) - self.lambd_abs * (1 - target) * torch.log(1 - pred + eps)).mean()
+        loss = (-self.lambd_pres * target * torch.log(pred + eps) - self.lambd_abs * (1 - target) * torch.log(1 - pred + eps))
+        if reduction == 'mean':
+            loss = loss.mean()
+        elif reduction == 'sum':
+            loss = loss.sum()
+        else: # reduction = None
+            loss = loss
         # print('inside_loss',loss)
         return loss
 

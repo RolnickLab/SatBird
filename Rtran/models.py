@@ -16,7 +16,7 @@ class Resnet18(nn.Module):
         self.freeze_base = False
         self.unfreeze_base_l4 = False
 
-        self.base_network = models.resnet18(pretrained=False)
+        self.base_network = models.resnet18(pretrained=self.pretrained_backbone)
         original_in_channels = self.base_network.conv1.in_channels
 
         # if input is not RGB

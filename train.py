@@ -41,24 +41,27 @@ def main(opts):
     config.base_dir = base_dir
 
     # compute means and stds for normalization
-    config.variables.bioclim_means, config.variables.bioclim_std, config.variables.ped_means,\
-        config.variables.ped_std = compute_means_stds_env_vars(root_dir=config.data.files.base, train_csv=config.data.files.train,
-                                                                env_data_folder=config.data.files.env_data_folder,
-                                                                output_file_means=config.data.files.env_means,
-                                                                output_file_std=config.data.files.env_stds
-                                                                )
+    config.variables.bioclim_means, config.variables.bioclim_std, config.variables.ped_means, config.variables.ped_std = compute_means_stds_env_vars(
+        root_dir=config.data.files.base,
+        train_csv=config.data.files.train,
+        env_data_folder=config.data.files.env_data_folder,
+        output_file_means=config.data.files.env_means,
+        output_file_std=config.data.files.env_stds
+        )
 
     if config.data.datatype == "refl":
-        config.variables.rgbnir_means, config.variables.rgbnir_std = compute_means_stds_images(root_dir=config.data.files.base,
-                                                                                           train_csv=config.data.files.train,
-                                                                                           output_file_means=config.data.files.rgbnir_means,
-                                                                                           output_file_std=config.data.files.rgbnir_stds)
+        config.variables.rgbnir_means, config.variables.rgbnir_std = compute_means_stds_images(
+            root_dir=config.data.files.base,
+            train_csv=config.data.files.train,
+            output_file_means=config.data.files.rgbnir_means,
+            output_file_std=config.data.files.rgbnir_stds)
+    elif config.data.datatype == "img":
+        config.variables.visual_means, config.variables.visual_stds = compute_means_stds_images_visual(
+            root_dir=config.data.files.base,
+            train_csv=config.data.files.train,
+            output_file_means=config.data.files.rgb_means,
+            output_file_std=config.data.files.rgb_stds)
 
-    if config.data.datatype == "img":
-        config.variables.visual_means, config.variables.visual_stds = compute_means_stds_images_visual(root_dir=config.data.files.base,
-                                                                                                   train_csv=config.data.files.train,
-                                                                                                   output_file_means=config.data.files.rgb_means,
-                                                                                                   output_file_std=config.data.files.rgb_stds)
     # set global seed
     pl.seed_everything(global_seed)
 
@@ -68,7 +71,7 @@ def main(opts):
         OmegaConf.save(config=config, f=fp)
     fp.close()
 
-    if config.use_rtran:
+    if config.Rtran.use:
         task = RtranTrainer.RegressionTransformerTask(config)
         datamodule = RtranTrainer.SDMDataModule(config)
     else:

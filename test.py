@@ -21,8 +21,7 @@ from pytorch_lightning.loggers import CometLogger
 from src.utils.config_utils import load_opts
 from src.utils.compute_normalization_stats import *
 import src.trainer.trainer as general_trainer
-import src.trainer.geo_trainer as geo_trainer
-import Rtran.trainer as RtranTrainer
+import Rtran.trainer as rtran_trainer
 
 hydra_config_path = Path(__file__).resolve().parent / "configs/hydra.yaml"
 
@@ -76,24 +75,27 @@ def main(opts):
     config.base_dir = base_dir
 
     # compute means and stds for normalization
-    config.variables.bioclim_means, config.variables.bioclim_std, config.variables.ped_means, config.variables.ped_std = compute_means_stds_env_vars(root_dir=config.data.files.base,
-                                                            train_csv=config.data.files.train,
-                                                            env_data_folder=config.data.files.env_data_folder,
-                                                            output_file_means=config.data.files.env_means,
-                                                            output_file_std=config.data.files.env_stds
-                                                            )
+    config.variables.bioclim_means, config.variables.bioclim_std, config.variables.ped_means, config.variables.ped_std = compute_means_stds_env_vars(
+        root_dir=config.data.files.base,
+        train_csv=config.data.files.train,
+        env_data_folder=config.data.files.env_data_folder,
+        output_file_means=config.data.files.env_means,
+        output_file_std=config.data.files.env_stds
+        )
 
     if config.data.datatype == "refl":
-        config.variables.rgbnir_means, config.variables.rgbnir_std = compute_means_stds_images(root_dir=config.data.files.base,
-                                                                                           train_csv=config.data.files.train,
-                                                                                           output_file_means=config.data.files.rgbnir_means,
-                                                                                           output_file_std=config.data.files.rgbnir_stds)
+        config.variables.rgbnir_means, config.variables.rgbnir_std = compute_means_stds_images(
+            root_dir=config.data.files.base,
+            train_csv=config.data.files.train,
+            output_file_means=config.data.files.rgbnir_means,
+            output_file_std=config.data.files.rgbnir_stds)
 
-    if config.data.datatype == "img":
-        config.variables.visual_means, config.variables.visual_stds = compute_means_stds_images_visual(root_dir=config.data.files.base,
-                                                                                                   train_csv=config.data.files.train,
-                                                                                                   output_file_means=config.data.files.rgb_means,
-                                                                                                   output_file_std=config.data.files.rgb_stds)
+    elif config.data.datatype == "img":
+        config.variables.visual_means, config.variables.visual_stds = compute_means_stds_images_visual(
+            root_dir=config.data.files.base,
+            train_csv=config.data.files.train,
+            output_file_means=config.data.files.rgb_means,
+            output_file_std=config.data.files.rgb_stds)
 
     run_id = args["run_id"]
     global_seed = get_seed(run_id, config.program.seed)
@@ -101,9 +103,9 @@ def main(opts):
     config.save_path = os.path.join(base_dir, config.save_path, str(global_seed))
     pl.seed_everything(config.program.seed)
 
-    if config.use_rtran:
-        task = RtranTrainer.RegressionTransformerTask(config)
-        datamodule = RtranTrainer.SDMDataModule(config)
+    if config.Rtran.use:
+        task = rtran_trainer.RegressionTransformerTask(config)
+        datamodule = rtran_trainer.SDMDataModule(config)
     else:
         # using general trainer without location information
         print("Using general trainer..")

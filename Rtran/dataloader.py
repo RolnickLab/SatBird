@@ -10,17 +10,16 @@ from torchvision import transforms as trsfs
 import numpy as np
 
 
-def get_unknown_mask_indices(num_labels, known_labels, max_unknown=0.5):
+def get_unknown_mask_indices(num_labels, mode, max_unknown=0.5):
     # sample random number of known labels during training; in testing, everything is unknown
     # TODO: use structured masking instead of random masking
-    if known_labels > 0:
+    if mode == 'train':
         random.seed()
         num_unknown = random.randint(0, int(num_labels * max_unknown))
         unk_mask_indices = random.sample(range(num_labels), num_unknown)
     else:
         # for testing, everything is unknown
-        test_unknown_percentage = 1.0
-        unk_mask_indices = random.sample(range(num_labels), int(num_labels * test_unknown_percentage))
+        unk_mask_indices = random.sample(range(num_labels), int(num_labels * max_unknown))
 
     return unk_mask_indices
 
@@ -28,7 +27,7 @@ def get_unknown_mask_indices(num_labels, known_labels, max_unknown=0.5):
 class SDMVisionMaskedDataset(VisionDataset):
     def __init__(self, df, data_base_dir, env, env_var_sizes,
                  transforms: Optional[Callable[[Dict[str, Any]], Dict[str, Any]]] = None, mode="train", datatype="refl",
-                 targets_folder="corrected_targets", env_data_folder="environmental", subset=None, num_species=684) -> None:
+                 targets_folder="corrected_targets", env_data_folder="environmental", maximum_unknown_labels_ratio=0.5, subset=None, num_species=684) -> None:
         """
         df_paths: dataframe with paths to data for each hotspot
         data_base_dir: base directory for data
@@ -52,6 +51,7 @@ class SDMVisionMaskedDataset(VisionDataset):
         self.env_data_folder = env_data_folder
         self.subset = get_subset(subset, num_species)
         self.num_species = num_species
+        self.maximum_unknown_labels_ratio = maximum_unknown_labels_ratio
 
     def __len__(self):
         return len(self.df)
@@ -99,10 +99,7 @@ class SDMVisionMaskedDataset(VisionDataset):
         item_["target"] = torch.Tensor(item_["target"])
 
         # constructing mask for R-tran
-        self.known_labels = 0
-        if self.mode == "train":
-            self.known_labels = 100
-        unk_mask_indices = get_unknown_mask_indices(num_labels=self.num_species, known_labels=self.known_labels)
+        unk_mask_indices = get_unknown_mask_indices(num_labels=self.num_species, mode=self.mode, max_unknown=self.maximum_unknown_labels_ratio)
         mask = item_["target"].clone()
         mask[mask != 0] = 1
         mask.scatter_(dim=0, index=torch.Tensor(unk_mask_indices).long(), value=-1.0)

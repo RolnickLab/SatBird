@@ -36,7 +36,11 @@ class RegressionTransformerTask(pl.LightningModule):
         self.image_input_channels = len(self.config.data.bands)
         self.image_input_channels += sum(self.config.data.env_var_sizes) if len(self.config.data.env) > 0 else 0
 
-        self.model = RTranModel(num_classes=self.num_species, input_channels=self.image_input_channels, pretrained_backbone=self.config.experiment.module.pretrained)
+        self.model = RTranModel(num_classes=self.num_species,
+                                backbone=self.config.Rtran.backbone, pretrained_backbone=self.config.Rtran.pretrained_backbone,
+                                input_channels=self.image_input_channels, d_hidden=self.config.Rtran.features_size,
+                                scale_embeddings_by_labels=self.config.Rtran.scale_embeddings_by_labels)
+
         self.sigmoid_activation = nn.Sigmoid()
 
         # if using range maps (RM)
@@ -73,13 +77,13 @@ class RegressionTransformerTask(pl.LightningModule):
             y_pred *= range_maps_correction_data.int()
             y *= range_maps_correction_data.int()
 
-        loss = self.criterion(y_pred, y)
+        if self.config.Rtran.masked_loss:         # to train on unknown labels only
+            unknown_mask = custom_replace(mask, 1, 0, 0)
+            loss = self.criterion(y_pred[unknown_mask.bool()], y[unknown_mask.bool()], reduction='None')
+            loss = loss.sum() / unknown_mask.sum().item()
+        else:
+            loss = self.criterion(y_pred, y)
 
-        ### to train on unknown labels only
-        # unknown_mask = custom_replace(mask, 1, 0, 0)
-        # loss = self.criterion(y_pred[unknown_mask], y[unknown_mask], reduction='None')
-        # loss = (unknown_mask * loss).sum() / unknown_mask.sum().item()
-        ###
         if batch_idx % 50 == 0:
             self.log("train_loss", loss, on_epoch=True)
             self.log_metrics(mode="train", pred=y_pred, y=y)
@@ -96,7 +100,6 @@ class RegressionTransformerTask(pl.LightningModule):
         mask = batch["mask"].long()
 
         y_pred = self.sigmoid_activation(self.model(x, mask))
-
         # if using range maps
         if self.config.data.correction_factor.thresh:
             range_maps_correction_data = (self.RM_correction_data.reset_index().set_index('hotspot_id').loc[list(hotspot_id)]).drop(
@@ -105,10 +108,14 @@ class RegressionTransformerTask(pl.LightningModule):
             y_pred *= range_maps_correction_data.int()
             y *= range_maps_correction_data.int()
 
-        loss = self.criterion(y_pred, y)
+        if self.config.Rtran.mask_eval_metrics:
+            self.log_metrics(mode="val", pred=y_pred, y=y, mask=mask)
+        else:
+            self.log_metrics(mode="val", pred=y_pred, y=y)
 
-        self.log("val_loss", loss, on_epoch=True)
-        self.log_metrics(mode="val", pred=y_pred, y=y, mask=mask)
+        # print(torch.topk(y_pred[0], k=30))
+        # print(torch.topk(y[0], k=30))
+        # exit(0)
 
     def test_step(
             self, batch: Dict[str, Any], batch_idx: int
@@ -131,9 +138,10 @@ class RegressionTransformerTask(pl.LightningModule):
             y_pred *= range_maps_correction_data.int()
             y *= range_maps_correction_data.int()
 
-        loss = self.criterion(y_pred, y)
-        self.log("test_loss", loss, on_epoch=True)
-        self.log_metrics(mode="test", pred=y_pred, y=y, mask=mask)
+        if self.config.Rtran.mask_eval_metrics:
+            self.log_metrics(mode="test", pred=y_pred, y=y, mask=mask)
+        else:
+            self.log_metrics(mode="test", pred=y_pred, y=y)
 
         # saving model predictions
         if self.config.save_preds_path != "":
@@ -179,9 +187,15 @@ class RegressionTransformerTask(pl.LightningModule):
         """
         if mask is not None:
             unknown_mask = custom_replace(mask, 1, 0, 0)
+            loss = self.criterion(pred[unknown_mask.bool()], y[unknown_mask.bool()], reduction='None')
+            loss = loss.sum() / unknown_mask.sum().item()
+
             unknown_mask = unknown_mask > 0
             pred = pred * unknown_mask
             y = y * unknown_mask
+
+        else:
+            loss = self.criterion(pred, y)
         for (name, _, scale) in self.metrics:
             nname = str(mode) + "_" + name
             if name == "accuracy":
@@ -192,6 +206,8 @@ class RegressionTransformerTask(pl.LightningModule):
                 value = getattr(self, nname)(y, pred)
 
             self.log(nname, value, on_epoch=True)
+
+        self.log(str(mode) + "_loss", loss, on_epoch=True)
 
 
 class SDMDataModule(pl.LightningDataModule):
@@ -233,6 +249,7 @@ class SDMDataModule(pl.LightningDataModule):
             datatype=self.datatype,
             targets_folder=self.targets_folder,
             env_data_folder=self.env_data_folder,
+            maximum_unknown_labels_ratio=self.config.Rtran.train_unknown_ratio,
             subset=self.subset,
             num_species=self.num_species)
 
@@ -246,6 +263,7 @@ class SDMDataModule(pl.LightningDataModule):
             datatype=self.datatype,
             targets_folder=self.targets_folder,
             env_data_folder=self.env_data_folder,
+            maximum_unknown_labels_ratio=self.config.Rtran.eval_unknown_ratio,
             subset=self.subset,
             num_species=self.num_species)
 
@@ -259,6 +277,7 @@ class SDMDataModule(pl.LightningDataModule):
             datatype=self.datatype,
             targets_folder=self.targets_folder,
             env_data_folder=self.env_data_folder,
+            maximum_unknown_labels_ratio=self.config.Rtran.eval_unknown_ratio,
             subset=self.subset,
             num_species=self.num_species)
 
