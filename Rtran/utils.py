@@ -23,3 +23,12 @@ def custom_replace(tensor, on_neg_1, on_zero, on_one):
     res[tensor == 0] = on_zero
     res[tensor == 1] = on_one
     return res
+
+
+def maksed_loss_custom_replace(tensor, on_neg_2, on_neg_1, on_zero, on_one):
+    res = tensor.clone()
+    res[tensor == -2] = on_neg_2
+    res[tensor == -1] = on_neg_1
+    res[tensor == 0] = on_zero
+    res[tensor == 1] = on_one
+    return res

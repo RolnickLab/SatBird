@@ -30,7 +30,7 @@ class RTranModel(nn.Module):
         self.state_embeddings = torch.nn.Embedding(n_state, self.d_hidden, padding_idx=0) # Dx2 (known, unknown)
 
         # embedding for the regression labels
-        # self.regression_embedding = torch.nn.Linear(num_classes, self.d_hidden)
+        # self.regression_embedding = torch.nn.Linear(num_classes, num_classes)
         # TODO: Position Embeddings (for image features)
         # Transformer
         self.self_attn_layers = nn.ModuleList([SelfAttnLayer(self.d_hidden, heads, dropout) for _ in range(attention_layers)])
@@ -62,13 +62,13 @@ class RTranModel(nn.Module):
         # print(torch.unique(mask))
         # print(self.state_embeddings)
         # unknown_mask = custom_replace(mask, 1, 0, 0)
+        mask[mask == -2] = -1
         label_feat_vec = custom_replace(mask, 0, 1, 2).long()
         state_embeddings = self.state_embeddings(label_feat_vec) # input: 3, output: 512
-
-        # print(state_embeddings[5, 12])
-        # print(labels[5, 12])
-        # print(state_embeddings[5, 12])
-        # Add state embeddings to label embeddings
+        # if labels is not None:
+        #     regression_labels = self.regression_embedding(labels)
+        #     init_label_embeddings += (state_embeddings * regression_labels.unsqueeze(-1))
+        # else:
         init_label_embeddings += state_embeddings
         # print(init_label_embeddings.size())
         # concatenate images features to label embeddings

@@ -12,12 +12,12 @@ import pytorch_lightning as pl
 from typing import Any, Dict, Optional
 from torch.utils.data import DataLoader
 
-from Rtran.dataloader import SDMVisionMaskedDataset
+from Rtran.dataloader import *
 from src.transforms.transforms import get_transforms
 from src.losses.metrics import get_metrics
 from src.losses.losses import RMSLELoss, CustomFocalLoss, CustomCrossEntropyLoss
 from Rtran.rtran import RTranModel
-from Rtran.utils import custom_replace
+from Rtran.utils import *
 
 
 class RegressionTransformerTask(pl.LightningModule):
@@ -67,7 +67,7 @@ class RegressionTransformerTask(pl.LightningModule):
         y = batch["target"]
         mask = batch["mask"].long()
 
-        y_pred = self.sigmoid_activation(self.model(x, mask))
+        y_pred = self.sigmoid_activation(self.model(x, mask.clone()))
 
         # if using range maps
         if self.config.data.correction_factor.thresh:
@@ -81,12 +81,19 @@ class RegressionTransformerTask(pl.LightningModule):
             unknown_mask = custom_replace(mask, 1, 0, 0)
             loss = self.criterion(y_pred[unknown_mask.bool()], y[unknown_mask.bool()], reduction='None')
             loss = loss.sum() / unknown_mask.sum().item()
+        elif len(mask.unique()) > 3:
+            unknown_mask = maksed_loss_custom_replace(mask, 0, 1, 1, 1)
+            loss = self.criterion(y_pred[unknown_mask.bool()], y[unknown_mask.bool()], reduction='None')
+            loss = loss.sum() / unknown_mask.sum().item()
         else:
             loss = self.criterion(y_pred, y)
 
         if batch_idx % 50 == 0:
             self.log("train_loss", loss, on_epoch=True)
-            self.log_metrics(mode="train", pred=y_pred, y=y)
+            if len(self.config.data.species) > 1:
+                self.log_metrics(mode="train", pred=y_pred, y=y, mask=mask)
+            else:
+                self.log_metrics(mode="train", pred=y_pred, y=y)
 
         return loss
 
@@ -99,7 +106,7 @@ class RegressionTransformerTask(pl.LightningModule):
         y = batch["target"]
         mask = batch["mask"].long()
 
-        y_pred = self.sigmoid_activation(self.model(x, mask))
+        y_pred = self.sigmoid_activation(self.model(x, mask.clone()))
         # if using range maps
         if self.config.data.correction_factor.thresh:
             range_maps_correction_data = (self.RM_correction_data.reset_index().set_index('hotspot_id').loc[list(hotspot_id)]).drop(
@@ -108,7 +115,8 @@ class RegressionTransformerTask(pl.LightningModule):
             y_pred *= range_maps_correction_data.int()
             y *= range_maps_correction_data.int()
 
-        if self.config.Rtran.mask_eval_metrics:
+        # print(mask.unique(), y.unique())
+        if self.config.Rtran.mask_eval_metrics or len(self.config.data.species) > 1:
             self.log_metrics(mode="val", pred=y_pred, y=y, mask=mask)
         else:
             self.log_metrics(mode="val", pred=y_pred, y=y)
@@ -127,7 +135,7 @@ class RegressionTransformerTask(pl.LightningModule):
         y = batch["target"]
         mask = batch["mask"].long()
 
-        y_pred = self.sigmoid_activation(self.model(x, mask))
+        y_pred = self.sigmoid_activation(self.model(x, mask.clone()))
 
         # if using range maps
         if self.config.data.correction_factor.thresh:
@@ -138,7 +146,7 @@ class RegressionTransformerTask(pl.LightningModule):
             y_pred *= range_maps_correction_data.int()
             y *= range_maps_correction_data.int()
 
-        if self.config.Rtran.mask_eval_metrics:
+        if self.config.Rtran.mask_eval_metrics or len(self.config.data.species) > 1:
             self.log_metrics(mode="test", pred=y_pred, y=y, mask=mask)
         else:
             self.log_metrics(mode="test", pred=y_pred, y=y)
@@ -181,21 +189,7 @@ class RegressionTransformerTask(pl.LightningModule):
         else:
             return optimizer
 
-    def log_metrics(self, mode, pred, y, mask=None):
-        """
-        log metrics through logger
-        """
-        if mask is not None:
-            unknown_mask = custom_replace(mask, 1, 0, 0)
-            loss = self.criterion(pred[unknown_mask.bool()], y[unknown_mask.bool()], reduction='None')
-            loss = loss.sum() / unknown_mask.sum().item()
-
-            unknown_mask = unknown_mask > 0
-            pred = pred * unknown_mask
-            y = y * unknown_mask
-
-        else:
-            loss = self.criterion(pred, y)
+    def __log_metric(self, mode, pred, y):
         for (name, _, scale) in self.metrics:
             nname = str(mode) + "_" + name
             if name == "accuracy":
@@ -207,6 +201,31 @@ class RegressionTransformerTask(pl.LightningModule):
 
             self.log(nname, value, on_epoch=True)
 
+    def log_metrics(self, mode, pred, y, mask=None):
+        """
+        log metrics through logger
+        """
+        if mask is not None:
+            unknown_mask = mask
+            if self.config.Rtran.mask_eval_metrics:
+                if len(mask.unique()) > 3:
+                    unknown_mask = maksed_loss_custom_replace(mask, 0, 1, 0, 0)
+                else:
+                    unknown_mask = custom_replace(mask, 1, 0, 0)
+
+            unknown_mask[unknown_mask == -2] = 0
+            unknown_mask[unknown_mask == -1] = 1
+
+            loss = self.criterion(pred[unknown_mask.bool()], y[unknown_mask.bool()], reduction='None')
+            loss = loss.sum() / unknown_mask.sum().item()
+
+            pred = pred * unknown_mask
+            y = y * unknown_mask
+
+        else:
+            loss = self.criterion(pred, y)
+
+        self.__log_metric(mode, pred, y)
         self.log(str(mode) + "_loss", loss, on_epoch=True)
 
 
@@ -235,11 +254,17 @@ class SDMDataModule(pl.LightningDataModule):
         self.datatype = self.config.data.datatype
 
         self.subset = self.config.data.target.subset
+        # self.predict_family = self.config.Rtran.predict_family
         self.num_species = self.config.data.total_species
+
+        if len(self.config.data.species) > 1:
+            self.dataloader_to_use = "SDMVJointDataset"
+        else:
+            self.dataloader_to_use = "SDMVisionMaskedDataset"
 
     def setup(self, stage: Optional[str] = None) -> None:
         """create the train/test/val splits and prepare the transforms for the multires"""
-        self.all_train_dataset = SDMVisionMaskedDataset(
+        self.all_train_dataset = globals()[self.dataloader_to_use](
             df=self.df_train,
             data_base_dir=self.data_base_dir,
             env=self.env,
@@ -253,7 +278,7 @@ class SDMDataModule(pl.LightningDataModule):
             subset=self.subset,
             num_species=self.num_species)
 
-        self.all_val_dataset = SDMVisionMaskedDataset(
+        self.all_val_dataset = globals()[self.dataloader_to_use](
             df=self.df_val,
             data_base_dir=self.data_base_dir,
             env=self.env,
@@ -267,7 +292,7 @@ class SDMDataModule(pl.LightningDataModule):
             subset=self.subset,
             num_species=self.num_species)
 
-        self.all_test_dataset = SDMVisionMaskedDataset(
+        self.all_test_dataset = globals()[self.dataloader_to_use](
             df=self.df_test,
             data_base_dir=self.data_base_dir,
             env=self.env,
