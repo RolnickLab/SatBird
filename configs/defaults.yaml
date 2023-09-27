@@ -161,7 +161,7 @@ data:
       ignore: True #false
       std: 0.01
       max_noise: 0.05
-      
+  species: []
   total_species: 684
     
 program: # These are the arguments that define how the train.py script works
