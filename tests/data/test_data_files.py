@@ -39,7 +39,7 @@ def test_corresponding_files_from_csv(config, hotspots_list) -> None:
     given hotspots, verify that their corresponding data files (in env data, targets, images and images visual) are there
     """
     # assert if environmental data doesn't contain all hotspot files
-    environmental_data = os.listdir(os.path.join(config.data.files.base, "environmental"))
+    environmental_data = os.listdir(os.path.join(config.data.files.base, config.data.files.env_data_folder))
     assert len(environmental_data) >= len(hotspots_list)
     hotspots_from_env_files = [file.split('.')[0] for file in environmental_data]
     assert set(hotspots_list).issubset(hotspots_from_env_files)
