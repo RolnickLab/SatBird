@@ -138,7 +138,7 @@ def get_subset(subset, num_species=684):
     subset can be the filename instead
     """
     if not subset:
-        return None
+        return np.arange(0, num_species)
     else:
         if os.path.isfile(subset):
             return np.load(subset).astype(int)
