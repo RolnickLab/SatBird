@@ -39,6 +39,7 @@ class RegressionTransformerTask(pl.LightningModule):
         self.model = RTranModel(num_classes=self.num_species,
                                 backbone=self.config.Rtran.backbone, pretrained_backbone=self.config.Rtran.pretrained_backbone,
                                 input_channels=self.image_input_channels, d_hidden=self.config.Rtran.features_size,
+                                use_pos_encoding=self.config.Rtran.use_positional_encoding,
                                 scale_embeddings_by_labels=self.config.Rtran.scale_embeddings_by_labels)
 
         self.sigmoid_activation = nn.Sigmoid()
@@ -71,11 +72,20 @@ class RegressionTransformerTask(pl.LightningModule):
 
         # if using range maps
         if self.config.data.correction_factor.thresh:
+            if len(self.config.data.species) > 1:
+                RM_end_index = self.config.data.species[0]
+            else:
+                RM_end_index = -1
+
             range_maps_correction_data = (self.RM_correction_data.reset_index().set_index('hotspot_id').loc[list(hotspot_id)]).drop(
-                                        columns=["index"]).iloc[:, self.subset].values
+                                        columns=["index", "Unnamed: 0"]).values
             range_maps_correction_data = torch.tensor(range_maps_correction_data, device=y.device)
-            y_pred *= range_maps_correction_data.int()
-            y *= range_maps_correction_data.int()
+            ones = torch.ones(range_maps_correction_data.shape[0], self.config.data.species[1], device=y.device)
+            range_maps_correction_data = torch.cat((range_maps_correction_data, ones), 1)
+            # y_pred[:, :RM_end_index] = y_pred[:, :RM_end_index] * range_maps_correction_data.int()
+            # y[:, :RM_end_index] = y[:, :RM_end_index] * range_maps_correction_data.int()
+            y_pred = y_pred * range_maps_correction_data.int()
+            y = y * range_maps_correction_data.int()
 
         if self.config.Rtran.masked_loss:         # to train on unknown labels only
             unknown_mask = custom_replace(mask, 1, 0, 0)
@@ -109,11 +119,21 @@ class RegressionTransformerTask(pl.LightningModule):
         y_pred = self.sigmoid_activation(self.model(x, mask.clone()))
         # if using range maps
         if self.config.data.correction_factor.thresh:
+            if len(self.config.data.species) > 1:
+                RM_end_index = self.config.data.species[0]
+            else:
+                RM_end_index = -1
+
             range_maps_correction_data = (self.RM_correction_data.reset_index().set_index('hotspot_id').loc[list(hotspot_id)]).drop(
-                                        columns=["index"]).iloc[:, self.subset].values
+                                        columns=["index", "Unnamed: 0"]).values
+
             range_maps_correction_data = torch.tensor(range_maps_correction_data, device=y.device)
-            y_pred *= range_maps_correction_data.int()
-            y *= range_maps_correction_data.int()
+            ones = torch.ones(range_maps_correction_data.shape[0], self.config.data.species[1], device=y.device)
+            range_maps_correction_data = torch.cat((range_maps_correction_data, ones), 1)
+            # y_pred[:, :RM_end_index] = y_pred[:, :RM_end_index] * range_maps_correction_data.int()
+            # y[:, :RM_end_index] = y[:, :RM_end_index] * range_maps_correction_data.int()
+            y_pred = y_pred * range_maps_correction_data.int()
+            y = y * range_maps_correction_data.int()
 
         # print(mask.unique(), y.unique())
         if self.config.Rtran.mask_eval_metrics or len(self.config.data.species) > 1:
@@ -139,12 +159,20 @@ class RegressionTransformerTask(pl.LightningModule):
 
         # if using range maps
         if self.config.data.correction_factor.thresh:
-            range_maps_correction_data = (self.RM_correction_data.reset_index().set_index('hotspot_id').loc[
-                list(hotspot_id)]).drop(
-                columns=["index"]).iloc[:, self.subset].values
+            if len(self.config.data.species) > 1:
+                RM_end_index = self.config.data.species[0]
+            else:
+                RM_end_index = -1
+
+            range_maps_correction_data = (self.RM_correction_data.reset_index().set_index('hotspot_id').loc[list(hotspot_id)]).drop(
+                                            columns=["index", "Unnamed: 0"]).values
             range_maps_correction_data = torch.tensor(range_maps_correction_data, device=y.device)
-            y_pred *= range_maps_correction_data.int()
-            y *= range_maps_correction_data.int()
+            ones = torch.ones(range_maps_correction_data.shape[0], self.config.data.species[1], device=y.device)
+            range_maps_correction_data = torch.cat((range_maps_correction_data, ones), 1)
+            # y_pred[:, :RM_end_index] = y_pred[:, :RM_end_index] * range_maps_correction_data.int()
+            # y[:, :RM_end_index] = y[:, :RM_end_index] * range_maps_correction_data.int()
+            y_pred = y_pred * range_maps_correction_data.int()
+            y = y * range_maps_correction_data.int()
 
         if self.config.Rtran.mask_eval_metrics or len(self.config.data.species) > 1:
             self.log_metrics(mode="test", pred=y_pred, y=y, mask=mask)
@@ -254,7 +282,7 @@ class SDMDataModule(pl.LightningDataModule):
         self.datatype = self.config.data.datatype
 
         self.subset = self.config.data.target.subset
-        # self.predict_family = self.config.Rtran.predict_family
+        self.predict_family = self.config.Rtran.predict_family_of_species
         self.num_species = self.config.data.total_species
 
         if len(self.config.data.species) > 1:
@@ -276,7 +304,9 @@ class SDMDataModule(pl.LightningDataModule):
             env_data_folder=self.env_data_folder,
             maximum_unknown_labels_ratio=self.config.Rtran.train_unknown_ratio,
             subset=self.subset,
-            num_species=self.num_species)
+            num_species=self.num_species,
+            species_set=self.config.data.species,
+            predict_family=self.predict_family)
 
         self.all_val_dataset = globals()[self.dataloader_to_use](
             df=self.df_val,
@@ -290,7 +320,9 @@ class SDMDataModule(pl.LightningDataModule):
             env_data_folder=self.env_data_folder,
             maximum_unknown_labels_ratio=self.config.Rtran.eval_unknown_ratio,
             subset=self.subset,
-            num_species=self.num_species)
+            num_species=self.num_species,
+            species_set = self.config.data.species,
+            predict_family=self.predict_family)
 
         self.all_test_dataset = globals()[self.dataloader_to_use](
             df=self.df_test,
@@ -304,7 +336,9 @@ class SDMDataModule(pl.LightningDataModule):
             env_data_folder=self.env_data_folder,
             maximum_unknown_labels_ratio=self.config.Rtran.eval_unknown_ratio,
             subset=self.subset,
-            num_species=self.num_species)
+            num_species=self.num_species,
+            species_set=self.config.data.species,
+            predict_family=self.predict_family)
 
     def train_dataloader(self) -> DataLoader[Any]:
         """Returns the actual dataloader"""

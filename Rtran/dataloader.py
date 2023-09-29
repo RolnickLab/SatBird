@@ -10,25 +10,26 @@ from torchvision import transforms as trsfs
 import numpy as np
 
 
-def get_unknown_mask_indices(num_labels, mode, max_unknown=0.5, absent_species=0):
+def get_unknown_mask_indices(num_labels, mode, max_unknown=0.5, absent_species=0, species_set=None, predict_family_of_species=-1):
     # sample random number of known labels during training; in testing, everything is unknown
-    # TODO: use structured masking instead of random masking
     if mode == 'train':
         random.seed()
-        num_unknown = random.randint(0, int((num_labels - absent_species) * max_unknown))
-        unk_mask_indices = random.sample(range(num_labels - absent_species), num_unknown)
+        if random.random() < 0.5 and absent_species == 0: # 50% of the time when butterflies are there, mask all butterflies
+            unk_mask_indices = np.arange(species_set[0], species_set[0] + species_set[1])
+        else:
+            num_unknown = random.randint(0, int((num_labels - absent_species) * max_unknown))
+            unk_mask_indices = random.sample(range(num_labels - absent_species), num_unknown)
     else:
         # for testing, everything is unknown
         unk_mask_indices = random.sample(range(num_labels - absent_species), int((num_labels- absent_species) * max_unknown))
-        family_index = -1 # 0 to predict birds only, 1 to predict butterflies only
-        if family_index != -1:
-            species = [670, 601]
+
+        if predict_family_of_species != -1:
             # to predict butterflies only
-            if family_index == 1:
-                unk_mask_indices = np.arange(species[0], species[0] + species[1])
-            if family_index == 0:
+            if predict_family_of_species == 1:
+                unk_mask_indices = np.arange(species_set[0], species_set[0] + species_set[1])
+            if predict_family_of_species == 0:
                 # to predict birds only
-                unk_mask_indices = np.arange(0, species[0])
+                unk_mask_indices = np.arange(0, species_set[0])
 
     return unk_mask_indices
 
@@ -36,7 +37,8 @@ def get_unknown_mask_indices(num_labels, mode, max_unknown=0.5, absent_species=0
 class SDMVisionMaskedDataset(VisionDataset):
     def __init__(self, df, data_base_dir, env, env_var_sizes,
                  transforms: Optional[Callable[[Dict[str, Any]], Dict[str, Any]]] = None, mode="train", datatype="refl",
-                 targets_folder="corrected_targets", env_data_folder="environmental", maximum_unknown_labels_ratio=0.5, subset=None, num_species=684) -> None:
+                 targets_folder="corrected_targets", targets_folder_2="butterfly_targets_2", env_data_folder="environmental",
+                 maximum_unknown_labels_ratio=0.5, subset=None, num_species=670, species_set=None, predict_family=-1) -> None:
         """
         df_paths: dataframe with paths to data for each hotspot
         data_base_dir: base directory for data
@@ -122,8 +124,8 @@ class SDMVisionMaskedDataset(VisionDataset):
 class SDMVJointDataset(VisionDataset):
     def __init__(self, df, data_base_dir, env, env_var_sizes,
                  transforms: Optional[Callable[[Dict[str, Any]], Dict[str, Any]]] = None, mode="train", datatype="refl",
-                 targets_folder="corrected_targets", targets_folder_2="butterfly_targets", env_data_folder="environmental",
-                maximum_unknown_labels_ratio=0.5, subset=None, num_species=670) -> None:
+                 targets_folder="corrected_targets", targets_folder_2="butterfly_targets_2", env_data_folder="environmental",
+                maximum_unknown_labels_ratio=0.5, subset=None, num_species=670, species_set=None, predict_family=-1) -> None:
         """
         df_paths: dataframe with paths to data for each hotspot
         data_base_dir: base directory for data
@@ -148,7 +150,9 @@ class SDMVJointDataset(VisionDataset):
         self.env_data_folder = env_data_folder
         self.subset = get_subset(subset, num_species)
         self.num_species = num_species
+        self.species_set = species_set
         self.maximum_unknown_labels_ratio = maximum_unknown_labels_ratio
+        self.predict_family_of_species = predict_family
 
     def __len__(self):
         return len(self.df)
@@ -193,8 +197,8 @@ class SDMVJointDataset(VisionDataset):
             species_2 = load_file(os.path.join(self.data_base_dir, self.targets_folder_2, hotspot_id + '.json'))
         else:
             species_2 = {}
-            species_2["probs"] = [-2] * 601
-            species_2_to_exclude = 601
+            species_2["probs"] = [-2] * self.species_set[1]
+            species_2_to_exclude = self.species_set[1]
 
         species["probs"] = species["probs"] + species_2["probs"]
 
@@ -205,7 +209,8 @@ class SDMVJointDataset(VisionDataset):
         item_["target"] = torch.Tensor(item_["target"])
 
         # constructing mask for R-tran
-        unk_mask_indices = get_unknown_mask_indices(num_labels=self.num_species, mode=self.mode, max_unknown=self.maximum_unknown_labels_ratio, absent_species=species_2_to_exclude)
+        unk_mask_indices = get_unknown_mask_indices(num_labels=self.num_species, mode=self.mode, max_unknown=self.maximum_unknown_labels_ratio,
+                                                    absent_species=species_2_to_exclude, species_set=self.species_set, predict_family_of_species=self.predict_family_of_species)
         mask = item_["target"].clone()
         mask[mask > 0] = 1
         mask.scatter_(dim=0, index=torch.Tensor(unk_mask_indices).long(), value=-1.0)

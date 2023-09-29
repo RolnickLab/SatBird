@@ -5,18 +5,19 @@ Code is based on the C-tran paper: https://github.com/QData/C-Tran
 import torch
 import torch.nn as nn
 import numpy as np
-from Rtran.utils import weights_init, custom_replace
+from Rtran.utils import weights_init, custom_replace, PositionEmbeddingSine
 from Rtran.models import *
 
 
 class RTranModel(nn.Module):
-    def __init__(self, num_classes, backbone='Resnet18', pretrained_backbone=True, input_channels=3, d_hidden=512, n_state=3, attention_layers=2, heads=2, dropout=0.2, scale_embeddings_by_labels=False):
+    def __init__(self, num_classes, backbone='Resnet18', pretrained_backbone=True, input_channels=3, d_hidden=512, n_state=3, attention_layers=2, heads=2, dropout=0.2, use_pos_encoding=False, scale_embeddings_by_labels=False):
         """
         pos_emb is false by default
         """
         super(RTranModel, self).__init__()
         self.d_hidden = d_hidden  # this should match the backbone output feature size (512 for Resnet18, 2048 for Resnet50)
         self.scale_embeddings_by_labels = scale_embeddings_by_labels
+        self.use_pos_encoding = use_pos_encoding
 
         # ResNet101 backbone
         self.backbone = globals()[backbone](input_channels=input_channels, pretrained=pretrained_backbone)
@@ -32,6 +33,8 @@ class RTranModel(nn.Module):
         # embedding for the regression labels
         # self.regression_embedding = torch.nn.Linear(num_classes, num_classes)
         # TODO: Position Embeddings (for image features)
+        if self.use_pos_encoding:
+            self.position_encoding = PositionEmbeddingSine(self.d_hidden)
         # Transformer
         self.self_attn_layers = nn.ModuleList([SelfAttnLayer(self.d_hidden, heads, dropout) for _ in range(attention_layers)])
 
@@ -53,10 +56,14 @@ class RTranModel(nn.Module):
     def forward(self, images, mask, labels=None):
         z_features = self.backbone(images) # image: HxWxD
 
-        const_label_input = self.label_input.repeat(images.size(0), 1).to(images.device) # LxD
-        init_label_embeddings = self.label_embeddings(const_label_input)    # LxD
+        if self.use_pos_encoding:
+            pos_encoding = self.position_encoding(mask)
+            z_features = z_features + pos_encoding
 
         z_features = z_features.view(z_features.size(0), z_features.size(1), -1).permute(0, 2, 1)
+
+        const_label_input = self.label_input.repeat(images.size(0), 1).to(images.device) # LxD
+        init_label_embeddings = self.label_embeddings(const_label_input)    # LxD
 
         # Get state embeddings (mask is 0 or regression value)
         # print(torch.unique(mask))
