@@ -1,8 +1,8 @@
 #where to save checkpoints
-save_path: "SatButterfly_v1_baseline_Resnet18_RGBNIR_env_Focal"
+save_path: "SatButterfly_v1.1_baseline_Resnet18_RGBNIR_env_Focal"
 
 # load existing checkpoint for inference. If passing experiment folder instead (for multiple seeds), it will evaluate all of them.
-load_ckpt_path: "SatButterfly_v1_baseline_Resnet18_RGBNIR_env_Focal"
+load_ckpt_path: "SatButterfly_v1.1_baseline_Resnet18_RGBNIR_env_Focal"
 save_preds_path: ""
 log_comet: true
 
@@ -14,8 +14,8 @@ base_dir: ""
 
 comet:
   project_name: "new_baselines"
-  tags: ["Resnet18", "Satbutterfly_co-located_withSatbird", "Focal", "ebird_transfer_learning", "Env_normalization"]
-  experiment_name: "SatButterfly_v1_baseline_Resnet18_RGBNIR_env_Focal" # specify for training, or use to report test results, TODO: also use to resume training
+  tags: ["Resnet18", "Satbutterfly_co-located_withSatbird", "Focal", "172speciesonly", "Env_normalization"]
+  experiment_name: "SatButterfly_v1.1_baseline_Resnet18_RGBNIR_env_Focal" # specify for training, or use to report test results, TODO: also use to resume training
   experiment_key: "" # use to report test results,
 
 experiment:
@@ -103,7 +103,7 @@ data:
     val: "butterfly_hotspots_ebird_valid.csv"
     test: "butterfly_hotspots_ebird_test.csv"
 
-    targets_folder: "butterfly_targets"
+    targets_folder: "butterfly_targets_2"
     env_data_folder: "environmental_bounded_2"
     correction_thresh: "final_range_maps.pkl" # range maps - threshold = False
 
@@ -167,6 +167,6 @@ data:
       std: 0.01
       max_noise: 0.05
 
-  total_species: 601
+  total_species: 172
 trainer:
   auto_scale_batch_size: False
