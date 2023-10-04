@@ -264,16 +264,15 @@ class PatchExtractor(object):
             Updates the default arguments passed to Raster (nan, out_of_bounds, etc.)
         """
         
-        r_us = Raster(self.root_path / raster_name, self.country, size=self.size, nan = MEANS[raster_name], **kwargs)
-        #r_fr = Raster(self.root_path / raster_name, "FR", size=self.size, **kwargs)
-
+        r_us = Raster(self.root_path / raster_name, self.country, size=self.size,  **kwargs)
+        #nan = MEANS[raster_name]
+      
         self.rasters_us.append(r_us)
-        #self.rasters_fr.append(r_fr)
-
+       
     def clean(self):
         """Remove all rasters from the extractor.
         """
-        #self.rasters_fr = []
+    
         self.rasters_us = []
 
     def _get_rasters_list(self, coordinates):

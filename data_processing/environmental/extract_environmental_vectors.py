@@ -7,7 +7,7 @@ import pandas as pd
 import numpy as np
 from tqdm import tqdm
 
-from data_processing.environmental_raster import PatchExtractor
+from data_processing.environmental.environmental_raster import PatchExtractor
 
 
 def compute_environmental_vectors(df, extractor, as_dataframe=True):
