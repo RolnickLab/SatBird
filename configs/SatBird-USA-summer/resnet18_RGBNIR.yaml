@@ -106,7 +106,18 @@ data:
     test: "summer_hotspots_test.csv"
 
     targets_folder: "corrected_targets"
-    correction_thresh: "" # range maps - threshold = False
+    env_data_folder: "environmental_bounded_2"
+    images_folder: "images"
+    correction_thresh: "final_range_maps.pkl" # range maps - threshold = False
+
+    rgbnir_means: "stats/means_rgbnir.npy"
+    rgbnir_stds: "stats/stds_rgbnir.npy"
+
+    rgb_means: "stats/means_images_visual.npy"
+    rgb_stds: "stats/stds_images_visual.npy"
+
+    env_means: "stats/env_means.npy"
+    env_stds: "stats/env_stds.npy"
 
   correction_factor:
      thresh:  # to train with RM

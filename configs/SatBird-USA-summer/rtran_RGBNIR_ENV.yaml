@@ -126,6 +126,7 @@ data:
 
     targets_folder: "corrected_targets"
     env_data_folder: "environmental_bounded_2"
+    images_folder: "images"
     correction_thresh: "final_range_maps.pkl" # range maps - threshold = False
 
     rgbnir_means: "stats/means_rgbnir.npy"
