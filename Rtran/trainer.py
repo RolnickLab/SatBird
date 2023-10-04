@@ -77,8 +77,7 @@ class RegressionTransformerTask(pl.LightningModule):
             else:
                 RM_end_index = -1
 
-            range_maps_correction_data = (self.RM_correction_data.reset_index().set_index('hotspot_id').loc[list(hotspot_id)]).drop(
-                                        columns=["index", "Unnamed: 0"]).values
+            range_maps_correction_data = (self.RM_correction_data.reset_index().set_index('hotspot_id').loc[list(hotspot_id)]).values
             range_maps_correction_data = torch.tensor(range_maps_correction_data, device=y.device)
             ones = torch.ones(range_maps_correction_data.shape[0], self.config.data.species[1], device=y.device)
             range_maps_correction_data = torch.cat((range_maps_correction_data, ones), 1)
@@ -124,8 +123,7 @@ class RegressionTransformerTask(pl.LightningModule):
             else:
                 RM_end_index = -1
 
-            range_maps_correction_data = (self.RM_correction_data.reset_index().set_index('hotspot_id').loc[list(hotspot_id)]).drop(
-                                        columns=["index", "Unnamed: 0"]).values
+            range_maps_correction_data = (self.RM_correction_data.reset_index().set_index('hotspot_id').loc[list(hotspot_id)]).values
 
             range_maps_correction_data = torch.tensor(range_maps_correction_data, device=y.device)
             ones = torch.ones(range_maps_correction_data.shape[0], self.config.data.species[1], device=y.device)
@@ -164,8 +162,7 @@ class RegressionTransformerTask(pl.LightningModule):
             else:
                 RM_end_index = -1
 
-            range_maps_correction_data = (self.RM_correction_data.reset_index().set_index('hotspot_id').loc[list(hotspot_id)]).drop(
-                                            columns=["index", "Unnamed: 0"]).values
+            range_maps_correction_data = (self.RM_correction_data.reset_index().set_index('hotspot_id').loc[list(hotspot_id)]).values
             range_maps_correction_data = torch.tensor(range_maps_correction_data, device=y.device)
             ones = torch.ones(range_maps_correction_data.shape[0], self.config.data.species[1], device=y.device)
             range_maps_correction_data = torch.cat((range_maps_correction_data, ones), 1)
