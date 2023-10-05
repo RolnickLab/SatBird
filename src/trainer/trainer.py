@@ -1,4 +1,6 @@
-# main trainer
+"""
+general trainer: supports training Resnet18, Satlas, and SATMAE
+"""
 import os
 import pickle
 from typing import Any, Dict, Optional
@@ -373,7 +375,7 @@ class EbirdTask(pl.LightningModule):
         }
 
         weight_type = self.opts.experiment.module.loss_weight
-        print(f"using {weight_type} weights")
+        # print(f"using {weight_type} weights")
         new_weights = weighted_loss_operations[weight_type](batch["num_complete_checklists"])
 
         new_weights = torch.ones(y.shape, device=torch.device("cuda")) * new_weights.view(
@@ -381,8 +383,7 @@ class EbirdTask(pl.LightningModule):
         )
 
         if self.opts.data.correction_factor.thresh:
-            correction_t = (self.correction_t_data.reset_index().set_index('hotspot_id').loc[list(hotspot_id)]).drop(
-                columns=["index"]).iloc[:, self.subset].values
+            correction_t = (self.correction_t_data.reset_index().set_index('hotspot_id').loc[list(hotspot_id)]).iloc[:, self.subset].values
             correction_t = torch.tensor(correction_t, device=y.device)
 
         if self.opts.experiment.module.model == "linear":
@@ -527,12 +528,11 @@ class EbirdTask(pl.LightningModule):
         hotspot_id = batch['hotspot_id']
 
         if self.opts.data.correction_factor.thresh:
-            correction_t = (self.correction_t_data.reset_index().set_index('hotspot_id').loc[list(hotspot_id)]).drop(
-                columns=["index"]).iloc[:, self.subset].values
+            correction_t = (self.correction_t_data.reset_index().set_index('hotspot_id').loc[list(hotspot_id)]).iloc[:, self.subset].values
             correction_t = torch.tensor(correction_t, device=y.device)
             self.correction = correction_t
 
-        print("Model is on cuda", next(self.model.parameters()).is_cuda)
+        # print("Model is on cuda", next(self.model.parameters()).is_cuda)
         if self.opts.experiment.module.model == "linear":
             x = torch.flatten(x, start_dim=1)
 
@@ -601,11 +601,10 @@ class EbirdTask(pl.LightningModule):
 
         hotspot_id = batch['hotspot_id']
         if self.opts.data.correction_factor.thresh:
-            correction_t = (self.correction_t_data.reset_index().set_index('hotspot_id').loc[list(hotspot_id)]).drop(
-                columns=["index"]).iloc[:, self.subset].values
+            correction_t = (self.correction_t_data.reset_index().set_index('hotspot_id').loc[list(hotspot_id)]).iloc[:, self.subset].values
             correction_t = torch.tensor(correction_t, device=y.device)
 
-        print("Model is on cuda", next(self.model.parameters()).is_cuda)
+        # print("Model is on cuda", next(self.model.parameters()).is_cuda)
         if self.opts.experiment.module.model == "linear":
             x = torch.flatten(x, start_dim=1)
         elif self.opts.experiment.module.model == "satlas" or self.opts.experiment.module.model == "satmae":
@@ -703,6 +702,8 @@ class EbirdDataModule(pl.LightningDataModule):
         self.num_workers = self.opts.data.loaders.num_workers
         self.data_base_dir = self.opts.data.files.base
         self.targets_folder = self.opts.data.files.targets_folder
+        self.env_data_folder = self.opts.data.files.env_data_folder
+        self.images_folder = self.opts.data.files.images_folder
         self.df_train = pd.read_csv(os.path.join(self.data_base_dir, self.opts.data.files.train))
         self.df_val = pd.read_csv(os.path.join(self.data_base_dir, self.opts.data.files.val))
         self.df_test = pd.read_csv(os.path.join(self.data_base_dir, self.opts.data.files.test))
@@ -735,6 +736,8 @@ class EbirdDataModule(pl.LightningDataModule):
             datatype=self.datatype,
             target=self.target,
             targets_folder=self.targets_folder,
+            env_data_folder=self.env_data_folder,
+            images_folder=self.images_folder,
             subset=self.subset,
             res=self.res,
             use_loc=self.use_loc,
@@ -752,6 +755,8 @@ class EbirdDataModule(pl.LightningDataModule):
             datatype=self.datatype,
             target=self.target,
             targets_folder=self.targets_folder,
+            env_data_folder=self.env_data_folder,
+            images_folder=self.images_folder,
             subset=self.subset,
             res=self.res,
             use_loc=self.use_loc,
@@ -769,6 +774,8 @@ class EbirdDataModule(pl.LightningDataModule):
             datatype=self.datatype,
             target=self.target,
             targets_folder=self.targets_folder,
+            env_data_folder=self.env_data_folder,
+            images_folder=self.images_folder,
             subset=self.subset,
             res=self.res,
             use_loc=self.use_loc,

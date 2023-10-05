@@ -135,17 +135,14 @@ def get_metric(metric):
 
     if metric.name == "mae" and not metric.ignore is True:
         return torchmetrics.MeanAbsoluteError()
-
     elif metric.name == "mse" and not metric.ignore is True:
         return torchmetrics.MeanSquaredError()
-
     elif metric.name == "topk" and not metric.ignore is True:
         return CustomTopK()
     elif metric.name == "top10" and not metric.ignore is True:
         return CustomTop10()
     elif metric.name == "top30" and not metric.ignore is True:
         return CustomTop30()
-
     elif metric.name == "ce" and not metric.ignore is True:
         return CustomCrossEntropy(metric.lambd_pres, metric.lambd_abs)
     elif metric.name == 'r2' and not metric.ignore is True:
@@ -153,7 +150,6 @@ def get_metric(metric):
         # return  torchmetrics.SpearmanCorrCoef()
     elif metric.name == "kl" and not metric.ignore is True:
         return CustomKL()
-
     elif metric.name == "accuracy" and not metric.ignore is True:
         return torchmetrics.Accuracy()
     elif metric.ignore is True:
@@ -163,13 +159,9 @@ def get_metric(metric):
         # raise ValueError("Unknown metric_item {}".format(metric))
 
 
-def get_metrics(opts):
+def get_metrics(config):
     metrics = []
-
-    for m in opts.losses.metrics:
+    for m in config.losses.metrics:
         metrics.append((m.name, get_metric(m), m.scale))
-    metrics.append(('top10', CustomTop10(), 1))
-    metrics.append(('top30', CustomTop30(), 1))
     metrics = [(a, b, c) for (a, b, c) in metrics if b is not None]
-    print(metrics)
     return metrics

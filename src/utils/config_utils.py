@@ -54,8 +54,7 @@ def load_opts(path, default, commandline_opts):
 
     if commandline_opts is not None and isinstance(commandline_opts, dict):
         opts = OmegaConf.merge(opts, commandline_opts)
-        print("Commandline opts", commandline_opts)
 
-    conf = set_data_paths(opts)
+    # conf = set_data_paths(opts)
     conf = cast(DictConfig, opts)
     return conf

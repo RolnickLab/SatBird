@@ -23,6 +23,8 @@ class EbirdVisionDataset(VisionDataset):
                  datatype="refl",
                  target="probs",
                  targets_folder="corrected_targets",
+                 env_data_folder="environmental",
+                 images_folder="images",
                  subset=None,
                  use_loc=False,
                  res=[],
@@ -52,6 +54,8 @@ class EbirdVisionDataset(VisionDataset):
         self.type = datatype
         self.target = target
         self.targets_folder = targets_folder
+        self.env_data_folder = env_data_folder
+        self.images_folder = images_folder
         self.subset = get_subset(subset, num_species)
         self.use_loc = use_loc
         self.loc_type = loc_type
@@ -68,9 +72,9 @@ class EbirdVisionDataset(VisionDataset):
 
         # satellite image
         if self.type == 'img':
-            img_path = os.path.join(self.data_base_dir, "images_visual", hotspot_id + '_visual.tif')
+            img_path = os.path.join(self.data_base_dir, self.images_folder + "_visual", hotspot_id + '_visual.tif')
         else:
-            img_path = os.path.join(self.data_base_dir, "images", hotspot_id + '.tif')
+            img_path = os.path.join(self.data_base_dir, self.images_folder, hotspot_id + '.tif')
 
         img = load_file(img_path)
         sats = torch.from_numpy(img).float()
@@ -78,7 +82,7 @@ class EbirdVisionDataset(VisionDataset):
 
         # env rasters
         for i, env_var in enumerate(self.env):
-            env_npy = os.path.join(self.data_base_dir, "environmental_data", hotspot_id + '.npy')
+            env_npy = os.path.join(self.data_base_dir, self.env_data_folder, hotspot_id + '.npy')
             env_data = load_file(env_npy)
             s_i = i * self.env_var_sizes[i - 1]
             e_i = self.env_var_sizes[i] + s_i

@@ -58,12 +58,12 @@ def compute_means_stds_images(root_dir, train_csv, output_file_means="stats/mean
             std = ((cropped - means) ** 2 / (64 * 64)).sum(axis=0).sum(axis=0)
             new_row = {'hotspot_id': hs, 'r_std': std[2], 'g_std': std[1], 'b_std': std[0], 'nir_std': std[3]}
             stats_df_2 = stats_df_2.append(new_row, ignore_index=True)
-            std_r = np.sqrt(stats_df_2["r_std"].mean())
-            std_g = np.sqrt(stats_df_2["g_std"].mean())
-            std_b = np.sqrt(stats_df_2["b_std"].mean())
-            std_nir = np.sqrt(stats_df_2["nir_std"].mean())
-            stds = np.array([std_r, std_g, std_b, std_nir])
-            np.save(output_file_stds_path, stds)
+        std_r = np.sqrt(stats_df_2["r_std"].mean())
+        std_g = np.sqrt(stats_df_2["g_std"].mean())
+        std_b = np.sqrt(stats_df_2["b_std"].mean())
+        std_nir = np.sqrt(stats_df_2["nir_std"].mean())
+        stds = np.array([std_r, std_g, std_b, std_nir])
+        np.save(output_file_stds_path, stds)
 
     print("Images RGBNIR stds: ", stds)
 
@@ -111,18 +111,19 @@ def compute_means_stds_images_visual(root_dir, train_csv, output_file_means="sta
             std = ((cropped - means) ** 2 / (64 * 64)).sum(axis=0).sum(axis=0)
             new_row = {'hotspot_id': hs, 'r_std': std[2], 'g_std': std[1], 'b_std': std[0], 'nir_std': std[3]}
             stats_df_2 = stats_df_2.append(new_row, ignore_index=True)
-            std_r = np.sqrt(stats_df_2["r_std"].mean())
-            std_g = np.sqrt(stats_df_2["g_std"].mean())
-            std_b = np.sqrt(stats_df_2["b_std"].mean())
-            std_nir = np.sqrt(stats_df_2["nir_std"].mean())
-            stds = np.array([std_r, std_g, std_b, std_nir])
-            np.save(output_file_stds_path, stds)
+
+        std_r = np.sqrt(stats_df_2["r_std"].mean())
+        std_g = np.sqrt(stats_df_2["g_std"].mean())
+        std_b = np.sqrt(stats_df_2["b_std"].mean())
+        std_nir = np.sqrt(stats_df_2["nir_std"].mean())
+        stds = np.array([std_r, std_g, std_b, std_nir])
+        np.save(output_file_stds_path, stds)
 
     print("Images-visual RGB stds: ", stds)
     return means.tolist(), stds.tolist()
 
 
-def compute_means_stds_env_vars(root_dir, train_csv):
+def compute_means_stds_env_vars_point_values(root_dir, train_csv):
     """
     computes normalization statistics (means, stds) on training data, for environmental variables
     """
@@ -140,6 +141,60 @@ def compute_means_stds_env_vars(root_dir, train_csv):
     ped_stds = np.nanstd(df[ped_env_column_names].values.tolist(), axis=0)
 
     return bioclim_means.tolist(), bioclim_stds.tolist(), ped_means.tolist(), ped_stds.tolist()
+
+
+def compute_means_stds_env_vars(root_dir, train_csv, env_data_folder="environmental", output_file_means="stats/env_means.npy", output_file_std="stats/env_stds.npy"):
+
+    bioclim_env_column_names = ['bio_1', 'bio_2', 'bio_3', 'bio_4', 'bio_5',
+                                'bio_6', 'bio_7', 'bio_8', 'bio_9', 'bio_10', 'bio_11', 'bio_12',
+                                'bio_13', 'bio_14', 'bio_15', 'bio_16', 'bio_17', 'bio_18', 'bio_19']
+    ped_env_column_names = ['bdticm', 'bldfie', 'cecsol', 'clyppt', 'orcdrc', 'phihox', 'sltppt', 'sndppt']
+
+    df = pd.read_csv(os.path.join(root_dir, train_csv))
+
+    output_file_means_path = os.path.join(root_dir, output_file_means)
+    if os.path.exists(output_file_means_path):
+        means = np.load(output_file_means_path)
+    else:
+        stats_df: DataFrame = pd.DataFrame(columns=bioclim_env_column_names + ped_env_column_names)
+        for i, row in tqdm(df.iterrows()):
+            hs = row["hotspot_id"]
+            arr = np.load(os.path.join(root_dir, env_data_folder, f"{hs}.npy"))
+            per_raster_mean = np.nanmean(arr, axis=(1,2))
+            new_row = pd.Series(per_raster_mean, index=stats_df.columns)
+            stats_df = stats_df.append(new_row, ignore_index=True)
+
+        means_to_save = []
+        for env_var in bioclim_env_column_names + ped_env_column_names:
+            means_to_save.append(stats_df[env_var].mean())
+
+        means = np.array(means_to_save)
+        np.save(output_file_means_path, means)
+        del stats_df
+
+    print("Env var means: ", means)
+    output_file_stds_path = os.path.join(root_dir, output_file_std)
+    if os.path.exists(output_file_stds_path):
+        stds = np.load(output_file_stds_path)
+    else:
+        stats_df: DataFrame = pd.DataFrame(columns=bioclim_env_column_names + ped_env_column_names)
+        for i, row in tqdm(df.iterrows()):
+            hs = row["hotspot_id"]
+            arr = np.load(os.path.join(root_dir, env_data_folder, f"{hs}.npy"))
+            std = np.nansum(((arr - means[:, np.newaxis, np.newaxis]) ** 2) / (50 * 50), axis=-1)
+            std = np.nansum(std, axis=-1)
+            new_row = pd.Series(std, index=stats_df.columns)
+            stats_df = stats_df.append(new_row, ignore_index=True)
+        stds_to_save = []
+        for env_var in bioclim_env_column_names + ped_env_column_names:
+            stds_to_save.append(np.sqrt((stats_df[env_var]).mean()))
+
+        stds = np.array(stds_to_save)
+        np.save(output_file_stds_path, stds)
+
+    print("Env var stds: ", stds)
+    return means[0:len(bioclim_env_column_names)].tolist(), stds[0:len(bioclim_env_column_names)].tolist(),\
+        means[len(bioclim_env_column_names):].tolist(), stds[len(bioclim_env_column_names):].tolist()
 
 
 if __name__ == "__main__":

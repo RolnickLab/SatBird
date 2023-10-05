@@ -15,7 +15,7 @@ from pytorch_lightning.callbacks import ModelCheckpoint
 
 from src.utils.config_utils import load_opts
 import src.trainer.trainer as general_trainer
-import src.trainer.geo_trainer as geo_trainer
+import Rtran.trainer as RtranTrainer
 from src.utils.compute_normalization_stats import *
 
 
@@ -32,73 +32,74 @@ def main(opts):
     config_path = os.path.join(base_dir, args['config'])
     default_config = os.path.join(base_dir, "configs/defaults.yaml")
 
-    conf = load_opts(config_path, default=default_config, commandline_opts=hydra_opts)
-    global_seed = (run_id * (conf.program.seed + (run_id - 1))) % (2 ** 31 - 1)
+    config = load_opts(config_path, default=default_config, commandline_opts=hydra_opts)
+    global_seed = (run_id * (config.program.seed + (run_id - 1))) % (2 ** 31 - 1)
 
     # naming experiment folders with seed information
-    conf.save_path = os.path.join(base_dir, conf.save_path, str(global_seed))
-    conf.comet.experiment_name = conf.comet.experiment_name + '_seed_' + str(global_seed)
-    conf.base_dir = base_dir
+    config.save_path = os.path.join(base_dir, config.save_path, str(global_seed))
+    config.comet.experiment_name = config.comet.experiment_name + '_seed_' + str(global_seed)
+    config.base_dir = base_dir
 
     # compute means and stds for normalization
-    conf.variables.bioclim_means, conf.variables.bioclim_stds, conf.variables.ped_means,\
-        conf.variables.ped_stds = compute_means_stds_env_vars(root_dir=conf.data.files.base, train_csv=conf.data.files.train)
+    config.variables.bioclim_means, config.variables.bioclim_std, config.variables.ped_means, config.variables.ped_std = compute_means_stds_env_vars(
+        root_dir=config.data.files.base,
+        train_csv=config.data.files.train,
+        env_data_folder=config.data.files.env_data_folder,
+        output_file_means=config.data.files.env_means,
+        output_file_std=config.data.files.env_stds
+        )
 
-    if conf.data.datatype == "refl":
-        conf.variables.rgbnir_means, conf.variables.rgbnir_std = compute_means_stds_images(root_dir=conf.data.files.base,
-                                                                                           train_csv=conf.data.files.train,
-                                                                                           output_file_means=conf.data.files.rgbnir_means,
-                                                                                           output_file_std=conf.data.files.rgbnir_stds)
+    if config.data.datatype == "refl":
+        config.variables.rgbnir_means, config.variables.rgbnir_std = compute_means_stds_images(
+            root_dir=config.data.files.base,
+            train_csv=config.data.files.train,
+            output_file_means=config.data.files.rgbnir_means,
+            output_file_std=config.data.files.rgbnir_stds)
+    elif config.data.datatype == "img":
+        config.variables.visual_means, config.variables.visual_stds = compute_means_stds_images_visual(
+            root_dir=config.data.files.base,
+            train_csv=config.data.files.train,
+            output_file_means=config.data.files.rgb_means,
+            output_file_std=config.data.files.rgb_stds)
 
-    if conf.data.datatype == "img":
-        conf.variables.visual_means, conf.variables.visual_stds = compute_means_stds_images_visual(root_dir=conf.data.files.base,
-                                                                                                   train_csv=conf.data.files.train,
-                                                                                                   output_file_means=conf.data.files.rgb_means,
-                                                                                                   output_file_std=conf.data.files.rgb_stds)
-
+    # set global seed
     pl.seed_everything(global_seed)
 
-    if not os.path.exists(conf.save_path):
-        os.makedirs(conf.save_path)
-    with open(os.path.join(conf.save_path, "config.yaml"), "w") as fp:
-        OmegaConf.save(config=conf, f=fp)
+    if not os.path.exists(config.save_path):
+        os.makedirs(config.save_path)
+    with open(os.path.join(config.save_path, "config.yaml"), "w") as fp:
+        OmegaConf.save(config=config, f=fp)
     fp.close()
 
-    # using general trainer without location information
-    if not conf.loc.use:
+    if config.Rtran.use:
+        task = RtranTrainer.RegressionTransformerTask(config)
+        datamodule = RtranTrainer.SDMDataModule(config)
+    else:
+        # using general trainer without location information
         print("Using general trainer..")
-        task = general_trainer.EbirdTask(conf)
-        datamodule = general_trainer.EbirdDataModule(conf)
-    # using geo-trainer (location encoder)
-    elif conf.loc.use and conf.loc.loc_type == "latlon":
-        print("Using geo-trainer with lat/lon info..")
-        task = geo_trainer.EbirdTask(conf)
-        datamodule = geo_trainer.EbirdDataModule(conf)
-    else:
-        print("cannot specify trainers based on config..")
-        exit(0)
+        task = general_trainer.EbirdTask(config)
+        datamodule = general_trainer.EbirdDataModule(config)
 
-    trainer_args = cast(Dict[str, Any], OmegaConf.to_object(conf.trainer))
+    trainer_args = cast(Dict[str, Any], OmegaConf.to_object(config.trainer))
 
-    if conf.log_comet:
-        comet_logger = CometLogger(
-            api_key=os.environ.get("COMET_API_KEY"),
-            workspace=os.environ.get("COMET_WORKSPACE"),
-            # save_dir=".",  # Optional
-            project_name=conf.comet.project_name,  # Optional
-            experiment_name=conf.comet.experiment_name,
-        )
-        comet_logger.experiment.add_tags(list(conf.comet.tags))
-        print(conf.comet.tags)
-        trainer_args["logger"] = comet_logger
-    else:
-        wandb_logger = WandbLogger(project='test-project')
-        print('in wandb logger')
-        trainer_args["logger"] = wandb_logger
+    if config.log_comet:
+        if os.environ.get("COMET_API_KEY"):
+            comet_logger = CometLogger(
+                api_key=os.environ.get("COMET_API_KEY"),
+                workspace=os.environ.get("COMET_WORKSPACE"),
+                # save_dir=".",  # Optional
+                project_name=config.comet.project_name,  # Optional
+                experiment_name=config.comet.experiment_name,
+            )
+            comet_logger.experiment.add_tags(list(config.comet.tags))
+            trainer_args["logger"] = comet_logger
+        else:
+            print("no COMET API Key found..continuing without logging..")
+            return
 
     checkpoint_callback = ModelCheckpoint(
-        monitor="val_topk_epoch",
-        dirpath=conf.save_path,
+        monitor="val_topk",
+        dirpath=config.save_path,
         save_top_k=1,
         mode="max",
         save_last=True,
@@ -107,34 +108,29 @@ def main(opts):
     )
 
     trainer_args["callbacks"] = [checkpoint_callback]
-    trainer_args["overfit_batches"] = conf.overfit_batches  # 0 if not overfitting
-    trainer_args['max_epochs'] = conf.max_epochs
+    trainer_args["overfit_batches"] = config.overfit_batches  # 0 if not overfitting
+    trainer_args['max_epochs'] = config.max_epochs
 
-    if not conf.loc.use:
-        trainer = pl.Trainer(**trainer_args)
-        if conf.log_comet:
-            trainer.logger.experiment.add_tags(list(conf.comet.tags))
-        if conf.auto_lr_find:
-            lr_finder = trainer.tuner.lr_find(task, datamodule=datamodule)
+    trainer = pl.Trainer(**trainer_args)
+    if config.log_comet:
+        trainer.logger.experiment.add_tags(list(config.comet.tags))
+    if config.auto_lr_find:
+        lr_finder = trainer.tuner.lr_find(task, datamodule=datamodule)
 
-            # Pick point based on plot, or get suggestion
-            new_lr = lr_finder.suggestion()
+        # Pick point based on plot, or get suggestion
+        new_lr = lr_finder.suggestion()
 
-            # update hparams of the model
-            task.hparams.learning_rate = new_lr
-            task.hparams.lr = new_lr
-            trainer.tune(model=task, datamodule=datamodule)
-    else:
+        # update hparams of the model
+        task.hparams.learning_rate = new_lr
+        task.hparams.lr = new_lr
+        trainer.tune(model=task, datamodule=datamodule)
 
-        trainer = pl.Trainer(**trainer_args)
-        if conf.log_comet:
-            trainer.logger.experiment.add_tags(list(conf.comet.tags))
     # Run experiment
     trainer.fit(model=task, datamodule=datamodule)
     trainer.test(model=task, datamodule=datamodule)
 
     # logging the best checkpoint to comet ML
-    if conf.log_comet:
+    if config.log_comet:
         print(checkpoint_callback.best_model_path)
         trainer.logger.experiment.log_asset(checkpoint_callback.best_model_path, file_name='best_checkpoint.ckpt')
 
