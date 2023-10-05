@@ -34,7 +34,7 @@ experiment:
     #initializes biases of the output layer sothat sigmoid(bias) = mean over the training set for each species
     init_bias: ""
     means_path: ""
-    lr: 0.0003
+    lr: 0.0001
 
 use_rtran: False
 
@@ -154,19 +154,39 @@ data:
       custom: [*rgbnir_means, *rgbnir_std]
 
     - name: normalize
-      ignore: true
+      ignore: False
       maxchan: false
       subset: ["bioclim"]
       custom: [*bioclim_means, *bioclim_std]
     - name: normalize
       ignore: true
-      maxchan: false
+      maxchan: False
       subset: ["ped"]
       custom: [*ped_means, *ped_std]
     - name: randomnoise
-      ignore: True #false
+      ignore: "val"
       std: 0.01
       max_noise: 0.05
-      
+      p: 0.35
+
+    - name: blur
+      ignore: "val"
+      p: 0.5
+      val: 0.1
+
+    - name: rotate
+      ignore: "val"
+      p: 0.5
+      val: 15
+
+    - name: randomcontrast
+      ignore: "val"
+      p: 0.35
+      val: 2
+
+    - name: randombrightness
+      ignore: "val"
+      p: 0.3
+      val: 2
 
   total_species: 670 # 657
