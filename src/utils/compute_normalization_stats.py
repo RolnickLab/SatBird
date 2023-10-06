@@ -75,7 +75,7 @@ def compute_means_stds_images_visual(root_dir, train_csv, output_file_means="sta
     """
     computes normalization statistics (means, stds) on training data, for RGB visual channels
     """
-    stats_df: DataFrame = pd.DataFrame(columns=["hotspot_id", "r", "g", "b", "nir"])
+    stats_df: DataFrame = pd.DataFrame(columns=["hotspot_id", "r", "g", "b"])
     df = pd.read_csv(os.path.join(root_dir, train_csv))
 
     output_file_means_path = os.path.join(root_dir, output_file_means)
@@ -84,39 +84,37 @@ def compute_means_stds_images_visual(root_dir, train_csv, output_file_means="sta
     else:
         for i, row in tqdm(df.iterrows()):
             hs = row["hotspot_id"]
-            arr = tifffile.imread(os.path.join(root_dir, f"images_visual/{hs}.tif"))
+            arr = tifffile.imread(os.path.join(root_dir, f"images_visual/{hs}_visual.tif"))
             cropped = crop_center(arr, 64, 64)
             means = np.mean(np.mean(cropped, axis=0), axis=0)
-            new_row = {'hotspot_id': hs, 'r': means[2], 'g': means[1], 'b': means[0], 'nir': means[3]}
+            new_row = {'hotspot_id': hs, 'r': means[0], 'g': means[1], 'b': means[2]}
             stats_df = stats_df.append(new_row, ignore_index=True)
 
         mean_r = stats_df["r"].mean()
         mean_g = stats_df["g"].mean()
         mean_b = stats_df["b"].mean()
-        mean_nir = stats_df["nir"].mean()
-        means = np.array([mean_b, mean_g, mean_r, mean_nir])
-        means_to_save = np.array([mean_r, mean_g, mean_b, mean_nir])
-        np.save(output_file_means_path, means_to_save)
-    print("Images-visual RGB means: ", means_to_save)
+        means = np.array([mean_r, mean_g, mean_b])
+        np.save(output_file_means_path, means)
+    print("Images-visual RGB means: ", means)
 
     output_file_stds_path = os.path.join(root_dir, output_file_std)
     if os.path.exists(output_file_stds_path):
         stds = np.load(output_file_stds_path)
     else:
-        stats_df_2: DataFrame = pd.DataFrame(columns=["hotspot_id", "r_std", "g_std", "b_std", "nir_std"])
+        stats_df_2: DataFrame = pd.DataFrame(columns=["hotspot_id", "r_std", "g_std", "b_std"])
         for i, row in tqdm(df.iterrows()):
             hs = row["hotspot_id"]
-            arr = tifffile.imread(os.path.join(root_dir, f"images_visual/{hs}.tif"))
+            arr = tifffile.imread(os.path.join(root_dir, f"images_visual/{hs}_visual.tif"))
             cropped = crop_center(arr, 64, 64)
             std = ((cropped - means) ** 2 / (64 * 64)).sum(axis=0).sum(axis=0)
-            new_row = {'hotspot_id': hs, 'r_std': std[2], 'g_std': std[1], 'b_std': std[0], 'nir_std': std[3]}
+            new_row = {'hotspot_id': hs, 'r_std': std[0], 'g_std': std[1], 'b_std': std[2]}
             stats_df_2 = stats_df_2.append(new_row, ignore_index=True)
 
         std_r = np.sqrt(stats_df_2["r_std"].mean())
         std_g = np.sqrt(stats_df_2["g_std"].mean())
         std_b = np.sqrt(stats_df_2["b_std"].mean())
-        std_nir = np.sqrt(stats_df_2["nir_std"].mean())
-        stds = np.array([std_r, std_g, std_b, std_nir])
+
+        stds = np.array([std_r, std_g, std_b])
         np.save(output_file_stds_path, stds)
 
     print("Images-visual RGB stds: ", stds)
