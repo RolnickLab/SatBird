@@ -107,7 +107,7 @@ class CustomTop30(Metric):
         non_zero_counts = torch.count_nonzero(target, dim=1)
         for i, elem in enumerate(target):
             ki = non_zero_counts[i]
-            if ki >= 10:
+            if ki >= 30:
                 v_pred, i_pred = torch.topk(preds[i], k=30)
                 v_targ, i_targ = torch.topk(elem, k=30)
             else:
