@@ -383,7 +383,7 @@ class EbirdTask(pl.LightningModule):
         )
 
         if self.opts.data.correction_factor.thresh:
-            correction_t = (self.correction_t_data.reset_index().set_index('hotspot_id').loc[list(hotspot_id)]).iloc[:, self.subset].values
+            correction_t = (self.correction_t_data.reset_index().set_index('hotspot_id').drop(columns=["index"]).loc[list(hotspot_id)]).iloc[:, self.subset].values
             correction_t = torch.tensor(correction_t, device=y.device)
 
         if self.opts.experiment.module.model == "linear":
@@ -528,7 +528,7 @@ class EbirdTask(pl.LightningModule):
         hotspot_id = batch['hotspot_id']
 
         if self.opts.data.correction_factor.thresh:
-            correction_t = (self.correction_t_data.reset_index().set_index('hotspot_id').loc[list(hotspot_id)]).iloc[:, self.subset].values
+            correction_t = (self.correction_t_data.reset_index().set_index('hotspot_id').drop(columns=["index"]).loc[list(hotspot_id)]).iloc[:, self.subset].values
             correction_t = torch.tensor(correction_t, device=y.device)
             self.correction = correction_t
 
@@ -601,7 +601,7 @@ class EbirdTask(pl.LightningModule):
 
         hotspot_id = batch['hotspot_id']
         if self.opts.data.correction_factor.thresh:
-            correction_t = (self.correction_t_data.reset_index().set_index('hotspot_id').loc[list(hotspot_id)]).iloc[:, self.subset].values
+            correction_t = (self.correction_t_data.reset_index().set_index('hotspot_id').drop(columns=["index"]).loc[list(hotspot_id)]).iloc[:, self.subset].values
             correction_t = torch.tensor(correction_t, device=y.device)
 
         # print("Model is on cuda", next(self.model.parameters()).is_cuda)

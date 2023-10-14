@@ -106,11 +106,11 @@ data:
   files:
     base: "/network/projects/ecosystem-embeddings/SatBird_data_v2/USA_summer"
     train: "summer_hotspots_train.csv"
-    val: "summer_hotspots_valid.csv"
+    val: "summer_hotspots_val.csv"
     test: "summer_hotspots_test.csv"
 
     targets_folder: "corrected_targets"
-    env_data_folder: "environmental_bounded_2"
+    env_data_folder: "environmental_bounded"
     images_folder: "images"
     correction_thresh: "range_maps.pkl" # range maps - threshold = False
 

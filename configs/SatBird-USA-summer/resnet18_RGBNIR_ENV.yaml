@@ -112,7 +112,7 @@ data:
     test: "summer_hotspots_test.csv"
 
     targets_folder: "corrected_targets"
-    env_data_folder: "environmental_bounded_2"
+    env_data_folder: "environmental_bounded"
     images_folder: "images"
     correction_thresh: "range_maps.pkl" # range maps - threshold = False
 
