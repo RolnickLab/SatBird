@@ -23,7 +23,7 @@ Tests assume access to data files, so it has to run on the cluster
 To run all tests, in root directory, run: ```pytest```
 Some tests that go through all datafiles are marked with "slow", ```pytest -k "slow"```
 Other tests that run faster can be run with:  ```pytest -k "fast" ```
-To run a specific test, example: ```pytest tests/data/test_data_files.py -k "test_corresponding_files_from_csv -s"```
+To run a specific test, example: ```pytest tests/data/test_data_files.py -k "test_corresponding_files_from_csv" -s```
 
 ### Repository structure
 
