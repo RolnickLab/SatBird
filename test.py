@@ -75,27 +75,28 @@ def main(opts):
     config.base_dir = base_dir
 
     # compute means and stds for normalization
-    config.variables.bioclim_means, config.variables.bioclim_std, config.variables.ped_means, config.variables.ped_std = compute_means_stds_env_vars(
-        root_dir=config.data.files.base,
-        train_csv=config.data.files.train,
-        env_data_folder=config.data.files.env_data_folder,
-        output_file_means=config.data.files.env_means,
-        output_file_std=config.data.files.env_stds
-        )
+    if config.data.env and not config.data.transforms.normalize.ignore:
+        config.variables.bioclim_means, config.variables.bioclim_std, config.variables.ped_means, config.variables.ped_std = compute_means_stds_env_vars(
+            root_dir=config.data.files.base,
+            train_csv=config.data.files.train,
+            env_data_folder=config.data.files.env_data_folder,
+            output_file_means=config.data.files.env_means,
+            output_file_std=config.data.files.env_stds
+            )
 
-    if config.data.datatype == "refl":
+    if config.data.datatype == "refl" and not config.data.transforms[4].ignore :
         config.variables.rgbnir_means, config.variables.rgbnir_std = compute_means_stds_images(
             root_dir=config.data.files.base,
             train_csv=config.data.files.train,
             output_file_means=config.data.files.rgbnir_means,
             output_file_std=config.data.files.rgbnir_stds)
-
-    elif config.data.datatype == "img":
+    elif config.data.datatype == "img" and not config.data.transforms[4].ignore:
         config.variables.visual_means, config.variables.visual_stds = compute_means_stds_images_visual(
             root_dir=config.data.files.base,
             train_csv=config.data.files.train,
             output_file_means=config.data.files.rgb_means,
             output_file_std=config.data.files.rgb_stds)
+
 
     run_id = args["run_id"]
     global_seed = get_seed(run_id, config.program.seed)
