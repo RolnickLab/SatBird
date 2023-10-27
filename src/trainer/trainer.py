@@ -217,13 +217,13 @@ class EbirdTask(pl.LightningModule):
                 #this works for https://zenodo.org/record/4728033/files/seco_resnet18_1m.ckpt?download=1
                 #Seco ResNet-18-1M model - from which the state dict corresponding only to the ResNet18 part encoder was extracted.
                 print('loading a pretrained SeComodel')
-                """
+                
                 ckpt = torch.load(self.opts.experiment.module.resume)
                 self.model.fc = nn.Sequential()
                 loaded_dict = ckpt['state_dict']
                 model_dict = self.model.state_dict()
-                del loaded_dict["queue"]
-                del loaded_dict["queue_ptr"]
+                #del loaded_dict["queue"]
+                #del loaded_dict["queue_ptr"]
                 # load state dict keys
                 for key_model, key_seco in zip(model_dict.keys(), loaded_dict.keys()):
                     # ignore first layer weights(use imagenet ones)
@@ -244,9 +244,13 @@ class EbirdTask(pl.LightningModule):
                             model_dict[key]=weights
                         count+=1
 
-
+                """
                 self.model.load_state_dict(model_dict)
+                if self.freeze_backbone:
+                    print("initialized network, freezing weights")
 
+                    for param in self.model.parameters():
+                        param.requires_grad = False
             if self.opts.experiment.module.fc == "linear":
                 self.model.fc = nn.Linear(512, self.target_size)
             elif self.opts.experiment.module.fc == "linear_net":
@@ -281,8 +285,8 @@ class EbirdTask(pl.LightningModule):
                 loaded_dict = checkpoint['state_dict']
 
                 model_dict = model.state_dict()
-                del loaded_dict["module.queue"]
-                del loaded_dict["module.queue_ptr"]
+               # del loaded_dict["module.queue"]
+                #del loaded_dict["module.queue_ptr"]
                 #                 print('loaded dict keys',loaded_dict.keys(),'model_keys',model_dict.keys())
                 model.conv1.weight.data[:, :orig_channels, :, :] = loaded_dict[list(loaded_dict.keys())[0]]
                 # load state dict keys
