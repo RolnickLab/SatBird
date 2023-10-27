@@ -57,7 +57,7 @@ def load_geotiff_visual(file):
     img = tiff.imread(file).astype(np.float32)
 
     img = np.reshape(img, (img.shape[2], img.shape[0], img.shape[1]))
-    img = img / 255
+
     return img
 
 

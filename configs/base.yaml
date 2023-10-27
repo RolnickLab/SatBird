@@ -148,6 +148,7 @@ data:
       ignore: "val"
       p: 0.5
     - name: normalize
+      normalize_by_255: False
       ignore: False
       maxchan: false
       subset: ["sat"]
