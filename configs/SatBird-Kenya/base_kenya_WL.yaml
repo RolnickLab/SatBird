@@ -1,8 +1,8 @@
 #where to save checkpoints
-save_path: "Kenya_camera_ready_from_scratch"
+save_path: "Kenya_camera_ready_from_scratch_WL"
 
 # load existing checkpoint for inference. If passing experiment folder instead (for multiple seeds), it will evaluate all of them.
-load_ckpt_path: "Kenya_camera_ready_from_scratch"
+load_ckpt_path: "Kenya_camera_ready_from_scratch_WL"
 save_preds_path: ""
 log_comet: true
 
@@ -42,6 +42,7 @@ experiment:
     init_bias: ""
     means_path: ""
     lr: 0.0001
+    use_weighted_loss: True
 
 optimizer: "Adam"  #"Adam"
 
