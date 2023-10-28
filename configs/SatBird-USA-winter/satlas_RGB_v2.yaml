@@ -148,10 +148,11 @@ data:
       ignore: "val"
       p: 0.5
     - name: normalize
-      ignore: true
+      normalize_by_255: True
+      ignore: False
       maxchan: false
       subset: ["sat"]
-      custom: [*rgbnir_means, *rgbnir_std]
+      custom: [*visual_means, *visual_stds]
 
     - name: normalize
       ignore: true

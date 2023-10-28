@@ -87,7 +87,7 @@ data:
 
   #o you want to use environmental data (pedological and bioclimatic (low res) data) #ped" or "bioclim" or both or empty list
   env: []#["bioclim", "ped"]
-  env_var_sizes: [19, 8]
+  env_var_sizes: []
 
   #resolution of pedological and bioclimatic data in meters
   ped:
@@ -148,10 +148,11 @@ data:
       ignore: "val"
       p: 0.5
     - name: normalize
-      ignore: true
+      normalize_by_255: True
+      ignore: False
       maxchan: false
       subset: ["sat"]
-      custom: [*rgbnir_means, *rgbnir_std]
+      custom: [*visual_means, *visual_stds]
 
     - name: normalize
       ignore: true
