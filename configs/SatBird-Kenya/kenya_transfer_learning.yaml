@@ -20,7 +20,7 @@ loc:
   concat: True
 
 comet:
-  project_name: "camera_ready_neurips_baselines" #"ecosystem-duck"
+  project_name: "camera_ready_neurips_baselines"
   tags: ["SatBirdv2", "resnet18", "RGBNIR_ENV_RM"]
   experiment_name: "SatBirdv2_kenya_transfer_WL" # specify for training, or use to report test results, TODO: also use to resume training
   experiment_key: "" # use to report test results,
@@ -31,12 +31,12 @@ experiment:
   name: "ebird_classifier"
   seed: 42
   module:
-    #choose model : "resnet18" "resnet50" "inceptionv3" "linear" (just a linear model)
+    #choose model : "resnet18" "satmae" or "satlas"
     model: "resnet18"
-    #"linear" or "linear_net" for a 2 layer MLP
-    fc: "linear"
+
     #use pretrained weights ( torchvision )
     pretrained: True
+    initialize_USA: True
     # resume training from another model (transfer learning), set empty if training from scratch
     resume: "/network/projects/ecosystem-embeddings/USA_summer_weights/4017/epoch=33-step=22745.ckpt"
     #initializes biases of the output layer sothat sigmoid(bias) = mean over the training set for each species
