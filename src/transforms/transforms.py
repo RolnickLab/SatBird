@@ -393,7 +393,7 @@ def get_transform(transform_item, mode):
     ):
 
         return Normalize(maxchan=transform_item.maxchan, custom=transform_item.custom or None,
-                         subset=transform_item.subset, normalize_by_255=True)
+                         subset=transform_item.subset, normalize_by_255=transform_item.normalize_by_255)
 
     elif transform_item.name == "resize" and not (
             transform_item.ignore is True or transform_item.ignore == mode
