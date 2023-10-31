@@ -22,8 +22,8 @@ class EbirdVisionDataset(VisionDataset):
                  mode: Optional[str] = "train",
                  datatype="refl",
                  target="probs",
-                 targets_folder="corrected_targets",
-                 env_data_folder="environmental",
+                 targets_folder="targets",
+                 env_data_folder="environmental_bounded",
                  images_folder="images",
                  subset=None,
                  use_loc=False,
@@ -80,6 +80,7 @@ class EbirdVisionDataset(VisionDataset):
         sats = torch.from_numpy(img).float()
         item_["sat"] = sats
 
+        assert len(self.env) == len(self.env_var_sizes), "env variables sizes must be equal to the size of env vars specified`"
         # env rasters
         for i, env_var in enumerate(self.env):
             env_npy = os.path.join(self.data_base_dir, self.env_data_folder, hotspot_id + '.npy')
