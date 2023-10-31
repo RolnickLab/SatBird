@@ -123,7 +123,7 @@ class EbirdTask(pl.LightningModule):
                 #Seco ResNet-18-1M model - from which the state dict corresponding only to the ResNet18 part encoder was extracted.
                 # because of some package version compatibility issues, we saved the encoder weights of the Seco ResNet-18-1M model as pkl 
                 # and that is what is supported in this code. 
-                
+                print("Initializing with SeCo weights")
                 with open(self.opts.experiment.module.resume, "rb") as file:
                     enc = pickle.load(file)
                 pretrained=list(enc.items())
@@ -323,11 +323,13 @@ class EbirdTask(pl.LightningModule):
             self.correction = correction_t
 
 
-        elif self.opts.experiment.module.model == "satlas" or self.opts.experiment.module.model == "satmae":
+        if self.opts.experiment.module.model == "satlas" or self.opts.experiment.module.model == "satmae":
             inter = self.feature_extractor(x)
             print('inter shape ', inter.shape)
             y_hat = self.forward(inter)
+            
         else:
+            
             y_hat = self.forward(x)
 
        
