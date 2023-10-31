@@ -22,7 +22,7 @@ loc:
 comet:
   project_name: "camera_ready_neurips_baselines" 
   tags: ["SatBirdv2", "resnet18", "RGBNIR_ENV_RM"]
-  experiment_name: "SatBirdv2_kenya_frozen_WL" # specify for training, or use to report test results, TODO: also use to resume training
+  experiment_name: "SatBirdv2_kenya_frozen" # specify for training, or use to report test results, TODO: also use to resume training
   experiment_key: "" # use to report test results,
 
 experiment:
@@ -44,7 +44,7 @@ experiment:
     init_bias: ""
     means_path: ""
     lr: 0.0001
-    use_weighted_loss: True
+    use_weighted_loss: False
     loss_weight: "nchklists" #"log", "nchklists"
 
 optimizer: "Adam"  #"Adam"
