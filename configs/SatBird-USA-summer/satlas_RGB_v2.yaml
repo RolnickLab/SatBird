@@ -28,7 +28,7 @@ experiment:
     #use pretrained weights ( torchvision )
     pretrained: True
     # resume training from another model (transfer learning), set empty if training from scratch
-    resume: ""
+    resume: '/network/projects/ecosystem-embeddings/trainer_utils/pretrained_weights/satlas-model-v1-lowres.pth'
     # freeze backbone when transfer learning or not
     freeze: False
     #initializes biases of the output layer sothat sigmoid(bias) = mean over the training set for each species
