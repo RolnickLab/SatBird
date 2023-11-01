@@ -37,7 +37,7 @@ experiment:
     #use pretrained weights ( torchvision )
     pretrained: True
     # resume training from another model (transfer learning), set empty if training from scratch
-    resume: ""
+    resume: '/network/projects/ecosystem-embeddings/trainer_utils/pretrained_weights/satlas-model-v1-lowres.pth'
     #initializes biases of the output layer sothat sigmoid(bias) = mean over the training set for each species
     init_bias: ""
     means_path: ""
@@ -100,10 +100,24 @@ data:
       res: 1000
   
   files:
-    base: "/network/projects/ecosystem-embeddings/ebird_dataset/USA_summer"
+    base: "/network/projects/ecosystem-embeddings/SatBird_data_v2/USA_summer"
     train: "summer_hotspots_train.csv"
     val: "summer_hotspots_valid.csv"
     test: "summer_hotspots_test.csv"
+    
+    targets_folder: "corrected_targets"
+    env_data_folder: "environmental_bounded"
+    images_folder: "images"
+
+    rgbnir_means: "stats/means_rgbnir.npy"
+    rgbnir_stds: "stats/stds_rgbnir.npy"
+
+    rgb_means: "stats/means_images_visual.npy"
+    rgb_stds: "stats/stds_images_visual.npy"
+
+    env_means: "stats/env_means.npy"
+    env_stds: "stats/env_stds.npy"
+
 
     correction_thresh: '' # range maps - threshold = False
 
