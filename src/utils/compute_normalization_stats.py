@@ -125,9 +125,9 @@ def compute_means_stds_env_vars_point_values(root_dir, train_csv):
     """
     computes normalization statistics (means, stds) on training data, for environmental variables
     """
-    bioclim_env_column_names = ['bio_1', 'bio_2', 'bio_3', 'bio_4', 'bio_5',
-                                'bio_6', 'bio_7', 'bio_8', 'bio_9', 'bio_10', 'bio_11', 'bio_12',
-                                'bio_13', 'bio_14', 'bio_15', 'bio_16', 'bio_17', 'bio_18', 'bio_19']
+    bioclim_env_column_names = ['bio_1', 'bio_2', 'bio_3', 'bio_4', 'bio_5', 'bio_6', 'bio_7', 'bio_8', 'bio_9',
+                                'bio_10', 'bio_11', 'bio_12', 'bio_13', 'bio_14', 'bio_15', 'bio_16', 'bio_17',
+                                'bio_18', 'bio_19']
     ped_env_column_names = ['bdticm', 'bldfie', 'cecsol', 'clyppt', 'orcdrc', 'phihox', 'sltppt', 'sndppt']
 
     df = pd.read_csv(os.path.join(root_dir, train_csv))
@@ -141,29 +141,36 @@ def compute_means_stds_env_vars_point_values(root_dir, train_csv):
     return bioclim_means.tolist(), bioclim_stds.tolist(), ped_means.tolist(), ped_stds.tolist()
 
 
-def compute_means_stds_env_vars(root_dir, train_csv, env_data_folder="environmental", output_file_means="stats/env_means.npy", output_file_std="stats/env_stds.npy"):
+def compute_means_stds_env_vars(root_dir, train_csv, env, env_data_folder="environmental",
+                                output_file_means="stats/env_means.npy", output_file_std="stats/env_stds.npy"):
 
-    bioclim_env_column_names = ['bio_1', 'bio_2', 'bio_3', 'bio_4', 'bio_5',
-                                'bio_6', 'bio_7', 'bio_8', 'bio_9', 'bio_10', 'bio_11', 'bio_12',
-                                'bio_13', 'bio_14', 'bio_15', 'bio_16', 'bio_17', 'bio_18', 'bio_19']
+    bioclim_env_column_names = ['bio_1', 'bio_2', 'bio_3', 'bio_4', 'bio_5', 'bio_6', 'bio_7', 'bio_8', 'bio_9',
+                                'bio_10', 'bio_11', 'bio_12', 'bio_13', 'bio_14', 'bio_15', 'bio_16', 'bio_17',
+                                'bio_18', 'bio_19']
     ped_env_column_names = ['bdticm', 'bldfie', 'cecsol', 'clyppt', 'orcdrc', 'phihox', 'sltppt', 'sndppt']
 
     df = pd.read_csv(os.path.join(root_dir, train_csv))
+
+    env_var_names = []
+    if "bioclim" in env:
+        env_var_names += bioclim_env_column_names
+    if "ped" in env:
+        env_var_names += ped_env_column_names
 
     output_file_means_path = os.path.join(root_dir, output_file_means)
     if os.path.exists(output_file_means_path):
         means = np.load(output_file_means_path)
     else:
-        stats_df: DataFrame = pd.DataFrame(columns=bioclim_env_column_names + ped_env_column_names)
+        stats_df: DataFrame = pd.DataFrame(columns=env_var_names)
         for i, row in tqdm(df.iterrows()):
             hs = row["hotspot_id"]
             arr = np.load(os.path.join(root_dir, env_data_folder, f"{hs}.npy"))
-            per_raster_mean = np.nanmean(arr, axis=(1,2))
+            per_raster_mean = np.nanmean(arr, axis=(1, 2))
             new_row = pd.Series(per_raster_mean, index=stats_df.columns)
             stats_df = stats_df.append(new_row, ignore_index=True)
 
         means_to_save = []
-        for env_var in bioclim_env_column_names + ped_env_column_names:
+        for env_var in env_var_names:
             means_to_save.append(stats_df[env_var].mean())
 
         means = np.array(means_to_save)
@@ -175,7 +182,7 @@ def compute_means_stds_env_vars(root_dir, train_csv, env_data_folder="environmen
     if os.path.exists(output_file_stds_path):
         stds = np.load(output_file_stds_path)
     else:
-        stats_df: DataFrame = pd.DataFrame(columns=bioclim_env_column_names + ped_env_column_names)
+        stats_df: DataFrame = pd.DataFrame(columns=env_var_names)
         for i, row in tqdm(df.iterrows()):
             hs = row["hotspot_id"]
             arr = np.load(os.path.join(root_dir, env_data_folder, f"{hs}.npy"))
@@ -184,27 +191,14 @@ def compute_means_stds_env_vars(root_dir, train_csv, env_data_folder="environmen
             new_row = pd.Series(std, index=stats_df.columns)
             stats_df = stats_df.append(new_row, ignore_index=True)
         stds_to_save = []
-        for env_var in bioclim_env_column_names + ped_env_column_names:
+        for env_var in env_var_names:
             stds_to_save.append(np.sqrt((stats_df[env_var]).mean()))
 
         stds = np.array(stds_to_save)
         np.save(output_file_stds_path, stds)
 
     print("Env var stds: ", stds)
-    return means[0:len(bioclim_env_column_names)].tolist(), stds[0:len(bioclim_env_column_names)].tolist(),\
-        means[len(bioclim_env_column_names):].tolist(), stds[len(bioclim_env_column_names):].tolist()
+    return means[0:len(bioclim_env_column_names)].tolist(), stds[0:len(bioclim_env_column_names)].tolist(), means[
+                                                                                                            len(bioclim_env_column_names):].tolist(), stds[
+                                                                                                                                                      len(bioclim_env_column_names):].tolist()
 
-
-if __name__ == "__main__":
-    bioclim_means, bioclim_stds, ped_means, ped_stds = compute_means_stds_env_vars(root_dir= "/network/projects/ecosystem-embeddings/ebird_dataset/USA_summer",
-                train_csv="summer_hotspots_train_with_nan_envvars.csv")
-
-    print(bioclim_means, bioclim_stds)
-    print(ped_means, ped_stds)
-
-    # image_means, image_stds = compute_means_stds_images(
-    #     root_dir="/network/projects/ecosystem-embeddings/ebird_dataset_v2/USA_summer",
-    #     train_csv="butterfly_hotspots_train.csv")
-
-    # image_visual_means, image_visual_stds = compute_means_stds_images_visual(root_dir="/network/projects/ecosystem-embeddings/ebird_dataset_v2/USA_summer",
-    #                                                     train_csv="butterfly_hotspots_train.csv")

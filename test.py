@@ -79,6 +79,7 @@ def main(opts):
         config.variables.bioclim_means, config.variables.bioclim_std, config.variables.ped_means, config.variables.ped_std = compute_means_stds_env_vars(
             root_dir=config.data.files.base,
             train_csv=config.data.files.train,
+            env=config.data.env,
             env_data_folder=config.data.files.env_data_folder,
             output_file_means=config.data.files.env_means,
             output_file_std=config.data.files.env_stds
