@@ -95,7 +95,7 @@ def normalize_custom(t, mini=0, maxi=1):
 
 
 class Normalize:
-    def __init__(self, maxchan=True, custom=None, subset=sat):
+    def __init__(self, maxchan=True, custom=None, subset=sat, normalize_by_255=False):
         """
         custom : ([means], [std])
         means =[r: 894.6719, g: 932.5726, b:693.2768, nir: 2817.9849]
@@ -107,6 +107,7 @@ class Normalize:
         self.subset = subset
 
         self.custom = custom
+        self.normalize_by_255 = normalize_by_255
 
     def __call__(self, sample: Dict[str, Tensor]) -> Dict[str, Tensor]:
 
@@ -116,10 +117,14 @@ class Normalize:
                 tensor = sample[task]
                 sample[task] = tensor / torch.amax(tensor, dim=(-2, -1), keepdims=True)
         # TODO
-        if self.custom:
-            means, std = self.custom
+        if self.normalize_by_255:
             for task in self.subset:
-                sample[task] = normalize(sample[task], means, std)
+                sample[task] = sample[task] / 255
+        else:
+            if self.custom:
+                means, std = self.custom
+                for task in self.subset:
+                    sample[task] = normalize(sample[task], means, std)
         return sample
 
 
@@ -388,7 +393,7 @@ def get_transform(transform_item, mode):
     ):
 
         return Normalize(maxchan=transform_item.maxchan, custom=transform_item.custom or None,
-                         subset=transform_item.subset)
+                         subset=transform_item.subset, normalize_by_255=transform_item.normalize_by_255)
 
     elif transform_item.name == "resize" and not (
             transform_item.ignore is True or transform_item.ignore == mode

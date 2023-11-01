@@ -144,22 +144,19 @@ data:
       ignore: "val"
       p: 0.5
     - name: normalize
+      normalize_by_255: False
       ignore: false
       maxchan: false
       subset: ["sat"]
       custom: [*rgbnir_means, *rgbnir_std]
-      #ImageNet values 
-      #[[0.485, 0.456, 0.406],[0.229, 0.224, 0.225]]
-      
-      #Mean-std computed on training set
-      #[[894.6719, 932.5726,693.2768], [883.9763,747.6857,749.3098]]
-      #[894.6719, 932.5726,693.2768, 2817.9849], [883.9763,747.6857,749.3098, 1342.6334]
     - name: normalize
+      normalize_by_255: False
       ignore: false
       maxchan: false
       subset: ["bioclim"]
       custom: [*bioclim_means, *bioclim_std]
     - name: normalize
+      normalize_by_255: False
       ignore: false
       maxchan: false
       subset: ["ped"] #soil data

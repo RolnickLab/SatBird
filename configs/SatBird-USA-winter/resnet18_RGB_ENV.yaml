@@ -107,9 +107,9 @@ data:
 
   files:
     base: "/network/projects/ecosystem-embeddings/SatBird_data_v2/USA_winter"
-    train: "winter_hotspots_train.csv"
-    val: "winter_hotspots_val.csv"
-    test: "winter_hotspots_test.csv"
+    train: "winter_hotspots_train_2.csv"
+    val: "winter_hotspots_val_2.csv"
+    test: "winter_hotspots_test_2.csv"
 
     targets_folder: "corrected_targets"
     env_data_folder: "environmental_bounded"

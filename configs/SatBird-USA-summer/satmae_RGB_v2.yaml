@@ -8,26 +8,17 @@ log_comet: true
 
 overfit_batches: 0.0
 # maximum number of epochs to train for
-max_epochs: 400
+max_epochs: 50
 # base directory
 base_dir: ""
-#use geographical information
-loc:
-  use: False
-  #if True :concatenate location features with satellite image features, else location features are mappe to same imension as satellite features and the features are multiplie
-  loc_type: "latlon"   #latlon or state
-  concat: True
-  
+
 comet:
-  project_name: "clean_baselines" #"ecosystem-duck"
-  tags: ["satmae",  "rgb","all_data_summer", "no_correction","filtered"]
+  project_name: "camera_baselines" #"ecosystem-duck"
+  tags: ["satmae","summer"]
   experiment_name: "baseline_satmae_RGB" # specify for training, or use to report test results, TODO: also use to resume training
   experiment_key: "" # use to report test results,
 
 experiment:
-  #TASK and name should always be ebird_classifier --> maybe remove it 
-  task: "ebird_classifier"
-  name: "ebird_classifier"
   seed: 42
   module:
     #choose model : "resnet18" "resnet50" "inceptionv3" "linear" (just a linear model)
@@ -38,27 +29,34 @@ experiment:
     pretrained: True
     # resume training from another model (transfer learning), set empty if training from scratch
     resume: '/network/projects/ecosystem-embeddings/trainer_utils/pretrained_weights/fmow_pretrain.pth'
+    # freeze backbone when transfer learning or not
+    freeze: False
     #initializes biases of the output layer sothat sigmoid(bias) = mean over the training set for each species
     init_bias: ""
     means_path: ""
     lr: 0.0003
 
+use_rtran: False
+
 optimizer: "Adam"  #"Adam"
 
-#auto lr will only work if there is only one optimizer 
+losses:
+#scale attribute is just for plotting if the values are very small
+  criterion: "CE" #or MAE or MSE or Focal or RMSLE  (loss to choose for optim )
+
+#auto lr will only work if there is only one optimizer
 auto_lr_find: False
-scheduler: 
+scheduler:
   name: "ReduceLROnPlateau" #"" for no schuler, "ReduceLROnPlateau" #"ReduceLROnPlateau" or "StepLR" "WarmUp"
-  reduce_lr_plateau: 
+  reduce_lr_plateau:
     factor: 0.5
     lr_schedule_patience: 20
   step_lr:
-    step_size: 100 
+    step_size: 100
     gamma: 0.5
   warmup:
     warmup_epochs: 5
     max_epochs: 100
-  
   cyclical:
     warmup_epochs: 10
 
@@ -74,7 +72,6 @@ variables: &default_vars
     visual_means: &visual_means []
     visual_stds: &visual_stds []
 
-
 data:
   loaders:
     num_workers: 8
@@ -84,31 +81,32 @@ data:
   datatype: "img"
   multiscale : [64]
   
-  bands: ["rgb"]   #["r","g","b", "nir"]  #any subset of ["r", "g", "b", "nir"] if working with "refl" data or ["rgb", "nir"] if using "img" 
-  
+  bands: ["rgb"]  #any subset of ["r", "g", "b", "nir"] if working with "refl" data or ["rgb", "nir"] if using "img" 
+
   res: 10 #resolution of the images
 
   #o you want to use environmental data (pedological and bioclimatic (low res) data) #ped" or "bioclim" or both or empty list
-  env: []#["ped", "bioclim"]
-  
+  env: []#["bioclim", "ped"]
+  env_var_sizes: []
+
   #resolution of pedological and bioclimatic data in meters
-  ped: 
+  ped:
       #pedological rasters
       res: 250
-  bioclim: 
-      #bioclim 
+  bioclim:
+      #bioclim
       res: 1000
-  
+
   files:
     base: "/network/projects/ecosystem-embeddings/SatBird_data_v2/USA_summer"
     train: "summer_hotspots_train.csv"
-    val: "summer_hotspots_valid.csv"
+    val: "summer_hotspots_val.csv"
     test: "summer_hotspots_test.csv"
-    
+
     targets_folder: "corrected_targets"
-    env_data_folder: "environmental_bounded"
+    env_data_folder: "environmental_bounded_2"
     images_folder: "images"
-    correction_thresh: "range_maps.pkl" # range maps - threshold = False
+    correction_thresh: "final_range_maps.pkl" # range maps - threshold = False
 
     rgbnir_means: "stats/means_rgbnir.npy"
     rgbnir_stds: "stats/stds_rgbnir.npy"
@@ -119,12 +117,8 @@ data:
     env_means: "stats/env_means.npy"
     env_stds: "stats/env_stds.npy"
 
-
-
   correction_factor:
-     use: #soft thresholding choises [None, 'before' (before sigmoid) ,'after'(after sigmoid)] 
-     #hard thresholding
-     thresh: false
+     thresh:  # to train with RM
 
   target:
     type: "probs"  #binary for classification targets  or "probs" for regression (default should be "probs")
@@ -138,7 +132,7 @@ data:
       ignore: false
       subset: ["bioclim", "ped"]
       target_size: [64, 64]
-      custom_means: [ *bioclim_means, *ped_means ]
+      custom_means: [*bioclim_means, *ped_means]
 
     - name: crop
       ignore: false
@@ -157,7 +151,8 @@ data:
       ignore: "val"
       p: 0.5
     - name: normalize
-      ignore: false
+      normalize_by_255: True
+      ignore: False
       maxchan: false
       subset: ["sat"]
       custom: [*visual_means, *visual_stds]
@@ -177,6 +172,25 @@ data:
       std: 0.01
       max_noise: 0.05
       
-  total_species: 684
-trainer:
-  auto_scale_batch_size: False
+    - name: blur
+      ignore: "val"
+      p: 0.5
+      val: 0.1
+
+    - name: rotate
+      ignore: "val"
+      p: 0.5
+      val: 15
+
+    - name: randomcontrast
+      ignore: "val"
+      p: 0.35
+      val: 2
+
+    - name: randombrightness
+      ignore: "val"
+      p: 0.3
+      val: 2
+      
+
+  total_species: 670 # 657
