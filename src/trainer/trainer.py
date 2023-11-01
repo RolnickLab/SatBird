@@ -75,6 +75,7 @@ class EbirdTask(pl.LightningModule):
     def get_sat_model(self):
         
         if self.opts.experiment.module.model == "satlas":
+            print('using Satlas model')
             # first lets assume freezing the pretrained model
             self.feature_extractor = torchvision.models.swin_transformer.swin_v2_b()
             #self.opts.experiment.module.resume should be path to satlas model (we used satlas-model-v1-lowres.pth)
@@ -91,6 +92,7 @@ class EbirdTask(pl.LightningModule):
             self.model = nn.Linear(1000, self.target_size)
             
         elif self.opts.experiment.module.model == "satmae":
+            print('using SatMAE model')
             satmae = ViTFinetune(
                 img_size=224,
                 patch_size=16,
@@ -240,58 +242,40 @@ class EbirdTask(pl.LightningModule):
             -1, 1
         )
 
-        if self.opts.data.correction_factor.thresh:
-            correction_t = (self.correction_t_data.reset_index().set_index('hotspot_id').drop(columns=["index"]).loc[list(hotspot_id)]).iloc[:, self.subset].values
-            correction_t = torch.tensor(correction_t, device=y.device)
-
+ 
        
         if self.opts.experiment.module.model == "satlas" or self.opts.experiment.module.model == "satmae":
             inter = self.feature_extractor(x)
             print('features shape ', inter.shape)
             y_hat = self.forward(inter)
 
-            pred = self.sigmoid_activation(y_hat).type_as(y)
-
-            if self.opts.data.correction_factor.thresh == 'after':
-                mask = correction_t
-
-                cloned_pred = pred.clone().type_as(pred)
-                # print('predictons before: ', cloned_pred)
-
-                cloned_pred *= mask.int()
-                y *= mask.int()
-
-                pred = cloned_pred
-                # print('predictions after: ', pred)
-
-            pred_ = pred.clone().type_as(y)
-
-          
-            loss = self.criterion(pred, y)
+            pred = self.sigmoid_activation(y_hat).type_as(y)          
                
         else:
             y_hat = self.forward(x)
 
             pred = self.sigmoid_activation(y_hat).type_as(y)
 
-            if self.opts.data.correction_factor.thresh == 'after':
-                mask = correction_t
-                cloned_pred = pred.clone().type_as(pred)
-                # print('predictons before: ', cloned_pred)
+        if self.opts.data.correction_factor.thresh == 'after':
+            #this means we are training with Range Maps
+            correction_t = (self.correction_t_data.reset_index().set_index('hotspot_id').drop(columns=["index"]).loc[list(hotspot_id)]).iloc[:, self.subset].values
+            correction_t = torch.tensor(correction_t, device=y.device)
+            mask = correction_t
+            cloned_pred = pred.clone().type_as(pred)
+                
+            cloned_pred *= mask.int()
+            y *= mask.int()
 
-                cloned_pred *= mask.int()
-                y *= mask.int()
-
-                pred = cloned_pred
+            pred = cloned_pred
                 # print('predictions after: ', pred)
 
-            pred_ = pred.clone().type_as(y)
+        pred_ = pred.clone().type_as(y)
 
-            if self.opts.experiment.module.use_weighted_loss:
-                print("Using Weighted CrossEntropy Loss")
-                loss = self.criterion(pred, y, new_weights)
-            else:
-                loss = self.criterion(pred, y)
+        if self.opts.experiment.module.use_weighted_loss:
+            print("Using Weighted CrossEntropy Loss")
+            loss = self.criterion(pred, y, new_weights)
+        else:
+            loss = self.criterion(pred, y)
             
 
 
