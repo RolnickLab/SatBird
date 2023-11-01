@@ -1,21 +1,20 @@
 import json
 import math
+import os
 import shutil
 import sys
-import os
 import traceback
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, List, Optional, Union
-from typing import Tuple
 
 import numpy as np
 import tifffile as tiff
+import torch
 import yaml
 from PIL import Image
 from addict import Dict
-import torch
-from torch.nn import Module
+from typing import Optional, Union
+from typing import Tuple
 
 comet_kwargs = {
     "auto_metric_logging": False,
