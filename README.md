@@ -77,7 +77,8 @@ This will create one file per hotspots, the files will be organized based on the
 - Additionally, you should merge hotspots that have different IDs but the same latitude and longitude using `data_processing/ebird/clean_duplicate_lat_lon.py`
 - Finally, merge the targets for those merged hotspots using `data_processing/ebird/merge_target.py`
 
-- Get **range maps** using `data_processing/ebird_data_preparation/get_range_maps.py`. This will call for shapefiles that you can obtain through [ebirdst](https://ebird.github.io/ebirdst/).
+- Get **range maps** using `data_processing/ebird_data_preparation/get_range_maps.py`. This will call for shapefiles that you can obtain through [ebirdst](https://ebird.github.io/ebirdst/). You can then save a csv of all combined range maps using `/satbird/data_processing/utils/save_range_maps_csv_v2.py`.
+- 
 - For the environmental data variables, download the rasters of the country of insterest from [WorldClim](https://www.worldclim.org/) (and [SoilGrids](https://soilgrids.org/) for the USA dataset). 
 
 
