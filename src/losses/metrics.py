@@ -1,3 +1,4 @@
+# Src code for all metrics used
 import torch
 import torch.nn as nn
 import torchmetrics
@@ -146,8 +147,8 @@ def get_metric(metric):
     elif metric.name == "ce" and not metric.ignore is True:
         return CustomCrossEntropy(metric.lambd_pres, metric.lambd_abs)
     elif metric.name == 'r2' and not metric.ignore is True:
-        return torchmetrics.ExplainedVariance(multioutput='variance_weighted')
-        # return  torchmetrics.SpearmanCorrCoef()
+        return torchmetrics.ExplainedVariance(
+            multioutput='variance_weighted')
     elif metric.name == "kl" and not metric.ignore is True:
         return CustomKL()
     elif metric.name == "accuracy" and not metric.ignore is True:
@@ -155,8 +156,7 @@ def get_metric(metric):
     elif metric.ignore is True:
         return None
     else:
-        return (None)
-        # raise ValueError("Unknown metric_item {}".format(metric))
+        return (None)  # raise ValueError("Unknown metric_item {}".format(metric))
 
 
 def get_metrics(config):
