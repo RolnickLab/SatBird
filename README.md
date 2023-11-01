@@ -68,7 +68,7 @@ This will create one file per hotspots, the files will be organized based on the
 - to get the targets, run `data_processing/ebird/get_winter_targets.py` . Change the paths to the one where you created the `split-XXX/` folders.
 
 
-- Download the **Sentinel-2 data** using `data_processing/ebird_data_preparation/download_rasters_from_planetary_computer.py`. To reproduce all experiments, you will have to run it twice, specifying the BANDS as ["B02", "B03", "B04", "B08"] for the BGRNIR reflectance data, and "visual" for the RGB visual component. A useful function is `process_row` which will extract the least cloudy image (with your specified bands) over the specified period of time with a maximum of 10\% cloud cover. For some hotspots, it is possible that you will be able to extract the visual component but incomplte items of no item will be found for the R,B,G,NIR reflectance data with the cloud cover criterion of 10\%. For those hotspots, you can replace `process_row` with `process_row_mosaic`function to allow the extracted image to be a mosaic of the images found over the specified period of time.  
+- Download the **Sentinel-2 data** using `data_processing/satellite/download_rasters_from_planetary_computer.py`. To reproduce all experiments, you will have to run it twice, specifying the BANDS as ["B02", "B03", "B04", "B08"] for the BGRNIR reflectance data, and "visual" for the RGB visual component. A useful function is `process_row` which will extract the least cloudy image (with your specified bands) over the specified period of time with a maximum of 10\% cloud cover. For some hotspots, it is possible that you will be able to extract the visual component but incomplte items of no item will be found for the R,B,G,NIR reflectance data with the cloud cover criterion of 10\%. For those hotspots, you can replace `process_row` with `process_row_mosaic`function to allow the extracted image to be a mosaic of the images found over the specified period of time.  
 
 - You can further clean the dataset using the functions in `data_processing/ebird/clean_hotspots.py` and filter out:
     - hotspots that are not withing the bounds of a given shapefile geometry. This was used for the USA dataset to filter out hotspots that are in the middle of the ocean and not in the contiguous USA
@@ -77,7 +77,7 @@ This will create one file per hotspots, the files will be organized based on the
 - Additionally, you should merge hotspots that have different IDs but the same latitude and longitude using `data_processing/ebird/clean_duplicate_lat_lon.py`
 - Finally, merge the targets for those merged hotspots using `data_processing/ebird/merge_target.py`
 
-- Get **range maps** using `data_processing/ebird_data_preparation/get_range_maps.py`. This will call for shapefiles that you can obtain through [ebirdst](https://ebird.github.io/ebirdst/). You can then save a csv of all combined range maps using `/satbird/data_processing/utils/save_range_maps_csv_v2.py`.
+- Get **range maps** using `data_processing/ebird/get_range_maps.py`. This will call for shapefiles that you can obtain through [ebirdst](https://ebird.github.io/ebirdst/). You can then save a csv of all combined range maps using `/satbird/data_processing/utils/save_range_maps_csv_v2.py`.
 - 
 - For the environmental data variables, download the rasters of the country of insterest from [WorldClim](https://www.worldclim.org/) (and [SoilGrids](https://soilgrids.org/) for the USA dataset). 
 
