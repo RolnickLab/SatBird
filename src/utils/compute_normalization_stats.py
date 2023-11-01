@@ -143,7 +143,6 @@ def compute_means_stds_env_vars_point_values(root_dir, train_csv):
 
 def compute_means_stds_env_vars(root_dir, train_csv, env, env_data_folder="environmental",
                                 output_file_means="stats/env_means.npy", output_file_std="stats/env_stds.npy"):
-
     bioclim_env_column_names = ['bio_1', 'bio_2', 'bio_3', 'bio_4', 'bio_5', 'bio_6', 'bio_7', 'bio_8', 'bio_9',
                                 'bio_10', 'bio_11', 'bio_12', 'bio_13', 'bio_14', 'bio_15', 'bio_16', 'bio_17',
                                 'bio_18', 'bio_19']
@@ -201,4 +200,3 @@ def compute_means_stds_env_vars(root_dir, train_csv, env, env_data_folder="envir
     return means[0:len(bioclim_env_column_names)].tolist(), stds[0:len(bioclim_env_column_names)].tolist(), means[
                                                                                                             len(bioclim_env_column_names):].tolist(), stds[
                                                                                                                                                       len(bioclim_env_column_names):].tolist()
-
