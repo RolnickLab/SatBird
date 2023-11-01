@@ -90,7 +90,7 @@ def main(opts):
             train_csv=config.data.files.train,
             output_file_means=config.data.files.rgbnir_means,
             output_file_std=config.data.files.rgbnir_stds)
-    elif config.data.datatype == "img":
+    elif config.data.datatype == "img" and not config.data.transforms.normalize[4].normalize_by_255:
         config.variables.visual_means, config.variables.visual_stds = compute_means_stds_images_visual(
             root_dir=config.data.files.base,
             train_csv=config.data.files.train,
