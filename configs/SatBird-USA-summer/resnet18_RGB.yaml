@@ -100,12 +100,12 @@ data:
   
   files:
     base: "/network/projects/ecosystem-embeddings/SatBird_data_v2/USA_summer"
-    train: "summer_hotspots_train.csv"
-    val: "summer_hotspots_val.csv"
-    test: "summer_hotspots_test.csv"
+    train: "train_split.csv"
+    val: "valid_split.csv"
+    test: "test_split.csv"
 
-    targets_folder: "corrected_targets"
-    env_data_folder: "environmental_bounded"
+    targets_folder: "targets"
+    env_data_folder: "environmental"
     images_folder: "images"
     correction_thresh: "range_maps.pkl" # range maps - threshold = False
 
@@ -149,6 +149,7 @@ data:
       ignore: "val"
       p: 0.5
     - name: normalize
+      normalize_by_255: False
       ignore: False
       maxchan: false
       subset: ["sat"]

@@ -84,8 +84,8 @@ data:
   bands: ["r", "g", "b", "nir"]
   res: 10 
   
-  env: ["bioclim", "ped"] #["ped", "bioclim"] #"all" "ped" or "bioclim"
-  env_var_sizes: [19, 8]
+  env: [] #["bioclim", "ped"] #"all" "ped" or "bioclim"
+  env_var_sizes: [] #[19, 8]
 
   multiscale : [512,224]
   multiscale_bands: ['landuse','sats']    #choices: [landuse ,sat]

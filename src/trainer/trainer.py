@@ -198,7 +198,6 @@ class EbirdTask(pl.LightningModule):
         # from pdb import set_trace; set_trace()
         """Training step"""
         x = batch['sat'].squeeze(1)
-        print('input shape:', x.shape)
         y = batch['target']
 
         hotspot_id = batch['hotspot_id']
@@ -211,7 +210,6 @@ class EbirdTask(pl.LightningModule):
 
         if self.opts.experiment.module.model == "satlas" or self.opts.experiment.module.model == "satmae":
             inter = self.feature_extractor(x)
-            print('features shape ', inter.shape)
             y_hat = self.forward(inter)
 
             pred = self.sigmoid_activation(y_hat).type_as(y)
@@ -271,7 +269,6 @@ class EbirdTask(pl.LightningModule):
 
         if self.opts.experiment.module.model == "satlas" or self.opts.experiment.module.model == "satmae":
             inter = self.feature_extractor(x)
-            print('inter shape ', inter.shape)
             y_hat = self.forward(inter)
         else:
             y_hat = self.forward(x)
@@ -321,7 +318,6 @@ class EbirdTask(pl.LightningModule):
 
         if self.opts.experiment.module.model == "satlas" or self.opts.experiment.module.model == "satmae":
             inter = self.feature_extractor(x)
-            print('inter shape ', inter.shape)
             y_hat = self.forward(inter)
         else:
             y_hat = self.forward(x)

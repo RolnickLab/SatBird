@@ -99,14 +99,14 @@ data:
 
   files:
     base: "/network/projects/ecosystem-embeddings/SatBird_data_v2/Kenya"
-    train: "train_hotspots_kenya.csv"
-    val: "valid_hotspots_kenya.csv"
-    test: "test_hotspots_kenya.csv"
+    train: "train_split.csv"
+    val: "valid_split.csv"
+    test: "test_split.csv"
 
     targets_folder: "targets"
-    env_data_folder: "environmental_bounded"
+    env_data_folder: "environmental"
     images_folder: "images"
-    correction_thresh: "final_range_maps.pkl" # range maps - threshold = False
+    correction_thresh: "" # range maps - threshold = False
 
     rgbnir_means: "stats/means_rgbnir.npy"
     rgbnir_stds: "stats/stds_rgbnir.npy"
@@ -118,7 +118,7 @@ data:
     env_stds: "stats/env_stds.npy"
 
   correction_factor:
-     thresh:  # to train with RM
+     thresh: # to train with RM
 
   target:
     type: "probs"  #binary for classification targets  or "probs" for regression (default should be "probs")

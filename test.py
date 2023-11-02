@@ -91,7 +91,7 @@ def main(opts):
             train_csv=config.data.files.train,
             output_file_means=config.data.files.rgbnir_means,
             output_file_std=config.data.files.rgbnir_stds)
-    elif config.data.datatype == "img" and not config.data.transforms.normalize[4].normalize_by_255:
+    elif config.data.datatype == "img" and not config.data.transforms[4].normalize_by_255:
         config.variables.visual_means, config.variables.visual_stds = compute_means_stds_images_visual(
             root_dir=config.data.files.base,
             train_csv=config.data.files.train,
@@ -160,12 +160,9 @@ def main(opts):
                 best_checkpoint_file_name = [file for file in files if 'last' not in file and file.endswith('.ckpt')][0]
                 checkpoint_path_per_run_id = os.path.join(run_id_path, best_checkpoint_file_name)
                 # load the best checkpoint for the given run
-                # print(task.model.output_linear.weight)
                 task = load_existing_checkpoint(task=task, base_dir=config.base_dir,
                                                 checkpint_path=checkpoint_path_per_run_id,
                                                 save_preds_path=config.save_preds_path)
-                # print(task.model.output_linear.weight)
-                # exit(0)
                 test_results = test_task(task)
                 save_test_results_to_csv(results=test_results[0],
                                          root_dir=os.path.join(config.base_dir, config.load_ckpt_path))
