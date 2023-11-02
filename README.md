@@ -2,11 +2,15 @@
 
 This repository provides the code required to create the dataset and reproduce the benchmark of:
 
-M. Teng, A. Elmustafa, B. Akera, Y. Bengio, H. Radi, H. Larochelle and D. Rolnick. ["SatBird: a Dataset for Bird Species Distribution Modeling using Remote Sensing and Citizen Science Data"](), *NeurIPS 2023 Datasets and Benchmarks track*
+M. Teng, A. Elmustafa, B. Akera, Y. Bengio, H. Abdelwahed, H. Larochelle and D. Rolnick. ["SatBird: a Dataset for Bird Species Distribution Modeling using Remote Sensing and Citizen Science Data"](), *NeurIPS 2023 Datasets and Benchmarks track*
 
 You can also visit the project's website [here](https://satbird.github.io/).
 
 Reported NN baselines are: Resnet18, SATLAS, SatMAE.
+
+### Running code:
+
+Code runs on Python 3.10. You can create conda env using `requirements/environment.yaml` or install pip packages from `requirements/requirements.txt`
 
 * To train the model (check `run_files/job.sh`) : `python train.py args.config=configs/base.yaml`. Examples of all config files for different baselines 
 are available in `configs`.
