@@ -2,11 +2,9 @@
 main testing script
 To run: python test.py args.config=CONFIG_FILE_PATH
 """
-import os
 from pathlib import Path
 from typing import Any, Dict, cast
 import csv
-import math
 
 import hydra
 from hydra.utils import get_original_cwd
@@ -83,7 +81,7 @@ def main(opts):
             env_data_folder=config.data.files.env_data_folder,
             output_file_means=config.data.files.env_means,
             output_file_std=config.data.files.env_stds
-            )
+        )
 
     if config.data.datatype == "refl":
         config.variables.rgbnir_means, config.variables.rgbnir_std = compute_means_stds_images(
@@ -97,7 +95,6 @@ def main(opts):
             train_csv=config.data.files.train,
             output_file_means=config.data.files.rgb_means,
             output_file_std=config.data.files.rgb_stds)
-
 
     run_id = args["run_id"]
     global_seed = get_seed(run_id, config.program.seed)

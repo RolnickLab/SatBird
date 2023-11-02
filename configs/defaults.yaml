@@ -31,6 +31,7 @@ experiment:
   module:
     model: "resnet18"
     pretrained: True
+    transfer_weights: ""
     init_bias: "means"
     means_path: ""
     lr: 0.001

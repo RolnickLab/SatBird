@@ -107,7 +107,7 @@ class EbirdTask(pl.LightningModule):
 
             self.model = models.resnet18(pretrained=self.opts.experiment.module.pretrained)
 
-            if self.opts.experiment.module.initialize_seco:
+            if self.opts.experiment.module.transfer_weights == "SECO":
                 # this works for https://zenodo.org/record/4728033/files/seco_resnet18_1m.ckpt?download=1
                 # Seco ResNet-18-1M model - from which the state dict corresponding only to the ResNet18 part encoder was extracted.
                 # because of some package version compatibility issues, we saved the encoder weights of the Seco ResNet-18-1M model as pkl 
@@ -137,7 +137,7 @@ class EbirdTask(pl.LightningModule):
                     # self.model.conv1.weight.data[:, :orig_channels, :, :] = weights
                     self.model.conv1.weight.data = init_first_layer_weights(get_nb_bands(self.bands), weights)
 
-            if self.opts.experiment.module.initialize_USA:
+            if self.opts.experiment.module.transfer_weights == "USA":
 
                 # this is used for transferring USA weights to Kenya
                 print("resume training")

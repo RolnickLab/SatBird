@@ -27,6 +27,8 @@ experiment:
     fc: "linear"
     #use pretrained weights ( torchvision )
     pretrained: True
+    #whether to transfer weighted from model trained on USA dataset or Seco
+    transfer_weights: "" #"USA" or "SECO"
     # resume training from another model (transfer learning), set empty if training from scratch
     resume: ""
     # freeze backbone when transfer learning or not

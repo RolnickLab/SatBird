@@ -36,7 +36,7 @@ experiment:
     
     #use pretrained weights ( torchvision )
     pretrained: True
-    initialize_USA: True
+    transfer_weights: "USA" #"USA" or "SECO"
     # resume training from another model (transfer learning), set empty if training from scratch
     resume: "/network/projects/ecosystem-embeddings/USA_summer_weights/4017/epoch=33-step=22745.ckpt"
     #initializes biases of the output layer sothat sigmoid(bias) = mean over the training set for each species

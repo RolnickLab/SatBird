@@ -49,7 +49,7 @@ def main(opts):
             env_data_folder=config.data.files.env_data_folder,
             output_file_means=config.data.files.env_means,
             output_file_std=config.data.files.env_stds
-            )
+        )
 
     if config.data.datatype == "refl":
         config.variables.rgbnir_means, config.variables.rgbnir_std = compute_means_stds_images(
