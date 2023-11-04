@@ -19,7 +19,6 @@ from pytorch_lightning.loggers import CometLogger
 from src.utils.config_utils import load_opts
 from src.utils.compute_normalization_stats import *
 import src.trainer.trainer as general_trainer
-import Rtran.trainer as rtran_trainer
 
 hydra_config_path = Path(__file__).resolve().parent / "configs/hydra.yaml"
 
@@ -102,14 +101,10 @@ def main(opts):
     config.save_path = os.path.join(base_dir, config.save_path, str(global_seed))
     pl.seed_everything(config.program.seed)
 
-    if config.Rtran.use:
-        task = rtran_trainer.RegressionTransformerTask(config)
-        datamodule = rtran_trainer.SDMDataModule(config)
-    else:
-        # using general trainer without location information
-        print("Using general trainer..")
-        task = general_trainer.EbirdTask(config)
-        datamodule = general_trainer.EbirdDataModule(config)
+    # using general trainer without location information
+    print("Using general trainer..")
+    task = general_trainer.EbirdTask(config)
+    datamodule = general_trainer.EbirdDataModule(config)
 
     trainer_args = cast(Dict[str, Any], OmegaConf.to_object(config.trainer))
 

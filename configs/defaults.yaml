@@ -39,12 +39,6 @@ experiment:
     freeze: false
     use_weighted_loss: False
     loss_weight: "log" #"log", "nchklists"
-    
-    initialize_seco: False #this is to load SeCo weights
-    initialize_USA: False # this is to initialize experiments for Kenya with weights from USA experiments 
-
-Rtran:
-  use: False
 
 optimizer: "SGD"  #"Adam"
 

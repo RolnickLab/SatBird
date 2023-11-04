@@ -38,8 +38,6 @@ experiment:
     means_path: ""
     lr: 0.0001
 
-use_rtran: False
-
 optimizer: "Adam"  #"Adam"
 
 losses:

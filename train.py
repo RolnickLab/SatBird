@@ -15,7 +15,6 @@ from pytorch_lightning.callbacks import ModelCheckpoint
 
 from src.utils.config_utils import load_opts
 import src.trainer.trainer as general_trainer
-import Rtran.trainer as RtranTrainer
 from src.utils.compute_normalization_stats import *
 
 
@@ -73,14 +72,10 @@ def main(opts):
         OmegaConf.save(config=config, f=fp)
     fp.close()
 
-    if config.Rtran.use:
-        task = RtranTrainer.RegressionTransformerTask(config)
-        datamodule = RtranTrainer.SDMDataModule(config)
-    else:
-        # using general trainer without location information
-        print("Using general trainer..")
-        task = general_trainer.EbirdTask(config)
-        datamodule = general_trainer.EbirdDataModule(config)
+    # using general trainer without location information
+    print("Using general trainer..")
+    task = general_trainer.EbirdTask(config)
+    datamodule = general_trainer.EbirdDataModule(config)
 
     trainer_args = cast(Dict[str, Any], OmegaConf.to_object(config.trainer))
 
