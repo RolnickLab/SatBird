@@ -27,6 +27,8 @@ experiment:
     fc: "linear"
     #use pretrained weights ( torchvision )
     pretrained: True
+    #whether to transfer weighted from model trained on USA dataset or Seco
+    transfer_weights: "" #"USA" or "SECO"
     # resume training from another model (transfer learning), set empty if training from scratch
     resume: ""
     # freeze backbone when transfer learning or not
@@ -34,7 +36,7 @@ experiment:
     #initializes biases of the output layer sothat sigmoid(bias) = mean over the training set for each species
     init_bias: ""
     means_path: ""
-    lr: 0.0003
+    lr: 0.0001
 
 use_rtran: False
 
@@ -98,15 +100,15 @@ data:
       res: 1000
 
   files:
-    base: "/network/projects/ecosystem-embeddings/SatBird_data_v2/USA_winter"
-    train: "winter_train.csv"
-    val: "winter_val.csv"
-    test: "winter_test.csv"
+    base: "USA_summer"
+    train: "train_split.csv"
+    val: "valid_split.csv"
+    test: "test_split.csv"
 
-    targets_folder: "corrected_targets"
-    env_data_folder: "environmental_bounded_2"
+    targets_folder: "targets"
+    env_data_folder: "environmental"
     images_folder: "images"
-    correction_thresh: "final_range_maps.pkl" # range maps - threshold = False
+    correction_thresh: "range_maps.pkl" # range maps - threshold = False
 
     rgbnir_means: "stats/means_rgbnir.npy"
     rgbnir_stds: "stats/stds_rgbnir.npy"
@@ -148,25 +150,48 @@ data:
       ignore: "val"
       p: 0.5
     - name: normalize
+      normalize_by_255: False
       ignore: False
       maxchan: false
       subset: ["sat"]
       custom: [*rgbnir_means, *rgbnir_std]
 
     - name: normalize
-      ignore: true
+      normalize_by_255: False
+      ignore: False
       maxchan: false
       subset: ["bioclim"]
       custom: [*bioclim_means, *bioclim_std]
     - name: normalize
+      normalize_by_255: False
       ignore: true
-      maxchan: false
+      maxchan: False
       subset: ["ped"]
       custom: [*ped_means, *ped_std]
     - name: randomnoise
-      ignore: True #false
+      ignore: "val"
       std: 0.01
       max_noise: 0.05
-      
+      p: 0.35
 
-  total_species: 670 # 657
+    - name: blur
+      ignore: "val"
+      p: 0.5
+      val: 0.1
+
+    - name: rotate
+      ignore: "val"
+      p: 0.5
+      val: 15
+
+    - name: randomcontrast
+      ignore: "val"
+      p: 0.35
+      val: 2
+
+    - name: randombrightness
+      ignore: "val"
+      p: 0.3
+      val: 2
+
+  total_species: 670

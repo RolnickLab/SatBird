@@ -1,3 +1,4 @@
+# unit-tests for data files, 1) make sure corresponding data files exist, 2) make sure no images have nans
 import numpy as np
 import pandas as pd
 import os
@@ -79,8 +80,7 @@ def test_nan_refl_image_values(hotspots_list, config) -> None:
         # Check if there are any NaN values in the image
         has_nan = np.isnan(img).any()
         if np.sum(has_nan):
-            hotspots_with_nans.append(tif_file)
-        # assert not has_nan
+            hotspots_with_nans.append(tif_file)  # assert not has_nan
     np.save(os.path.join(config.data.files.base, "hotspots_with_nan_refl_images.npy"), np.array(hotspots_with_nans))
     assert len(hotspots_with_nans) == 0
 
@@ -101,7 +101,6 @@ def test_nan_visual_image_values(hotspots_list, config) -> None:
         # Check if there are any NaN values in the image
         has_nan = np.isnan(img).any()
         if np.sum(has_nan):
-            hotspots_with_nans.append(tif_file)
-            # assert not has_nan
+            hotspots_with_nans.append(tif_file)  # assert not has_nan
     np.save(os.path.join(config.data.files.base, "hotspots_with_nan_visual_images.npy"), np.array(hotspots_with_nans))
     assert len(hotspots_with_nans) == 0

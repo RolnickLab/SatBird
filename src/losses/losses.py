@@ -1,3 +1,4 @@
+# Src code of loss functions
 import torch
 from torchmetrics import Metric
 import torch.nn as nn
@@ -18,18 +19,15 @@ class CustomCrossEntropyLoss:
         pred: prediction
         reduction: mean, sum, none
         """
-        # print('maximum prediction value ',q.max())
-        # print('maximum target value',p.max())
-        # p=torch.clip(p, min=0, max=0.98)
-        # q=torch.clip(q, min=0, max=0.98)
-        loss = (-self.lambd_pres * target * torch.log(pred + eps) - self.lambd_abs * (1 - target) * torch.log(1 - pred + eps))
+        loss = (-self.lambd_pres * target * torch.log(pred + eps) - self.lambd_abs * (1 - target) * torch.log(
+            1 - pred + eps))
         if reduction == 'mean':
             loss = loss.mean()
         elif reduction == 'sum':
             loss = loss.sum()
-        else: # reduction = None
+        else:  # reduction = None
             loss = loss
-        # print('inside_loss',loss)
+
         return loss
 
 
@@ -37,6 +35,7 @@ class RMSLELoss(nn.Module):
     """
     root mean squared log error
     """
+
     def __init__(self):
         super().__init__()
         self.mse = nn.MSELoss()
@@ -74,7 +73,8 @@ class CustomCrossEntropy(Metric):
         target: target distribution
         pred: predicted distribution
         """
-        self.correct += (-self.lambd_pres * target * torch.log(pred) - self.lambd_abs * (1 - target) * torch.log(1 - pred)).sum()
+        self.correct += (-self.lambd_pres * target * torch.log(pred) - self.lambd_abs * (1 - target) * torch.log(
+            1 - pred)).sum()
         self.total += target.numel()
 
     def compute(self):
@@ -89,7 +89,7 @@ class WeightedCustomCrossEntropyLoss:
 
     def __call__(self, pred, target, weights=1):
         loss = (weights * (
-            -self.lambd_pres * target * torch.log(pred + eps)
-            - self.lambd_abs * (1 - target) * torch.log(1 - pred + eps))).mean()
-        
+                -self.lambd_pres * target * torch.log(pred + eps) - self.lambd_abs * (1 - target) * torch.log(
+            1 - pred + eps))).mean()
+
         return loss

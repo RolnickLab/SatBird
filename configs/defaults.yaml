@@ -1,4 +1,4 @@
-save_path: "/network/projects/_groups/ecosystem-embeddings/exp/ckpt"
+save_path: ""
 load_ckpt : ""
 #log the experiment to comet ? 
 log_comet: true
@@ -8,7 +8,7 @@ overfit_debug: false
 #number of batches to overfit on 
 overfit_batches: 0
 
-#use location ?
+#use location?
 loc:
   use: false
   #if false, loc network and image network are trained separately and the output multipliesd as in the geopriors paper.
@@ -31,6 +31,7 @@ experiment:
   module:
     model: "resnet18"
     pretrained: True
+    transfer_weights: ""
     init_bias: "means"
     means_path: ""
     lr: 0.001
@@ -38,6 +39,9 @@ experiment:
     freeze: false
     use_weighted_loss: False
     loss_weight: "log" #"log", "nchklists"
+    
+    initialize_seco: False #this is to load SeCo weights
+    initialize_USA: False # this is to initialize experiments for Kenya with weights from USA experiments 
 
 Rtran:
   use: False
@@ -81,8 +85,8 @@ data:
   bands: ["r", "g", "b", "nir"]
   res: 10 
   
-  env: ["bioclim", "ped"] #["ped", "bioclim"] #"all" "ped" or "bioclim"
-  env_var_sizes: [19, 8]
+  env: [] #["bioclim", "ped"]
+  env_var_sizes: [] #[19, 8]
 
   multiscale : [512,224]
   multiscale_bands: ['landuse','sats']    #choices: [landuse ,sat]
@@ -141,22 +145,19 @@ data:
       ignore: "val"
       p: 0.5
     - name: normalize
+      normalize_by_255: False
       ignore: false
       maxchan: false
       subset: ["sat"]
       custom: [*rgbnir_means, *rgbnir_std]
-      #ImageNet values 
-      #[[0.485, 0.456, 0.406],[0.229, 0.224, 0.225]]
-      
-      #Mean-std computed on training set
-      #[[894.6719, 932.5726,693.2768], [883.9763,747.6857,749.3098]]
-      #[894.6719, 932.5726,693.2768, 2817.9849], [883.9763,747.6857,749.3098, 1342.6334]
     - name: normalize
+      normalize_by_255: False
       ignore: false
       maxchan: false
       subset: ["bioclim"]
       custom: [*bioclim_means, *bioclim_std]
     - name: normalize
+      normalize_by_255: False
       ignore: false
       maxchan: false
       subset: ["ped"] #soil data
@@ -224,7 +225,6 @@ trainer: # These are the parameters passed to the pytorch lightning Trainer obje
   callbacks: null
   default_root_dir: null
   gradient_clip_val: 0.0
- # gradient_clip_algorithm: "norm"
   process_position: 0
   num_nodes: 1
   num_processes: 1
@@ -242,11 +242,9 @@ trainer: # These are the parameters passed to the pytorch lightning Trainer obje
   min_epochs: null
   max_steps: null
   min_steps: null
-  #max_time: null
   limit_train_batches: 1.0
   limit_val_batches: 1.0
   limit_test_batches: 1.0
-#   limit_predict_batches: 1.0
   val_check_interval: 1.0
   flush_logs_every_n_steps: 100
   log_every_n_steps: 1
@@ -256,7 +254,6 @@ trainer: # These are the parameters passed to the pytorch lightning Trainer obje
   weights_summary: "top"
   weights_save_path: null
   num_sanity_val_steps: 2
-  #truncated_bptt_steps: null
   resume_from_checkpoint: null
   profiler: null
   benchmark: False
@@ -269,8 +266,4 @@ trainer: # These are the parameters passed to the pytorch lightning Trainer obje
   prepare_data_per_node: True
   plugins: null
   amp_backend: "native"
-  #amp_level: "O2"
-  #distributed_backend: null
   move_metrics_to_cpu: False
-#   multiple_trainloader_mode: "max_size_cycle"
-#   stochastic_weight_avg: False

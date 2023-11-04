@@ -76,8 +76,7 @@ class RandomVerticalFlip:  # type: ignore[misc,name-defined]
                     height, width = sample[s].shape[-2:]
                     sample["boxes"][:, [1, 3]] = height - sample["boxes"][:, [3, 1]]
 
-            # if "mask" in sample:
-            #    sample["mask"] = sample["mask"].flip(-2)
+            # if "mask" in sample:  #    sample["mask"] = sample["mask"].flip(-2)
 
         return sample
 
@@ -95,7 +94,7 @@ def normalize_custom(t, mini=0, maxi=1):
 
 
 class Normalize:
-    def __init__(self, maxchan=True, custom=None, subset=sat):
+    def __init__(self, maxchan=True, custom=None, subset=sat, normalize_by_255=False):
         """
         custom : ([means], [std])
         means =[r: 894.6719, g: 932.5726, b:693.2768, nir: 2817.9849]
@@ -107,6 +106,7 @@ class Normalize:
         self.subset = subset
 
         self.custom = custom
+        self.normalize_by_255 = normalize_by_255
 
     def __call__(self, sample: Dict[str, Tensor]) -> Dict[str, Tensor]:
 
@@ -116,10 +116,14 @@ class Normalize:
                 tensor = sample[task]
                 sample[task] = tensor / torch.amax(tensor, dim=(-2, -1), keepdims=True)
         # TODO
-        if self.custom:
-            means, std = self.custom
+        if self.normalize_by_255:
             for task in self.subset:
-                sample[task] = normalize(sample[task], means, std)
+                sample[task] = sample[task] / 255
+        else:
+            if self.custom:
+                means, std = self.custom
+                for task in self.subset:
+                    sample[task] = normalize(sample[task], means, std)
         return sample
 
 
@@ -193,9 +197,7 @@ class RandomCrop:  # type: ignore[misc,name-defined]
             the cropped input
         """
 
-        H, W = (
-            sample["sat"].shape[-2:] if "sat" in sample else list(sample.values())[0].shape[-2:]
-        )
+        H, W = (sample["sat"].shape[-2:] if "sat" in sample else list(sample.values())[0].shape[-2:])
         for key in sample.keys():
 
             if (len(sample[key].shape) == 3):
@@ -258,11 +260,11 @@ class RandomGaussianNoise:  # type: ignore[misc,name-defined]
         if random.random() < self.prob:
             for s in sample:
                 if s in sat:
-
                     noise = torch.normal(0, self.std, sample[s].shape)
                     noise = torch.clamp(sample[s], min=0, max=self.max)
                     sample[s] += noise
         return sample
+
 
 class RandBrightness:
     def __init__(self, prob=0.5, max_value=0):
@@ -273,7 +275,8 @@ class RandBrightness:
         if random.random() < self.prob:
             for s in sample:
                 if s in sat:
-                    sample[s][:,0:3, :, :] = torchvision.transforms.functional.adjust_brightness(sample[s][:,0:3, :, :], self.value)
+                    sample[s][:, 0:3, :, :] = torchvision.transforms.functional.adjust_brightness(
+                        sample[s][:, 0:3, :, :], self.value)
         return sample
 
 
@@ -286,7 +289,8 @@ class RandContrast:
         if random.random() < self.prob:
             for s in sample:
                 if s in sat:
-                    sample[s][:,0:3, :, :] = torchvision.transforms.functional.adjust_contrast(sample[s][:,0:3, :, :], self.factor)
+                    sample[s][:, 0:3, :, :] = torchvision.transforms.functional.adjust_contrast(sample[s][:, 0:3, :, :],
+                                                                                                self.factor)
         return sample
 
 
@@ -355,64 +359,42 @@ def get_transform(transform_item, mode):
     an addict.Dict
     """
 
-    if transform_item.name == "crop" and not (
-            transform_item.ignore is True or transform_item.ignore == mode
-    ):
-        return RandomCrop(
-            (transform_item.height, transform_item.width),
+    if transform_item.name == "crop" and not (transform_item.ignore is True or transform_item.ignore == mode):
+        return RandomCrop((transform_item.height, transform_item.width),
             center=(transform_item.center == mode or transform_item.center == True),
-            ignore_band=transform_item.ignore_band or [], p=transform_item.p
-        )
-    elif transform_item.name == "matchres" and not (
-            transform_item.ignore is True or transform_item.ignore == mode
-    ):
+            ignore_band=transform_item.ignore_band or [], p=transform_item.p)
+    elif transform_item.name == "matchres" and not (transform_item.ignore is True or transform_item.ignore == mode):
         return MatchRes(transform_item.target_size, transform_item.custom_means)
 
-    elif transform_item.name == "hflip" and not (
-            transform_item.ignore is True or transform_item.ignore == mode
-    ):
+    elif transform_item.name == "hflip" and not (transform_item.ignore is True or transform_item.ignore == mode):
         return RandomHorizontalFlip(p=transform_item.p or 0.5)
 
-    elif transform_item.name == "vflip" and not (
-            transform_item.ignore is True or transform_item.ignore == mode
-    ):
+    elif transform_item.name == "vflip" and not (transform_item.ignore is True or transform_item.ignore == mode):
         return RandomVerticalFlip(p=transform_item.p or 0.5)
 
-    elif transform_item.name == "randomnoise" and not (
-            transform_item.ignore is True or transform_item.ignore == mode
-    ):
+    elif transform_item.name == "randomnoise" and not (transform_item.ignore is True or transform_item.ignore == mode):
         return RandomGaussianNoise(max_noise=transform_item.max_noise or 5e-2, std=transform_item.std or 1e-2)
 
-    elif transform_item.name == "normalize" and not (
-            transform_item.ignore is True or transform_item.ignore == mode
-    ):
+    elif transform_item.name == "normalize" and not (transform_item.ignore is True or transform_item.ignore == mode):
 
         return Normalize(maxchan=transform_item.maxchan, custom=transform_item.custom or None,
-                         subset=transform_item.subset)
+                         subset=transform_item.subset, normalize_by_255=transform_item.normalize_by_255)
 
-    elif transform_item.name == "resize" and not (
-            transform_item.ignore is True or transform_item.ignore == mode
-    ):
+    elif transform_item.name == "resize" and not (transform_item.ignore is True or transform_item.ignore == mode):
 
         return Resize(size=transform_item.size)
 
-    elif transform_item.name == "blur" and not (
-            transform_item.ignore is True or transform_item.ignore == mode
-    ):
+    elif transform_item.name == "blur" and not (transform_item.ignore is True or transform_item.ignore == mode):
         return GaussianBlurring(prob=transform_item.p)
-    elif transform_item.name == "rotate" and not (
-            transform_item.ignore is True or transform_item.ignore == mode
-    ):
+    elif transform_item.name == "rotate" and not (transform_item.ignore is True or transform_item.ignore == mode):
         return RandRotation(prob=transform_item.p, degrees=transform_item.val)
 
     elif transform_item.name == "randomcontrast" and not (
-            transform_item.ignore is True or transform_item.ignore == mode
-    ):
+            transform_item.ignore is True or transform_item.ignore == mode):
         return RandContrast(prob=transform_item.p, max_factor=transform_item.val)
 
     elif transform_item.name == "randombrightness" and not (
-            transform_item.ignore is True or transform_item.ignore == mode
-    ):
+            transform_item.ignore is True or transform_item.ignore == mode):
         return RandBrightness(prob=transform_item.p, max_value=transform_item.val)
 
     elif transform_item.ignore is True or transform_item.ignore == mode:

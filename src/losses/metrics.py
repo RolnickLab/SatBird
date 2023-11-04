@@ -1,3 +1,4 @@
+# Src code for all metrics used
 import torch
 import torch.nn as nn
 import torchmetrics
@@ -107,7 +108,7 @@ class CustomTop30(Metric):
         non_zero_counts = torch.count_nonzero(target, dim=1)
         for i, elem in enumerate(target):
             ki = non_zero_counts[i]
-            if ki >= 10:
+            if ki >= 30:
                 v_pred, i_pred = torch.topk(preds[i], k=30)
                 v_targ, i_targ = torch.topk(elem, k=30)
             else:
@@ -146,8 +147,8 @@ def get_metric(metric):
     elif metric.name == "ce" and not metric.ignore is True:
         return CustomCrossEntropy(metric.lambd_pres, metric.lambd_abs)
     elif metric.name == 'r2' and not metric.ignore is True:
-        return torchmetrics.ExplainedVariance(multioutput='variance_weighted')
-        # return  torchmetrics.SpearmanCorrCoef()
+        return torchmetrics.ExplainedVariance(
+            multioutput='variance_weighted')
     elif metric.name == "kl" and not metric.ignore is True:
         return CustomKL()
     elif metric.name == "accuracy" and not metric.ignore is True:
@@ -155,8 +156,7 @@ def get_metric(metric):
     elif metric.ignore is True:
         return None
     else:
-        return (None)
-        # raise ValueError("Unknown metric_item {}".format(metric))
+        return (None)  # raise ValueError("Unknown metric_item {}".format(metric))
 
 
 def get_metrics(config):

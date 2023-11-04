@@ -12,19 +12,14 @@ class FCNet(nn.Module):
         self.ebd = ebd
         self.inc_bias = False
         if self.ebd:
-            self.ebd_emb = nn.Sequential(nn.Linear(num_filts, 824, bias=self.inc_bias),
-                                         nn.ReLU(inplace=True))
+            self.ebd_emb = nn.Sequential(nn.Linear(num_filts, 824, bias=self.inc_bias), nn.ReLU(inplace=True))
             self.class_emb = nn.Linear(824, num_classes, bias=self.inc_bias)
         else:
             self.class_emb = nn.Linear(num_filts, num_classes, bias=self.inc_bias)
         # self.user_emb = nn.Linear(num_filts, num_users, bias=self.inc_bias)
 
-        self.feats = nn.Sequential(nn.Linear(num_inputs, num_filts),
-                                   nn.ReLU(inplace=True),
-                                   ResLayer(num_filts),
-                                   ResLayer(num_filts),
-                                   ResLayer(num_filts),
-                                   ResLayer(num_filts))
+        self.feats = nn.Sequential(nn.Linear(num_inputs, num_filts), nn.ReLU(inplace=True), ResLayer(num_filts),
+                                   ResLayer(num_filts), ResLayer(num_filts), ResLayer(num_filts))
 
     def forward(self, x, class_of_interest=None, return_feats=False):
 
@@ -91,15 +86,10 @@ class MLPDecoder(nn.Module):
         super().__init__()
         self.mlp_dim = input_size
         if flatten:
-            modules = [nn.AdaptiveAvgPool2d((1, 1)),
-                       nn.Flatten(),
-                       nn.Linear(self.mlp_dim, self.mlp_dim),
-                       nn.ReLU(),
+            modules = [nn.AdaptiveAvgPool2d((1, 1)), nn.Flatten(), nn.Linear(self.mlp_dim, self.mlp_dim), nn.ReLU(),
                        nn.Linear(self.mlp_dim, target_size)]
         else:
-            modules = [nn.Linear(self.mlp_dim, self.mlp_dim),
-                       nn.ReLU(),
-                       nn.Linear(self.mlp_dim, target_size)]
+            modules = [nn.Linear(self.mlp_dim, self.mlp_dim), nn.ReLU(), nn.Linear(self.mlp_dim, target_size)]
         self.model = nn.Sequential(*modules)
 
     def forward(self, x):

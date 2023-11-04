@@ -1,8 +1,8 @@
 #where to save checkpoints
-save_path: "baseline_resnet18_RGBNIR"
+save_path: "SatBirdv2_camera_ready_baseline_resnet18_RGBNIR"
 
 # load existing checkpoint for inference. If passing experiment folder instead (for multiple seeds), it will evaluate all of them.
-load_ckpt_path: "baseline_resnet18_RGBNIR"
+load_ckpt_path: "SatBirdv2_camera_ready_baseline_resnet18_RGBNIR"
 save_preds_path: ""
 log_comet: true
 
@@ -19,9 +19,9 @@ loc:
   concat: True
 
 comet:
-  project_name: "neurips_baselines" #"ecosystem-duck"
-  tags: ["resnet18", "RGBNIR", "corrected_targets"]
-  experiment_name: "baseline_resnet18_RGBNIR" # specify for training, or use to report test results, TODO: also use to resume training
+  project_name: "camera_ready_neurips_baselines" #"ecosystem-duck"
+  tags: ["resnet18", "RGBNIR", "corrected_targets", "SatBirdv2"]
+  experiment_name: "SatBirdv2_camera_ready_baseline_resnet18_RGBNIR" # specify for training, or use to report test results, TODO: also use to resume training
   experiment_key: "" # use to report test results,
 
 experiment:
@@ -41,8 +41,7 @@ experiment:
     #initializes biases of the output layer sothat sigmoid(bias) = mean over the training set for each species
     init_bias: ""
     means_path: ""
-    lr: 0.0003
-    loss_func: "ce"
+    lr: 0.0001
 
 optimizer: "Adam"  #"Adam"
 
@@ -90,7 +89,7 @@ data:
 
   #o you want to use environmental data (pedological and bioclimatic (low res) data) #ped" or "bioclim" or both or empty list
   env: []#["ped", "bioclim"]
-  
+
   #resolution of pedological and bioclimatic data in meters
   ped: 
       #pedological rasters
@@ -100,15 +99,15 @@ data:
       res: 1000
   
   files:
-    base: "/network/projects/ecosystem-embeddings/ebird_dataset/USA_summer"
-    train: "summer_hotspots_train.csv"
-    val: "summer_hotspots_valid.csv"
-    test: "summer_hotspots_test.csv"
+    base: "/network/projects/ecosystem-embeddings/SatBird_data_v2/USA_summer"
+    train: "train_split.csv"
+    val: "valid_split.csv"
+    test: "test_split.csv"
 
-    targets_folder: "corrected_targets"
-    env_data_folder: "environmental_bounded_2"
+    targets_folder: "targets"
+    env_data_folder: "environmental"
     images_folder: "images"
-    correction_thresh: "final_range_maps.pkl" # range maps - threshold = False
+    correction_thresh: "range_maps.pkl" # range maps - threshold = False
 
     rgbnir_means: "stats/means_rgbnir.npy"
     rgbnir_stds: "stats/stds_rgbnir.npy"
@@ -150,26 +149,48 @@ data:
       ignore: "val"
       p: 0.5
     - name: normalize
+      normalize_by_255: False
       ignore: False
       maxchan: false
       subset: ["sat"]
       custom: [*rgbnir_means, *rgbnir_std]
 
     - name: normalize
-      ignore: true
+      ignore: True
       maxchan: false
       subset: ["bioclim"]
       custom: [*bioclim_means, *bioclim_std]
     - name: normalize
-      ignore: true
+      ignore: True
       maxchan: false
       subset: ["ped"]
       custom: [*ped_means, *ped_std]
     - name: randomnoise
-      ignore: True #false
+      ignore: "val"
       std: 0.01
       max_noise: 0.05
+      p: 0.35
+
+    - name: blur
+      ignore: "val"
+      p: 0.5
+      val: 0.1
+
+    - name: rotate
+      ignore: "val"
+      p: 0.5
+      val: 15
+
+    - name: randomcontrast
+      ignore: "val"
+      p: 0.35
+      val: 2
+
+    - name: randombrightness
+      ignore: "val"
+      p: 0.3
+      val: 2
       
-  total_species: 684
+  total_species: 670
 trainer:
   auto_scale_batch_size: False

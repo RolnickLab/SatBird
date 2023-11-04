@@ -8,7 +8,7 @@ import torch.nn.functional as F
 
 from src.dataset.dataloader import get_subset
 from torch.optim.lr_scheduler import ReduceLROnPlateau, StepLR, CosineAnnealingWarmRestarts
-from pl_bolts.optimizers.lr_scheduler import LinearWarmupCosineAnnealingLR
+# from pl_bolts.optimizers.lr_scheduler import LinearWarmupCosineAnnealingLR
 
 
 def weights_init(module):
@@ -25,8 +25,7 @@ def weights_init(module):
         module.weight.data.fill_(1.0)
 
 
-def init_first_layer_weights(in_channels: int, rgb_weights,
-                             hs_weight_init: str = 'random'):
+def init_first_layer_weights(in_channels: int, rgb_weights, hs_weight_init: str = 'random'):
     '''Initializes the weights for filters in the first conv layer.
       If we are using RGB-only, then just initializes var to rgb_weights. Otherwise, uses
       hs_weight_init to determine how to initialize the weights for non-RGB bands.
@@ -152,8 +151,8 @@ def load_from_checkpoint(path, model):
     print(f'initializing model from pretrained weights at {path}')
     if 'moco' in path:
         # moco pretrained models need some weights renaming
-        checkpoint = torch.load(path,map_location=torch.device('cpu'))
-       
+        checkpoint = torch.load(path, map_location=torch.device('cpu'))
+
         loaded_dict = checkpoint['state_dict']
 
         model_dict = model.state_dict()
@@ -173,10 +172,10 @@ def load_from_checkpoint(path, model):
 
         state_dict = model.state_dict()
         print('model keys', state_dict.keys())
-      
+
         loaded_dict = checkpoint_model
         model_dict = model.state_dict()
-      
+
         for key_model in model_dict.keys():
             if 'fc' in key_model or 'head' in key_model:
                 #                 #ignore fc weight

@@ -1,21 +1,20 @@
 import json
 import math
+import os
 import shutil
 import sys
-import os
 import traceback
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, List, Optional, Union
-from typing import Tuple
 
 import numpy as np
 import tifffile as tiff
+import torch
 import yaml
 from PIL import Image
 from addict import Dict
-import torch
-from torch.nn import Module
+from typing import Optional, Union
+from typing import Tuple
 
 comet_kwargs = {
     "auto_metric_logging": False,
@@ -57,14 +56,14 @@ def load_geotiff_visual(file):
     img = tiff.imread(file).astype(np.float32)
 
     img = np.reshape(img, (img.shape[2], img.shape[0], img.shape[1]))
-    img = img / 255
+
     return img
 
 
 def load_geotiff(file):
     img = tiff.imread(file)
     new_band_order = [2, 1, 0, 3]  # r, g, b, nir
-    img = img[:, :, new_band_order].astype(np.float)
+    img = img[:, :, new_band_order].astype(float)
     img = np.reshape(img, (img.shape[2], img.shape[0], img.shape[1]))
 
     return img
