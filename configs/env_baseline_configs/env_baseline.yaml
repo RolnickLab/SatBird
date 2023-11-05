@@ -1,25 +1,25 @@
-root_targets: "/network/projects/_groups/ecosystem-embeddings/ebird_dataset/USA_summer/corrected_targets"
+root_targets: "/network/projects/_groups/ecosystem-embeddings/SatBird_data_v2/USA_summer/targets"
 
 random_state: [0,25,50]
-hs_data:  "/network/projects/ecosystem-embeddings/ebird_new/summer_hotspots_clean_splits.csv"
+hs_data:   "/network/projects/ecosystem-embeddings/SatBird_data_v2/USA_summer/all_summer_hotspots_final.csv"
 
 #need to merge df, or do mean imputation, otherwise, if already processed, indicate relevant df in train and val
 process_hs : False
 
-species: 684
+species: 670
 save_hs : "/network/projects/_groups/ecosystem-embeddings/experiments_summer/baselines/"
 
 subset: "" #'/network/projects/_groups/ecosystem-embeddings/species_splits/not_songbirds_idx.npy'
 
-train: "/network/projects/ecosystem-embeddings/ebird_dataset/USA_summer/summer_hotspots_train.csv"
-val: "/network/projects/ecosystem-embeddings/ebird_dataset/USA_summer/summer_hotspots_valid.csv"
-test: "/network/projects/ecosystem-embeddings/ebird_dataset/USA_summer/summer_hotspots_test.csv"
+train: "/network/projects/ecosystem-embeddings/SatBird_data_v2/USA_summer/train_split.csv"
+val:  "/network/projects/ecosystem-embeddings/SatBird_data_v2/USA_summer/valid_split.csv"
+test:  "/network/projects/ecosystem-embeddings/SatBird_data_v2/USA_summer/test_split.csv"
 y_train: "/network/projects/_groups/ecosystem-embeddings/experiments_summer/baselines/y_train.npy"
 y_val: "/network/projects/_groups/ecosystem-embeddings/experiments_summer/baselines/y_val.npy"
 y_test: "/network/projects/_groups/ecosystem-embeddings/experiments_summer/baselines/y_test.npy"
-X_train: "/network/projects/ecosystem-embeddings/ebird_dataset/USA_summer/mosaiks_features/640m_1024_feats/x_mosaik+env_train.npy" #"/network/projects/_groups/ecosystem-embeddings/experiments_summer/baselines/X_train.npy"
-X_val:  "/network/projects/ecosystem-embeddings/ebird_dataset/USA_summer/mosaiks_features/640m_1024_feats/x_mosaik+env_val.npy" #"/network/projects/_groups/ecosystem-embeddings/experiments_summer/baselines/X_val.npy"
-X_test: "/network/projects/ecosystem-embeddings/ebird_dataset/USA_summer/mosaiks_features/640m_1024_feats/x_mosaik+env_test.npy" #"/network/projects/_groups/ecosystem-embeddings/experiments_summer/baselines/X_test.npy"
+X_train: "/network/projects/_groups/ecosystem-embeddings/experiments_summer/baselines/X_train.npy"
+X_val:   "/network/projects/_groups/ecosystem-embeddings/experiments_summer/baselines/X_val.npy"
+X_test: "/network/projects/_groups/ecosystem-embeddings/experiments_summer/baselines/X_test.npy"
 
 
 predictor: "GBR"
@@ -27,4 +27,4 @@ predictor: "GBR"
 
 path_means : "/network/projects/_groups/ecosystem-embeddings/experiments_summer/baselines/means_species.npy"
 
-save_pred : "/network/projects/_groups/ecosystem-embeddings/experiments_summer/baselinemosaik/"
+save_pred : "/network/projects/_groups/ecosystem-embeddings/experiments_summer/baseline/"
