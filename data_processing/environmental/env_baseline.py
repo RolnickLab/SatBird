@@ -118,7 +118,7 @@ def process(opts):
     print(X_train.shape)
     if opts.save_hs != "":
         np.save(os.path.join(opts.save_hs, "X_train.npy"), X_train)
-        np.save(os.path.join(opts.save_hs, "X_valid.npy"), X_val)
+        np.save(os.path.join(opts.save_hs, "X_val.npy"), X_val)
         np.save(os.path.join(opts.save_hs, "X_test.npy"), X_test)
         np.save(os.path.join(opts.save_hs, "y_train.npy"), y_train)
         np.save(os.path.join(opts.save_hs, "y_val.npy"), y_val)

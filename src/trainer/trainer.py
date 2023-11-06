@@ -140,7 +140,7 @@ class EbirdTask(pl.LightningModule):
             if self.opts.experiment.module.transfer_weights == "USA":
 
                 # this is used for transferring USA weights to Kenya
-                print("resume training")
+                print("Transferring USA weights")
 
                 ckpt = torch.load(self.opts.experiment.module.resume)
                 self.model.fc = nn.Sequential()
