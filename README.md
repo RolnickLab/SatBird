@@ -10,7 +10,18 @@ Reported NN baselines are: Resnet18, SATLAS, SatMAE.
 
 ### Running code:
 
+#### Installation 
 Code runs on Python 3.10. You can create conda env using `requirements/environment.yaml` or install pip packages from `requirements/requirements.txt`
+
+We recommend following these steps for installing the required packages: 
+
+```conda env create -f requirements/environment.yaml``` 
+
+```conda activate satbird```
+
+```conda install pytorch==2.0.1 torchvision==0.15.2 torchaudio==2.0.2 pytorch-cuda=11.8 -c pytorch -c nvidia```
+
+#### Training and testing
 
 * To train the model (check `run_files/job.sh`) : `python train.py args.config=configs/base.yaml`. Examples of all config files for different baselines 
 are available in `configs`.
