@@ -164,11 +164,13 @@ data:
       custom: [*rgbnir_means, *rgbnir_std]
 
     - name: normalize
+      normalize_by_255: False
       ignore: False
       maxchan: false
       subset: ["bioclim"]
       custom: [*bioclim_means, *bioclim_std]
     - name: normalize
+      normalize_by_255: False
       ignore: True
       maxchan: false
       subset: ["ped"]

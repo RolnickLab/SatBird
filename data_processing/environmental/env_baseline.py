@@ -26,7 +26,7 @@ env_vars = ['bio_1', 'bio_2', 'bio_3', 'bio_4', 'bio_5',
 def set_up_omegaconf() -> DictConfig:
     """Helps with loading config files"""
 
-    conf = OmegaConf.load("../../configs/env_means.yaml")
+    conf = OmegaConf.load("./configs/env_baseline_configs/env_baseline.yaml")
     command_line_conf = OmegaConf.from_cli()
     
     if "config_file" in command_line_conf:
@@ -118,7 +118,7 @@ def process(opts):
     print(X_train.shape)
     if opts.save_hs != "":
         np.save(os.path.join(opts.save_hs, "X_train.npy"), X_train)
-        np.save(os.path.join(opts.save_hs, "X_valid.npy"), X_val)
+        np.save(os.path.join(opts.save_hs, "X_val.npy"), X_val)
         np.save(os.path.join(opts.save_hs, "X_test.npy"), X_test)
         np.save(os.path.join(opts.save_hs, "y_train.npy"), y_train)
         np.save(os.path.join(opts.save_hs, "y_val.npy"), y_val)
