@@ -98,6 +98,7 @@ This will create one file per hotspots, the files will be organized based on the
 - Get **range maps** using `data_processing/ebird/get_range_maps.py`. This will call for shapefiles that you can obtain through [ebirdst](https://ebird.github.io/ebirdst/). You can then save a csv of all combined range maps using `/satbird/data_processing/utils/save_range_maps_csv_v2.py`.
 - 
 - For the environmental data variables, download the rasters of the country of insterest from [WorldClim](https://www.worldclim.org/) (and [SoilGrids](https://soilgrids.org/) for the USA dataset). 
+For the USA dataset, we used the USA rasters that were available from the GeoLifeCLEF 2020 dataset, and for Kenya, we used the procedure described in data_processing/environmental/extract_bioclimatic_variables_kenya.ipynb 
 
 
 - Use `data_processing/environmental/get_csv_env.py` to get point data for the environmental variables (rasters of size 1 centered on the hotspots). Note that you should not fill nan values until you have done the train-validation-test split so you can fill the values with the means on the training set data. These point data variables are used for the mean encounter rates, environmental and MOSAIKS baselines 
