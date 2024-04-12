@@ -1,5 +1,11 @@
 """
 post-processing to environmental data after extraction
+This assumes the rasters have been originally extracted to a folder named "environmental"
+and filled with interpolation using fill_env_nans.py, and saved to a folder named "environmental_filled".
+The remaining NaN values in the rasters are filled with the mean of each environmental variable over the training set and the filled rasters are saved to "environmental_temp"
+The min and max ranges of the original (not filled)rasters are computed and used to bound the data, and saved in a folder names "environmental_temp_2"
+
+We subsequently renamed "environmental_temp_2" to "environmental" and this is what is in the released dataset
 """
 import argparse
 import functools
@@ -27,7 +33,7 @@ def bound_env_data(root_dir, mini, maxi):
     bound env data after the interpolation
     """
 
-    rasters = glob.glob(root_dir + "/environmental/*.npy")  # '/network/projects/_groups/ecosystem-
+    rasters = glob.glob(root_dir + "/environmental_temp/*.npy")  # '/network/projects/_groups/ecosystem-
 
     for raster_file in tqdm(rasters):
         file_name = os.path.basename(raster_file)
@@ -47,7 +53,7 @@ def fill_nan_values(root_dir, dataframe_name="all_summer_hotspots_withnan.csv"):
     """
     fill values that still have nans after interpolation with mean point values
     """
-    rasters = glob.glob(os.path.join(root_dir, "environmental_bounded_2", "*.npy"))
+    rasters = glob.glob(os.path.join(root_dir, "environmental_filled", "*.npy"))
     dst = os.path.join(root_dir, "environmental_temp")
 
     train_df = pd.read_csv(os.path.join(root_dir, dataframe_name))
@@ -83,7 +89,7 @@ def compute_min_max_ranges(root_dir):
     """
     computes minimum and maximum of env data
     """
-    rasters = glob.glob(os.path.join(root_dir, "environmental_bounded_2", "*.npy"))
+    rasters = glob.glob(os.path.join(root_dir, "environmental", "*.npy"))
 
     nan_count = 0
 
@@ -133,24 +139,12 @@ def remove_files(root_dir):
 
 
 if __name__ == '__main__':
+    
     root_dir = "/network/projects/ecosystem-embeddings/SatBird_data_v2/USA_summer"
     fill_nan_values(root_dir=root_dir)
     # move_missing_file(root_dir=root_dir)
     # remove_files(root_dir=root_dir)
     mini, maxi = compute_min_max_ranges(root_dir=root_dir)
-
-    # mini = [-7.0958333, 1., 21.74928093, 0., 0.5,
-    #         -24.20000076, 1., -11.58333302, -15.30000019, -1.58333325,
-    #         -15.41666698, 54., 9., 0., 5.00542307,
-    #         24., 1., 2., 13., 0.,
-    #         221., 2., 0., 0., 34.,
-    #         0., 0.]
-    # maxi = [2.56291656e+01, 2.22333336e+01, 1.00000000e+02, 1.36807947e+03,
-    #         4.62000008e+01, 1.87999992e+01, 5.16999969e+01, 3.36666679e+01,
-    #         3.36666679e+01, 3.63833351e+01, 2.18833332e+01, 3.40200000e+03,
-    #         5.59000000e+02, 1.75000000e+02, 1.10832680e+02, 1.55500000e+03,
-    #         5.50000000e+02, 6.52000000e+02, 1.46100000e+03, 1.12467000e+05,
-    #         1.81500000e+03, 2.50000000e+02, 8.10000000e+01, 5.24000000e+02,
-    #         9.80000000e+01, 8.30000000e+01, 9.90000000e+01]
-
     bound_env_data(root_dir=root_dir, mini=mini, maxi=maxi)
+    
+    
