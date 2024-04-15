@@ -12,8 +12,8 @@ import pystac_client
 import planetary_computer
 import argparse
 
+#Get your API key from Planetary computer, and replace "api-key" accordingly
 planetary_computer.settings.set_subscription_key("api-key")
-# This should be a secret!! ask me for mine
 
 # Incase Planetary computer sleeps off,
 # Define the number of retries and the wait interval between retries
@@ -27,10 +27,11 @@ catalog = pystac_client.Client.open(
     # modifier=planetary_computer.sign_inplace, --> this is depricated ??
 )
 
-# Define the bands we are interested in --> r,g,b,nir and true color image or "visual"
+# Define the bands we are interested in --> ["B02", "B03", "B04", "B08"] for r,g,b,nir or "visual" for true color image
 BANDS = ["B02", "B03", "B04", "B08"]
 
-time_of_interest = "2022-06-01/2022-07-31" #this is for summer, if winter use "2022-12-01/2023-01-31"
+# "2022-06-01/2022-07-31" for SatBird-USA-summer, "2022-12-01/2023-01-31" for SatBird-USA-winter, "2022-01-01/2023-01-01" for SatBird-Kenya
+time_of_interest = "2022-06-01/2022-07-31" 
 
 
 def convert_polygon(polygon_str):
@@ -179,11 +180,13 @@ def process_row_mosaic(row, save_dir,  cc=20, no_item_found_txt="no_item_found.t
                     
 
 def main():
+    #The following configuration was used for SatBird-USA, change paths accordingly. For Kenya there are no seasons considered. 
     
     # Specify the directory to save the rasters
     WINTER_SAVE_DIRECTORY = "/network/projects/ecosystem-embeddings/ebird_new/rasters_new/winter_rasters/"
     SUMMER_SAVE_DIRECTORY = "/network/projects/_groups/ecosystem-embeddings/ebird_new/rasters_new/summer_rasters"
 
+    #polygons are obtained with the bounding_box_from_center function in data_processing/satellite/utils.py 
     winter_polygons = "/network/projects/ecosystem-embeddings/ebird_new/polygons_winter.csv"
     summer_polygons = "/network/projects/ecosystem-embeddings/ebird_new/polygons_summer.csv"
 
