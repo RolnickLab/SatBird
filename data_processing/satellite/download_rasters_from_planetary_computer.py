@@ -180,13 +180,13 @@ def process_row_mosaic(row, save_dir,  cc=20, no_item_found_txt="no_item_found.t
                     
 
 def main():
-    #This was used for SatBird-USA
+    #The following configuration was used for SatBird-USA, change paths accordingly. For Kenya there are no seasons considered. 
     
     # Specify the directory to save the rasters
     WINTER_SAVE_DIRECTORY = "/network/projects/ecosystem-embeddings/ebird_new/rasters_new/winter_rasters/"
     SUMMER_SAVE_DIRECTORY = "/network/projects/_groups/ecosystem-embeddings/ebird_new/rasters_new/summer_rasters"
 
-    #pologons are obtained with the bounding_box_from_center function in data_processing/satellite/utils.py 
+    #polygons are obtained with the bounding_box_from_center function in data_processing/satellite/utils.py 
     winter_polygons = "/network/projects/ecosystem-embeddings/ebird_new/polygons_winter.csv"
     summer_polygons = "/network/projects/ecosystem-embeddings/ebird_new/polygons_summer.csv"
 
